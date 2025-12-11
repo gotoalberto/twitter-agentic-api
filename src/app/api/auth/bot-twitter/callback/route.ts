@@ -74,9 +74,26 @@ export async function GET(request: NextRequest) {
       name: user.data.name,
     });
 
-    // Get or create default project for migration compatibility
-    const project = await getOrCreateDefaultProject();
-    console.log('📦 Using project:', project.name, `(${project.id})`);
+    // Get project ID from cookie (if coming from multi-project flow)
+    // or use default project for backward compatibility
+    const projectIdFromCookie = request.cookies.get('oauth_project_id')?.value;
+    let project;
+
+    if (projectIdFromCookie) {
+      const { getProjectById } = await import('@/lib/db/projects');
+      project = await getProjectById(projectIdFromCookie);
+      if (!project) {
+        console.error('❌ Project not found:', projectIdFromCookie);
+        return NextResponse.redirect(
+          new URL('/dashboard?error=project_not_found', request.url)
+        );
+      }
+      console.log('📦 Using project from cookie:', project.name, `(${project.id})`);
+    } else {
+      // Backward compatibility: use default project
+      project = await getOrCreateDefaultProject();
+      console.log('📦 Using default project:', project.name, `(${project.id})`);
+    }
 
     // Save bot to PostgreSQL with encrypted tokens
     await saveBot(project.id, {
@@ -89,24 +106,38 @@ export async function GET(request: NextRequest) {
     console.log('💾 Bot saved to database');
 
     // Clear cookies and redirect
+    // If projectId was in cookie, redirect to project detail page
+    // Otherwise redirect to main dashboard (backward compatibility)
+    const redirectUrl = projectIdFromCookie
+      ? `/dashboard/projects/${project.id}?success=bot_connected`
+      : '/dashboard?success=bot_connected';
+
     const response = NextResponse.redirect(
-      new URL('/dashboard?success=bot_connected', request.url)
+      new URL(redirectUrl, request.url)
     );
 
     response.cookies.delete('oauth_token');
     response.cookies.delete('oauth_token_secret');
+    response.cookies.delete('oauth_project_id');
 
     return response;
   } catch (error: any) {
     console.error('=== BOT OAUTH CALLBACK ERROR ===');
     console.error('Error:', error);
 
+    // Try to get projectId from cookie for error redirect
+    const projectIdFromCookie = request.cookies.get('oauth_project_id')?.value;
+    const errorRedirectUrl = projectIdFromCookie
+      ? `/dashboard/projects/${projectIdFromCookie}?error=${encodeURIComponent(error.message || 'oauth_failed')}`
+      : `/dashboard?error=${encodeURIComponent(error.message || 'oauth_failed')}`;
+
     const response = NextResponse.redirect(
-      new URL(`/dashboard?error=${encodeURIComponent(error.message || 'oauth_failed')}`, request.url)
+      new URL(errorRedirectUrl, request.url)
     );
 
     response.cookies.delete('oauth_token');
     response.cookies.delete('oauth_token_secret');
+    response.cookies.delete('oauth_project_id');
 
     return response;
   }

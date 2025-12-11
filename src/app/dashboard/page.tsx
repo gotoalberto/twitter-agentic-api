@@ -1,37 +1,35 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 
-interface BotStatus {
-  connected: boolean;
+interface Project {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
   bot: {
-    userId: string;
+    id: string;
     username: string;
-    connectedAt: string;
+    userId: string;
   } | null;
-}
-
-interface ForwardingConfig {
-  configured: boolean;
-  config: {
+  forwardingConfig: {
+    id: string;
     endpoint: string;
     enabled: boolean;
-    updatedAt: string;
   } | null;
+  webhookRegistrations: any[];
 }
 
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
-  const [forwardingConfig, setForwardingConfig] = useState<ForwardingConfig | null>(null);
-  const [forwardingEndpoint, setForwardingEndpoint] = useState('');
-  const [forwardingEnabled, setForwardingEnabled] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingForwarding, setSavingForwarding] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -41,129 +39,78 @@ function DashboardContent() {
   }, [status, router]);
 
   useEffect(() => {
-    // Check for success/error messages in URL
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-
-    if (success === 'bot_connected') {
-      setMessage({ type: 'success', text: 'Bot connected successfully' });
-    } else if (error) {
-      setMessage({ type: 'error', text: `Error: ${error}` });
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
     if (status === 'authenticated') {
-      fetchBotStatus();
-      fetchForwardingConfig();
+      fetchProjects();
     }
   }, [status]);
 
-  const fetchBotStatus = async () => {
+  const fetchProjects = async () => {
     try {
-      const res = await fetch('/api/auth/bot-twitter/status');
+      const res = await fetch('/api/projects');
       const data = await res.json();
-      setBotStatus(data);
+      setProjects(data.projects || []);
     } catch (error) {
-      console.error('Error fetching bot status:', error);
+      console.error('Error fetching projects:', error);
+      setMessage({ type: 'error', text: 'Failed to load projects' });
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchForwardingConfig = async () => {
-    try {
-      const res = await fetch('/api/config/forwarding');
-      const data = await res.json();
-      setForwardingConfig(data);
-      if (data.config) {
-        setForwardingEndpoint(data.config.endpoint);
-        setForwardingEnabled(data.config.enabled);
-      }
-    } catch (error) {
-      console.error('Error fetching forwarding config:', error);
-    }
-  };
+  const createProject = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const saveForwardingConfig = async () => {
-    if (!forwardingEndpoint.trim()) {
-      setMessage({ type: 'error', text: 'Please enter a valid endpoint URL' });
+    if (!newProjectName.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a project name' });
       return;
     }
 
-    setSavingForwarding(true);
+    setCreating(true);
     try {
-      const res = await fetch('/api/config/forwarding', {
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: forwardingEndpoint,
-          enabled: forwardingEnabled,
-        }),
+        body: JSON.stringify({ name: newProjectName.trim() }),
       });
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Forwarding endpoint saved successfully' });
-        fetchForwardingConfig();
+        const data = await res.json();
+        setMessage({ type: 'success', text: `Project "${data.project.name}" created successfully` });
+        setNewProjectName('');
+        setShowCreateModal(false);
+        fetchProjects();
       } else {
         const error = await res.json();
-        setMessage({ type: 'error', text: error.error || 'Error saving endpoint' });
+        setMessage({ type: 'error', text: error.error || 'Failed to create project' });
       }
     } catch (error) {
-      console.error('Error saving forwarding config:', error);
-      setMessage({ type: 'error', text: 'Error saving forwarding endpoint' });
+      console.error('Error creating project:', error);
+      setMessage({ type: 'error', text: 'Failed to create project' });
     } finally {
-      setSavingForwarding(false);
+      setCreating(false);
     }
   };
 
-  const deleteForwardingConfig = async () => {
-    if (!confirm('Are you sure you want to delete the forwarding endpoint?')) {
+  const deleteProject = async (project: Project) => {
+    if (!confirm(`Are you sure you want to delete "${project.name}"? This will disconnect the bot and delete all webhooks.`)) {
       return;
     }
 
     try {
-      const res = await fetch('/api/config/forwarding', {
+      const res = await fetch(`/api/projects/${project.id}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Forwarding endpoint deleted successfully' });
-        setForwardingEndpoint('');
-        setForwardingEnabled(true);
-        fetchForwardingConfig();
+        setMessage({ type: 'success', text: `Project "${project.name}" deleted successfully` });
+        fetchProjects();
       } else {
-        setMessage({ type: 'error', text: 'Error deleting endpoint' });
+        const error = await res.json();
+        setMessage({ type: 'error', text: error.error || 'Failed to delete project' });
       }
     } catch (error) {
-      console.error('Error deleting forwarding config:', error);
-      setMessage({ type: 'error', text: 'Error deleting forwarding endpoint' });
-    }
-  };
-
-  const connectBot = () => {
-    window.location.href = '/api/auth/bot-twitter/authorize';
-  };
-
-  const disconnectBot = async () => {
-    if (!confirm('Are you sure you want to disconnect the bot?')) {
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/auth/bot-twitter/disconnect', {
-        method: 'POST',
-      });
-
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Bot disconnected successfully' });
-        fetchBotStatus();
-      } else {
-        setMessage({ type: 'error', text: 'Error disconnecting bot' });
-      }
-    } catch (error) {
-      console.error('Error disconnecting bot:', error);
-      setMessage({ type: 'error', text: 'Error disconnecting bot' });
+      console.error('Error deleting project:', error);
+      setMessage({ type: 'error', text: 'Failed to delete project' });
     }
   };
 
@@ -184,7 +131,7 @@ function DashboardContent() {
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
             <p className="text-sm text-gray-500">X Forwarder</p>
           </div>
           <div className="flex items-center gap-4">
@@ -213,196 +160,180 @@ function DashboardContent() {
               ? 'bg-green-50 border border-green-200 text-green-800'
               : 'bg-red-50 border border-red-200 text-red-800'
           }`}>
-            <p className="font-medium">{message.text}</p>
+            <div className="flex justify-between items-center">
+              <p className="font-medium">{message.text}</p>
+              <button
+                onClick={() => setMessage(null)}
+                className="text-sm hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Bot Status Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Twitter Bot</h2>
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-              botStatus?.connected
-                ? 'bg-green-100 text-green-800'
-                : 'bg-gray-100 text-gray-800'
-            }`}>
-              {botStatus?.connected ? 'Connected' : 'Disconnected'}
-            </div>
+        {/* Header with Create Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Your Projects ({projects.length})
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Each project can have one bot and webhook forwarding configuration
+            </p>
           </div>
-
-          {botStatus?.connected && botStatus.bot ? (
-            <div className="space-y-4">
-              <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-                  </svg>
-                  <p className="text-green-800 font-medium">Bot configured and ready to receive webhooks</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Username</p>
-                  <p className="text-lg font-mono text-gray-900">@{botStatus.bot.username}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">User ID</p>
-                  <p className="text-lg font-mono text-gray-900">{botStatus.bot.userId}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Connected</p>
-                  <p className="text-sm text-gray-900">{new Date(botStatus.bot.connectedAt).toLocaleString('en-US')}</p>
-                </div>
-              </div>
-
-              <button
-                onClick={disconnectBot}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
-              >
-                Disconnect Bot
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-                  </svg>
-                  <p className="text-yellow-800 font-medium">No bot connected</p>
-                </div>
-              </div>
-
-              <p className="text-gray-600 text-sm">
-                To start receiving mentions via webhooks, you need to connect a Twitter bot account using OAuth 1.0a.
-              </p>
-
-              <button
-                onClick={connectBot}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-                </svg>
-                Connect Bot
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Project
+          </button>
         </div>
 
-        {/* Webhook Forwarding Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhook Forwarding</h2>
-
-          <div className="space-y-4">
-            <p className="text-gray-600 text-sm">
-              Configure an endpoint to automatically forward all Twitter webhooks.
-              The payload will be sent exactly as received from Twitter.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="endpoint" className="block text-sm font-medium text-gray-700 mb-2">
-                  Forwarding Endpoint URL
-                </label>
-                <input
-                  id="endpoint"
-                  type="url"
-                  value={forwardingEndpoint}
-                  onChange={(e) => setForwardingEndpoint(e.target.value)}
-                  placeholder="https://your-api.com/webhooks/twitter"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  id="enabled"
-                  type="checkbox"
-                  checked={forwardingEnabled}
-                  onChange={(e) => setForwardingEnabled(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="enabled" className="ml-2 text-sm text-gray-700">
-                  Enable forwarding
-                </label>
-              </div>
-
-              {forwardingConfig?.configured && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Current configuration:</p>
-                  <p className="text-xs font-mono text-gray-900 break-all">
-                    {forwardingConfig.config?.endpoint}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Status: <span className={forwardingConfig.config?.enabled ? 'text-green-600' : 'text-gray-600'}>
-                      {forwardingConfig.config?.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Updated: {forwardingConfig.config?.updatedAt ? new Date(forwardingConfig.config.updatedAt).toLocaleString('en-US') : 'N/A'}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={saveForwardingConfig}
-                  disabled={savingForwarding}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+        {/* Projects Grid */}
+        {projects.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
+              <p className="text-gray-600 mb-6">
+                Get started by creating your first project. Each project can manage a Twitter bot and webhook forwarding.
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-200"
+              >
+                Create Your First Project
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
+              >
+                {/* Clickable Card Body */}
+                <div
+                  onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                  className="p-6"
                 >
-                  {savingForwarding ? 'Saving...' : 'Save Configuration'}
-                </button>
-                {forwardingConfig?.configured && (
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 truncate flex-1">
+                      {project.name}
+                    </h3>
+                  </div>
+
+                  {/* Bot Status */}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${project.bot ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className="text-sm text-gray-600">
+                        {project.bot ? `@${project.bot.username}` : 'No bot connected'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Forwarding Status */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${project.forwardingConfig?.enabled ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                      <span className="text-sm text-gray-600">
+                        {project.forwardingConfig?.enabled
+                          ? 'Forwarding enabled'
+                          : project.forwardingConfig
+                            ? 'Forwarding disabled'
+                            : 'No forwarding'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 text-xs text-gray-500 pt-3 border-t border-gray-100">
+                    <div>
+                      <span className="font-medium">Created:</span> {new Date(project.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer with Actions */}
+                <div className="bg-gray-50 px-6 py-3 flex justify-between items-center border-t border-gray-100">
                   <button
-                    onClick={deleteForwardingConfig}
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Configure →
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteProject(project);
+                    }}
+                    className="text-sm text-red-600 hover:text-red-700 font-medium"
                   >
                     Delete
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Webhooks Info Card */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhooks</h2>
-
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              Twitter webhooks will be processed automatically when the bot is connected.
-              Bot mentions will be printed to server logs.
-            </p>
-
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-              <div className="flex">
-                <svg className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                </svg>
-                <div>
-                  <p className="text-blue-800 font-medium mb-1">Webhook Information</p>
-                  <p className="text-blue-700 text-sm">
-                    To see mentions in real-time, check the server logs with:<br/>
-                    <code className="bg-blue-100 px-2 py-1 rounded text-xs font-mono mt-2 inline-block">
-                      npm run dev
-                    </code>
-                  </p>
                 </div>
               </div>
-            </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Webhook endpoint:</p>
-              <code className="text-xs font-mono text-gray-900 bg-white px-3 py-2 rounded border border-gray-200 block">
-                {process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/webhooks/twitter
-              </code>
-            </div>
+      {/* Create Project Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create New Project</h2>
+            <form onSubmit={createProject}>
+              <div className="mb-4">
+                <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Name
+                </label>
+                <input
+                  id="projectName"
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="e.g., goodboy, customer-support"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  maxLength={50}
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose a unique name for your project (max 50 characters)
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setNewProjectName('');
+                  }}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || !newProjectName.trim()}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  {creating ? 'Creating...' : 'Create Project'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
