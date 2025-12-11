@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
-import { getConnectedBot } from '@/lib/twitter/bot';
+import { getBotByUsername } from '@/lib/db/bots';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,30 +90,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get bot credentials from Redis
-    console.log('📦 Fetching bot credentials from Redis...');
-    const bot = await getConnectedBot();
+    // Get bot credentials from PostgreSQL
+    console.log('📦 Fetching bot credentials from database...');
+    const bot = await getBotByUsername(body.username);
 
     if (!bot) {
-      console.log('❌ No bot connected');
+      console.log('❌ Bot not found for username:', body.username);
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: 'No bot connected' },
+        { error: `No bot found with username: ${body.username}` },
         { status: 404 }
-      );
-    }
-
-    // Verify username matches
-    if (bot.username !== body.username) {
-      console.log('❌ Username mismatch');
-      console.log('   Requested:', body.username);
-      console.log('   Connected:', bot.username);
-      console.log('================================================================================');
-      console.log('');
-      return NextResponse.json(
-        { error: `Bot username mismatch. Expected: ${bot.username}, got: ${body.username}` },
-        { status: 400 }
       );
     }
 
