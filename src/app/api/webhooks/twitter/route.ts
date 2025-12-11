@@ -49,10 +49,9 @@ export async function GET(request: NextRequest) {
 
     // Get forwarding config
     const config = await getForwardingConfig();
-    const goodboyWebhookUrl = process.env.GOODBOY_WEBHOOK_URL || 'https://goodboy.pepesdog.box/api/webhooks/twitter';
 
-    if (!config || !config.enabled) {
-      console.log('⚠️  Forwarding not enabled, responding directly');
+    if (!config || !config.enabled || !config.endpoint) {
+      console.log('⚠️  Forwarding not enabled or endpoint not configured, responding directly');
 
       // Fallback: respond directly with our own CRC validation
       const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
@@ -78,14 +77,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ response_token: responseToken });
     }
 
-    // Forward CRC to goodboy
-    console.log('🔄 FORWARDING CRC TO GOODBOY');
+    // Forward CRC to configured endpoint
+    console.log('🔄 FORWARDING CRC TO TARGET ENDPOINT');
     console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('   Target URL:', goodboyWebhookUrl);
+    console.log('   Target URL:', config.endpoint);
     console.log('   Query param: crc_token=' + crcToken.substring(0, 20) + '...');
     console.log('');
 
-    const forwardUrl = `${goodboyWebhookUrl}?crc_token=${encodeURIComponent(crcToken)}`;
+    const forwardUrl = `${config.endpoint}?crc_token=${encodeURIComponent(crcToken)}`;
     const startTime = Date.now();
 
     const forwardResponse = await fetch(forwardUrl, {
@@ -102,7 +101,7 @@ export async function GET(request: NextRequest) {
     console.log('   Response Time:', `${duration}ms`);
     console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
     console.log('');
-    console.log('   📨 GOODBOY RESPONSE:');
+    console.log('   📨 TARGET RESPONSE:');
     console.log(JSON.stringify(responseData, null, 2));
     console.log('────────────────────────────────────────────────────────────────────────────────');
 
@@ -118,7 +117,7 @@ export async function GET(request: NextRequest) {
     console.log('================================================================================');
     console.log('');
 
-    // Return goodboy's response to Twitter
+    // Return target's response to Twitter
     return NextResponse.json(responseData, { status: forwardResponse.status });
   } catch (error: any) {
     console.error('❌ CRC validation error:', error);
@@ -171,20 +170,16 @@ export async function POST(request: NextRequest) {
     console.log('');
     console.log('   Event keys:', Object.keys(body).join(', '));
 
-    // Forward webhook to configured endpoint OR to goodboy
+    // Forward webhook to configured endpoint
     try {
       const config = await getForwardingConfig();
-      const goodboyWebhookUrl = process.env.GOODBOY_WEBHOOK_URL || 'https://goodboy.pepesdog.box/api/webhooks/twitter';
-
-      // Use configured endpoint, or goodboy URL if forwarding is enabled
-      const targetUrl = (config && config.endpoint) ? config.endpoint : goodboyWebhookUrl;
-      const shouldForward = config && config.enabled;
+      const shouldForward = config && config.enabled && config.endpoint;
 
       if (shouldForward) {
         console.log('');
-        console.log('🔄 FORWARDING WEBHOOK TO GOODBOY');
+        console.log('🔄 FORWARDING WEBHOOK TO TARGET ENDPOINT');
         console.log('────────────────────────────────────────────────────────────────────────────────');
-        console.log('   Target URL:', targetUrl);
+        console.log('   Target URL:', config.endpoint);
         console.log('   Method: POST');
 
         // Forward all relevant Twitter headers
@@ -209,7 +204,7 @@ export async function POST(request: NextRequest) {
         console.log('');
 
         const startTime = Date.now();
-        const forwardResponse = await fetch(targetUrl, {
+        const forwardResponse = await fetch(config.endpoint, {
           method: 'POST',
           headers: forwardHeaders,
           body: JSON.stringify(body),
