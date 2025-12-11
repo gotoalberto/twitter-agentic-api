@@ -197,7 +197,7 @@ export async function POST(
 
           // Get the webhook we just saved
           const savedWebhooks = await getWebhookRegistrationsByProjectId(projectId);
-          webhook = savedWebhooks.find(w => w.webhookId === webhookId) || null;
+          webhook = savedWebhooks.find(w => w.webhookId === webhookId);
         }
 
         if (webhook) {
