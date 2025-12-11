@@ -17,6 +17,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+// Log on module load to confirm the endpoint is active
+console.log('');
+console.log('🚀 Twitter webhook endpoint loaded');
+console.log('   Runtime:', 'nodejs');
+console.log('   Max duration:', '60s');
+console.log('   Time:', new Date().toISOString());
+console.log('');
+
 /**
  * GET: CRC (Challenge Response Check) validation
  *
@@ -31,21 +39,29 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const crcToken = searchParams.get('crc_token');
 
+    console.log('');
+    console.log('================================================================================');
+    console.log('🔐 CRC VALIDATION REQUEST (GET)');
+    console.log('================================================================================');
+    console.log('   Timestamp:', new Date().toISOString());
+    console.log('   URL:', request.url);
+    console.log('   Method:', request.method);
+    console.log('   CRC Token:', crcToken ? crcToken.substring(0, 30) + '...' : 'NULL');
+    console.log('   Headers:');
+    request.headers.forEach((value, key) => {
+      console.log(`     ${key}: ${value}`);
+    });
+    console.log('');
+
     if (!crcToken) {
       console.error('❌ CRC validation failed: No crc_token provided');
+      console.log('================================================================================');
+      console.log('');
       return NextResponse.json(
         { error: 'crc_token parameter is required' },
         { status: 400 }
       );
     }
-
-    console.log('');
-    console.log('================================================================================');
-    console.log('🔐 CRC VALIDATION REQUEST');
-    console.log('================================================================================');
-    console.log('   Timestamp:', new Date().toISOString());
-    console.log('   CRC Token:', crcToken.substring(0, 30) + '...');
-    console.log('');
 
     // Get forwarding config
     const config = await getForwardingConfig();
@@ -147,28 +163,57 @@ export async function GET(request: NextRequest) {
  * - direct_message_events: DMs sent to the bot
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  console.log('');
+  console.log('🔔 INCOMING REQUEST TO WEBHOOK ENDPOINT');
+  console.log('   Time:', new Date().toISOString());
+  console.log('   Method:', request.method);
+
   try {
     // Parse webhook payload
     const body = await request.json();
     const headers = Object.fromEntries(request.headers.entries());
+    const parseTime = Date.now() - startTime;
 
     console.log('');
     console.log('================================================================================');
-    console.log('📨 WEBHOOK EVENT RECEIVED');
+    console.log('📨 WEBHOOK EVENT RECEIVED (POST)');
     console.log('================================================================================');
     console.log('   Timestamp:', new Date().toISOString());
+    console.log('   Parse time:', `${parseTime}ms`);
     console.log('   Method:', request.method);
     console.log('   URL:', request.url);
+    console.log('   Content-Length:', headers['content-length'] || 'unknown');
     console.log('');
-    console.log('📋 HEADERS:');
+    console.log('📋 ALL HEADERS:');
     Object.keys(headers).forEach(key => {
       console.log(`   ${key}: ${headers[key]}`);
     });
     console.log('');
-    console.log('📦 PAYLOAD:');
+    console.log('📦 RAW PAYLOAD:');
     console.log(JSON.stringify(body, null, 2));
     console.log('');
+    console.log('📊 PAYLOAD ANALYSIS:');
     console.log('   Event keys:', Object.keys(body).join(', '));
+    console.log('   Event count:', Object.keys(body).length);
+
+    // Log specific event types
+    if (body.tweet_create_events) {
+      console.log('   Tweet events:', body.tweet_create_events.length);
+    }
+    if (body.favorite_events) {
+      console.log('   Favorite events:', body.favorite_events.length);
+    }
+    if (body.follow_events) {
+      console.log('   Follow events:', body.follow_events.length);
+    }
+    if (body.direct_message_events) {
+      console.log('   DM events:', body.direct_message_events.length);
+    }
+    if (body.for_user_id) {
+      console.log('   For user ID:', body.for_user_id);
+    }
+    console.log('');
 
     // Forward webhook to configured endpoint
     try {
