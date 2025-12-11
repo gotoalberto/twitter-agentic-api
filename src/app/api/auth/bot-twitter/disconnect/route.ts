@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { deleteConnectedBot, getConnectedBot } from '@/lib/twitter/bot';
+import { getOrCreateDefaultProject } from '@/lib/db/projects';
+import { getBotByProjectId, deleteBotByProjectId } from '@/lib/db/bots';
 import { unsubscribeWebhook, deleteWebhook } from '@/lib/twitter/webhooks';
-import { getWebhookRegistration, deleteWebhookRegistration } from '@/lib/twitter/webhook-storage';
+import { getWebhookRegistrationsByProjectId, deleteAllWebhookRegistrationsForProject } from '@/lib/db/webhooks';
 
 export async function POST() {
   try {
@@ -13,7 +14,9 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const bot = await getConnectedBot();
+    // Get or create default project
+    const project = await getOrCreateDefaultProject();
+    const bot = await getBotByProjectId(project.id);
 
     if (!bot) {
       return NextResponse.json({
@@ -25,12 +28,14 @@ export async function POST() {
     console.log('');
     console.log('=== BOT DISCONNECT STARTED ===');
     console.log('🔌 Disconnecting bot:', bot.username);
+    console.log('📦 Project:', project.name);
 
     // Unsubscribe from webhook and delete webhook
     try {
-      const webhook = await getWebhookRegistration();
+      const webhooks = await getWebhookRegistrationsByProjectId(project.id);
+      const subscribedWebhook = webhooks.find(w => w.subscribed);
 
-      if (webhook && webhook.subscribed) {
+      if (subscribedWebhook) {
         console.log('📍 Unsubscribing bot from webhook...');
 
         const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
@@ -44,7 +49,7 @@ export async function POST() {
             consumerSecret,
             bot.accessToken,
             bot.accessTokenSecret,
-            webhook.webhookId
+            subscribedWebhook.webhookId
           );
 
           console.log('✅ Bot unsubscribed from webhook');
@@ -52,12 +57,12 @@ export async function POST() {
           // Delete webhook from Twitter
           if (bearerToken) {
             console.log('🗑️  Deleting webhook from Twitter...');
-            await deleteWebhook(webhook.webhookId, bearerToken);
+            await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
             console.log('✅ Webhook deleted from Twitter');
           }
 
-          // Delete webhook registration from Redis
-          await deleteWebhookRegistration();
+          // Delete webhook registrations from database
+          await deleteAllWebhookRegistrationsForProject(project.id);
         }
       }
     } catch (webhookError: any) {
@@ -65,8 +70,8 @@ export async function POST() {
       // Continue anyway - bot will still be disconnected
     }
 
-    // Delete bot from Redis
-    await deleteConnectedBot();
+    // Delete bot from database
+    await deleteBotByProjectId(project.id);
 
     console.log('✅ Bot disconnected successfully');
     console.log('=== BOT DISCONNECT FINISHED ===');

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
-import { saveConnectedBot } from '@/lib/twitter/bot';
+import { getOrCreateDefaultProject } from '@/lib/db/projects';
+import { saveBot } from '@/lib/db/bots';
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,16 +74,19 @@ export async function GET(request: NextRequest) {
       name: user.data.name,
     });
 
-    // Save to Redis with encrypted tokens
-    await saveConnectedBot({
+    // Get or create default project for migration compatibility
+    const project = await getOrCreateDefaultProject();
+    console.log('📦 Using project:', project.name, `(${project.id})`);
+
+    // Save bot to PostgreSQL with encrypted tokens
+    await saveBot(project.id, {
       userId: user.data.id,
       username: user.data.username,
       accessToken,
       accessTokenSecret: accessSecret,
-      connectedAt: new Date().toISOString(),
     });
 
-    console.log('💾 Bot saved to Redis');
+    console.log('💾 Bot saved to database');
 
     // Clear cookies and redirect
     const response = NextResponse.redirect(

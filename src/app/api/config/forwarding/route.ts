@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
+import { getOrCreateDefaultProject } from '@/lib/db/projects';
+import { getBotByProjectId } from '@/lib/db/bots';
 import {
   getForwardingConfig,
-  saveForwardingConfig,
-  deleteForwardingConfig
-} from '@/lib/twitter/config';
-import { getConnectedBot } from '@/lib/twitter/bot';
+  saveForwardingConfig as saveForwardingConfigDb,
+  deleteForwardingConfig as deleteForwardingConfigDb
+} from '@/lib/db/forwarding';
 import { registerWebhook, subscribeWebhook, unsubscribeWebhook, deleteWebhook, listWebhooks } from '@/lib/twitter/webhooks';
-import { getWebhookRegistration, saveWebhookRegistration, deleteWebhookRegistration } from '@/lib/twitter/webhook-storage';
+import {
+  getWebhookRegistrationsByProjectId,
+  saveWebhookRegistration,
+  deleteAllWebhookRegistrationsForProject
+} from '@/lib/db/webhooks';
 
 /**
  * GET: Get webhook forwarding configuration
@@ -25,7 +30,9 @@ export async function GET() {
       );
     }
 
-    const config = await getForwardingConfig();
+    // Get or create default project
+    const project = await getOrCreateDefaultProject();
+    const config = await getForwardingConfig(project.id);
 
     return NextResponse.json({
       configured: !!config,
@@ -77,11 +84,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get existing webhook registration and forwarding config
-    const existingWebhook = await getWebhookRegistration();
-    const existingConfig = await getForwardingConfig();
+    // Get or create default project
+    const project = await getOrCreateDefaultProject();
 
-    // Check if endpoint changed - if so, delete old webhook
+    // Get existing webhook registrations and forwarding config
+    const existingWebhooks = await getWebhookRegistrationsByProjectId(project.id);
+    const existingConfig = await getForwardingConfig(project.id);
+    const existingWebhook = existingWebhooks.find(w => w.subscribed);
+
+    // Check if endpoint changed - if so, delete old webhooks
     if (existingWebhook && existingConfig && existingConfig.endpoint !== endpoint) {
       console.log('');
       console.log('=== ENDPOINT CHANGED - DELETING OLD WEBHOOK ===');
@@ -92,7 +103,7 @@ export async function POST(request: NextRequest) {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
         if (bearerToken && existingWebhook.webhookId) {
           await deleteWebhook(existingWebhook.webhookId, bearerToken);
-          await deleteWebhookRegistration();
+          await deleteAllWebhookRegistrationsForProject(project.id);
           console.log('✅ Old webhook deleted');
         }
       } catch (error: any) {
@@ -102,14 +113,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Save forwarding configuration
-    await saveForwardingConfig({
+    await saveForwardingConfigDb(project.id, {
       endpoint,
       enabled: enabled !== false, // Default to true
-      updatedAt: new Date().toISOString(),
     });
 
     // Register webhook with Twitter if bot is connected
-    const bot = await getConnectedBot();
+    const bot = await getBotByProjectId(project.id);
     if (bot && enabled !== false) {
       console.log('');
       console.log('=== REGISTERING WEBHOOK ===');
@@ -138,15 +148,12 @@ export async function POST(request: NextRequest) {
 
             if (matchingWebhook) {
               console.log('✅ Found existing webhook:', matchingWebhook.id);
-              webhook = {
+              // Save to database
+              await saveWebhookRegistration(project.id, {
                 webhookId: matchingWebhook.id,
                 url: matchingWebhook.url,
-                botUserId: bot.userId,
-                botUsername: bot.username,
                 subscribed: false,
-                registeredAt: new Date().toISOString(),
-                lastCrcCheck: null,
-              };
+              });
             }
           } catch (error: any) {
             console.log('⚠️  Could not list webhooks:', error.message);
@@ -158,26 +165,30 @@ export async function POST(request: NextRequest) {
           console.log('🔧 Registering new webhook...');
           const { webhookId, url } = await registerWebhook(webhookUrl, bearerToken);
 
-          webhook = {
+          // Save to database
+          await saveWebhookRegistration(project.id, {
             webhookId,
             url,
-            botUserId: bot.userId,
-            botUsername: bot.username,
             subscribed: false,
-            registeredAt: new Date().toISOString(),
-            lastCrcCheck: null,
-          };
+          });
+
+          // Get the webhook we just saved
+          const savedWebhooks = await getWebhookRegistrationsByProjectId(project.id);
+          webhook = savedWebhooks.find(w => w.webhookId === webhookId) || null;
         }
 
-        // Subscribe bot to webhook
-        console.log('📌 Subscribing bot to webhook...');
-        await subscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, webhook.webhookId);
+        if (webhook) {
+          // Subscribe bot to webhook
+          console.log('📌 Subscribing bot to webhook...');
+          await subscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, webhook.webhookId);
 
-        // Update subscription status and save
-        webhook.subscribed = true;
-        webhook.botUserId = bot.userId;
-        webhook.botUsername = bot.username;
-        await saveWebhookRegistration(webhook);
+          // Update subscription status
+          await saveWebhookRegistration(project.id, {
+            webhookId: webhook.webhookId,
+            url: webhook.url,
+            subscribed: true,
+          });
+        }
 
         console.log('✅ Webhook registered and bot subscribed');
         console.log('=== WEBHOOK SETUP COMPLETE ===');
@@ -221,35 +232,40 @@ export async function DELETE() {
       );
     }
 
+    // Get or create default project
+    const project = await getOrCreateDefaultProject();
+
     // Delete webhook from Twitter if exists
-    const webhook = await getWebhookRegistration();
-    if (webhook) {
+    const webhooks = await getWebhookRegistrationsByProjectId(project.id);
+    const subscribedWebhook = webhooks.find(w => w.subscribed);
+
+    if (subscribedWebhook) {
       console.log('');
       console.log('=== DELETING WEBHOOK ===');
-      console.log('   Webhook ID:', webhook.webhookId);
+      console.log('   Webhook ID:', subscribedWebhook.webhookId);
 
       try {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
         const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
         const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-        const bot = await getConnectedBot();
+        const bot = await getBotByProjectId(project.id);
 
         // Unsubscribe bot if subscribed
-        if (webhook.subscribed && bot && consumerKey && consumerSecret) {
+        if (bot && consumerKey && consumerSecret) {
           console.log('📍 Unsubscribing bot from webhook...');
-          await unsubscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, webhook.webhookId);
+          await unsubscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, subscribedWebhook.webhookId);
           console.log('✅ Bot unsubscribed');
         }
 
         // Delete webhook
         if (bearerToken) {
-          await deleteWebhook(webhook.webhookId, bearerToken);
+          await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
           console.log('✅ Webhook deleted from Twitter');
         }
 
-        // Delete from Redis
-        await deleteWebhookRegistration();
-        console.log('✅ Webhook registration deleted from Redis');
+        // Delete from database
+        await deleteAllWebhookRegistrationsForProject(project.id);
+        console.log('✅ Webhook registrations deleted from database');
       } catch (error: any) {
         console.error('⚠️  Failed to delete webhook:', error.message);
         // Continue anyway to delete config
@@ -260,7 +276,7 @@ export async function DELETE() {
     }
 
     // Delete forwarding configuration
-    await deleteForwardingConfig();
+    await deleteForwardingConfigDb(project.id);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
