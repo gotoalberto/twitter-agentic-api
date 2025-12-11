@@ -1,0 +1,227 @@
+name: Security Scan
+
+# Run security scans on pull requests and pushes to main
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run weekly on Mondays at 10:00 UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  secret-scanning:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for comprehensive scanning
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # Only needed for commercial
+        with:
+          config-path: .gitleaks.toml # Optional: custom configuration
+
+      - name: Run TruffleHog Secret Scanner
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified --json
+
+  dependency-security:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true # Don't fail the build, just report
+
+      - name: Run npm audit (production only)
+        run: npm audit --production --audit-level=high
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript', 'typescript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  file-integrity-check:
+    name: File Integrity & Secret Pattern Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for sensitive files
+        run: |
+          echo "🔍 Checking for sensitive files that should not be committed..."
+
+          # Files that should NEVER be in the repository
+          SENSITIVE_FILES=(
+            ".env"
+            ".env.local"
+            ".env.production"
+            ".env.development"
+            ".env.test"
+            ".keystore"
+            "*.pem"
+            "*.key"
+            "*private*key*"
+            "DEPLOYMENT_KEYS.md"
+            "VERCEL_ENV_VARS.md"
+            "*_SECRETS.md"
+          )
+
+          FOUND_SENSITIVE=false
+
+          for pattern in "${SENSITIVE_FILES[@]}"; do
+            if find . -name "$pattern" -not -path "./node_modules/*" -not -path "./.next/*" | grep -q .; then
+              echo "❌ Found sensitive file matching pattern: $pattern"
+              find . -name "$pattern" -not -path "./node_modules/*" -not -path "./.next/*"
+              FOUND_SENSITIVE=true
+            fi
+          done
+
+          if [ "$FOUND_SENSITIVE" = true ]; then
+            echo ""
+            echo "❌ FAILURE: Sensitive files detected in repository!"
+            echo "Please remove these files and add them to .gitignore"
+            exit 1
+          fi
+
+          echo "✅ No sensitive files detected"
+
+      - name: Check for hardcoded secrets in code
+        run: |
+          echo "🔍 Scanning for hardcoded secrets in source code..."
+
+          # Common secret patterns
+          SECRET_PATTERNS=(
+            "AKIA[0-9A-Z]{16}"                    # AWS Access Key
+            "(?i)aws(.{0,20})?['\"][0-9a-zA-Z\/+]{40}['\"]"  # AWS Secret Key
+            "(?i)api[_-]?key['\"]?\s*[:=]\s*['\"][^'\"]{20,}['\"]"
+            "(?i)secret[_-]?key['\"]?\s*[:=]\s*['\"][^'\"]{20,}['\"]"
+            "sk_live_[0-9a-zA-Z]{24,}"            # Stripe Live Key
+            "pk_live_[0-9a-zA-Z]{24,}"            # Stripe Public Key
+            "ghp_[0-9a-zA-Z]{36}"                 # GitHub Personal Token
+            "gho_[0-9a-zA-Z]{36}"                 # GitHub OAuth Token
+            "-----BEGIN PRIVATE KEY-----"
+            "-----BEGIN RSA PRIVATE KEY-----"
+            "-----BEGIN OPENSSH PRIVATE KEY-----"
+          )
+
+          FOUND_SECRETS=false
+
+          for pattern in "${SECRET_PATTERNS[@]}"; do
+            if grep -rE "$pattern" src/ lib/ app/ --exclude-dir=node_modules 2>/dev/null | grep -v "EXAMPLE\|TODO\|PLACEHOLDER"; then
+              echo "❌ Potential secret found matching pattern: $pattern"
+              FOUND_SECRETS=true
+            fi
+          done
+
+          if [ "$FOUND_SECRETS" = true ]; then
+            echo ""
+            echo "⚠️  WARNING: Potential hardcoded secrets detected!"
+            echo "Please review and use environment variables instead."
+            # Don't fail the build for this, just warn
+            exit 0
+          fi
+
+          echo "✅ No hardcoded secrets detected in source code"
+
+  env-example-check:
+    name: Validate .env.example is up-to-date
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check .env.example exists
+        run: |
+          if [ ! -f ".env.example" ]; then
+            echo "❌ .env.example not found!"
+            echo "Please create .env.example with placeholder values"
+            exit 1
+          fi
+          echo "✅ .env.example exists"
+
+      - name: Verify no actual secrets in .env.example
+        run: |
+          echo "🔍 Checking .env.example for actual secrets..."
+
+          # Patterns that should NOT be in .env.example
+          REAL_SECRET_PATTERNS=(
+            "AKIA[0-9A-Z]{16}"
+            "sk_live_"
+            "pk_live_"
+            "ghp_[0-9a-zA-Z]{36}"
+            "0x[a-fA-F0-9]{64}"  # Private keys
+          )
+
+          FOUND_REAL_SECRETS=false
+
+          for pattern in "${REAL_SECRET_PATTERNS[@]}"; do
+            if grep -E "$pattern" .env.example 2>/dev/null; then
+              echo "❌ Real secret found in .env.example: $pattern"
+              FOUND_REAL_SECRETS=true
+            fi
+          done
+
+          if [ "$FOUND_REAL_SECRETS" = true ]; then
+            echo ""
+            echo "❌ FAILURE: Real secrets detected in .env.example!"
+            echo ".env.example should only contain placeholder/example values"
+            exit 1
+          fi
+
+          echo "✅ .env.example contains only placeholder values"

@@ -1,0 +1,119 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+env-setup.log
+setup-env.sh
+
+# local env files - CRITICAL: NEVER COMMIT THESE!
+.env
+.env*.local
+.env.production
+.env.production.*
+.env.development
+.env.development.*
+.env.test
+.env.test.*
+.env.check
+.env.verify
+.env.vercel
+.env.vercel.*
+.env.staging
+.env.staging.*
+.env.backup*
+*.env.backup
+.env-*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# prisma
+prisma/migrations/
+
+# IDE
+.vscode
+.idea
+
+# Sensitive files (NEVER COMMIT!)
+DEPLOYMENT_KEYS.md
+VERCEL_ENV_VARS.md
+*_SECRETS.md
+*_KEYS.md
+*_CREDENTIALS.md
+secrets.txt
+secrets.json
+credentials.json
+*.key
+*.pkey
+*private*key*
+*.p12
+*.pfx
+*.jks
+*.keystore
+*-key.json
+service-account*.json
+
+# Contract deployment artifacts that may contain sensitive data
+contracts/broadcast/**/*.json
+contracts/cache/
+contracts/out/
+
+# Foundry keystore
+keystore/
+.keystore/
+.env.deployment-keys
+.env.production.local
+.env.production.pull
+
+# Environment variable backups (contain sensitive data)
+ENV_VERCEL_PRODUCTION_BACKUP_ORIGINAL.env
+.env.production.local.backup-*
+.env*.backup
+*.env.bak
+.env.save
+
+# AWS and Cloud Provider credentials
+.aws/credentials
+.aws/config
+gcloud-credentials.json
+azure-credentials.json
+
+# API Keys and Tokens
+api-keys.txt
+tokens.txt
+auth-tokens.json
+
+# Database dumps (may contain sensitive data)
+*.sql
+*.dump
+*.backup
+db-backup-*
+
+# Logs that may contain sensitive info
+*.log
+logs/
+*.log.*
+.claude/
