@@ -51,7 +51,7 @@ setup-env.sh
 next-env.d.ts
 
 # prisma
-prisma/migrations/
+# Migrations are tracked in version control
 
 # IDE
 .vscode
@@ -108,6 +108,7 @@ auth-tokens.json
 
 # Database dumps (may contain sensitive data)
 *.sql
+!prisma/migrations/**/*.sql  # Exception: Include Prisma migration SQL files
 *.dump
 *.backup
 db-backup-*
@@ -117,3 +118,5 @@ db-backup-*
 logs/
 *.log.*
 .claude/
+
+/src/generated/prisma

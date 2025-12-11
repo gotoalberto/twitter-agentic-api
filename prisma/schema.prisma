@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+/// Project represents an external application that uses the X Forwarder
+/// to publish tweets and receive webhooks
+model Project {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bot                   Bot?
+  forwardingConfig      ForwardingConfig?
+  webhookRegistrations  WebhookRegistration[]
+
+  @@map("projects")
+}
+
+/// Bot represents a Twitter/X bot account connected to a project
+/// Uses OAuth 1.0a credentials for tweet publishing and webhook management
+model Bot {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  username          String   @unique
+  userId            String   @unique
+  accessToken       String   // OAuth 1.0a access token
+  accessTokenSecret String   // OAuth 1.0a access token secret
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("bots")
+  @@index([projectId])
+  @@index([username])
+}
+
+/// ForwardingConfig defines where to forward webhook events for a project
+model ForwardingConfig {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  endpoint  String   // URL to forward webhooks to (e.g., https://goodboy.xyz/api/webhooks/twitter)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("forwarding_configs")
+  @@index([projectId])
+}
+
+/// WebhookRegistration tracks Twitter webhook subscriptions for each project
+model WebhookRegistration {
+  id         String   @id @default(cuid())
+  projectId  String
+  webhookId  String   @unique // Twitter webhook ID
+  url        String   // Twitter webhook URL (registered with Twitter)
+  subscribed Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_registrations")
+  @@index([projectId])
+  @@index([webhookId])
+}
