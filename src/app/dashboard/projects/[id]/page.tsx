@@ -449,6 +449,42 @@ function ProjectDetailContent() {
                 </label>
               </div>
 
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={saveForwardingConfig}
+                  disabled={savingForwarding}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  {savingForwarding ? 'Saving...' : 'Save Configuration'}
+                </button>
+                {forwardingConfig?.configured && (
+                  <button
+                    onClick={deleteForwardingConfig}
+                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+
+              {forwardingConfig?.configured && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Current configuration:</p>
+                  <p className="text-xs font-mono text-gray-900 break-all">
+                    {forwardingConfig.config?.endpoint}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Status: <span className={forwardingConfig.config?.enabled ? 'text-green-600' : 'text-gray-600'}>
+                      {forwardingConfig.config?.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Updated: {forwardingConfig.config?.updatedAt ? new Date(forwardingConfig.config.updatedAt).toLocaleString('en-US') : 'N/A'}
+                  </p>
+                </div>
+              )}
+
               {/* Webhook Forwarding Documentation */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
                 <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
@@ -535,41 +571,6 @@ Content-Type: application/json
                     <p className="text-blue-600">✗ Other status = Error (may be retried)</p>
                   </div>
                 </div>
-              </div>
-
-              {forwardingConfig?.configured && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Current configuration:</p>
-                  <p className="text-xs font-mono text-gray-900 break-all">
-                    {forwardingConfig.config?.endpoint}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Status: <span className={forwardingConfig.config?.enabled ? 'text-green-600' : 'text-gray-600'}>
-                      {forwardingConfig.config?.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Updated: {forwardingConfig.config?.updatedAt ? new Date(forwardingConfig.config.updatedAt).toLocaleString('en-US') : 'N/A'}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={saveForwardingConfig}
-                  disabled={savingForwarding}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                >
-                  {savingForwarding ? 'Saving...' : 'Save Configuration'}
-                </button>
-                {forwardingConfig?.configured && (
-                  <button
-                    onClick={deleteForwardingConfig}
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Delete
-                  </button>
-                )}
               </div>
             </div>
           </div>
