@@ -381,6 +381,94 @@ function ProjectDetailContent() {
                 </label>
               </div>
 
+              {/* Webhook Forwarding Documentation */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  Webhook Request Details
+                </h3>
+
+                <div className="space-y-3 text-xs">
+                  {/* HTTP Method */}
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
+                    <code className="bg-blue-100 text-blue-900 px-2 py-1 rounded">POST</code>
+                  </div>
+
+                  {/* Headers */}
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-2">Headers</p>
+                    <div className="bg-white rounded border border-blue-200 p-2 space-y-1 font-mono text-blue-900">
+                      <div>Content-Type: application/json</div>
+                      <div>X-Twitter-Webhooks-Signature: sha256=...</div>
+                      <div className="text-blue-600 text-[10px]">// Signature for payload verification (optional)</div>
+                    </div>
+                  </div>
+
+                  {/* Body Format */}
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-2">Body Format</p>
+                    <p className="text-blue-700 mb-2">The webhook payload is forwarded as received from Twitter. Common event types:</p>
+                    <div className="bg-white rounded border border-blue-200 p-2 space-y-1 text-[10px]">
+                      <div className="text-blue-600">• <strong className="text-blue-900">tweet_create_events</strong> - New tweets mentioning the bot</div>
+                      <div className="text-blue-600">• <strong className="text-blue-900">direct_message_events</strong> - Direct messages to the bot</div>
+                      <div className="text-blue-600">• <strong className="text-blue-900">favorite_events</strong> - Likes on bot tweets</div>
+                      <div className="text-blue-600">• <strong className="text-blue-900">follow_events</strong> - New followers</div>
+                    </div>
+                  </div>
+
+                  {/* Example */}
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-2">Example Request</p>
+                    <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                      <pre className="text-[10px]">{`POST ${forwardingEndpoint || 'https://your-api.com/webhooks/twitter'}
+Content-Type: application/json
+X-Twitter-Webhooks-Signature: sha256=abc123...
+
+{
+  "for_user_id": "123456789",
+  "tweet_create_events": [
+    {
+      "id_str": "987654321",
+      "text": "@your_bot Hello!",
+      "user": {
+        "id_str": "111222333",
+        "screen_name": "user_handle",
+        "name": "User Name"
+      },
+      "created_at": "Mon Dec 12 12:00:00 +0000 2024",
+      "entities": {
+        "user_mentions": [
+          {
+            "screen_name": "your_bot",
+            "id_str": "123456789"
+          }
+        ]
+      }
+    }
+  ]
+}`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Response Expected */}
+                  <div>
+                    <p className="text-blue-800 font-semibold mb-1">Expected Response</p>
+                    <p className="text-blue-700 mb-2">Your endpoint should respond with:</p>
+                    <div className="bg-gray-900 text-green-400 rounded p-2">
+                      <pre className="text-[10px]">{`HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "success": true }`}</pre>
+                    </div>
+                    <p className="text-blue-600 mt-2">✓ Status 200-299 = Success (webhook will not retry)</p>
+                    <p className="text-blue-600">✗ Other status = Error (may be retried)</p>
+                  </div>
+                </div>
+              </div>
+
               {forwardingConfig?.configured && (
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">Current configuration:</p>
