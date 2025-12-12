@@ -701,14 +701,23 @@ Content-Type: application/json
                     <pre className="text-[10px]">{`{
   "username": "your_bot_handle",
   "text": "Your tweet text here (max 280 chars)",
-  "replyToTweetId": "1234567890" // optional
+  "replyToTweetId": "1234567890" // OPTIONAL - omit for normal tweet
 }`}</pre>
+                  </div>
+                  <div className="mt-2 bg-purple-100 border border-purple-300 rounded p-2">
+                    <p className="text-[10px] text-purple-800">
+                      <strong>Note:</strong> The <code className="bg-purple-200 px-1 rounded">replyToTweetId</code> parameter is <strong>optional</strong>:
+                    </p>
+                    <ul className="text-[10px] text-purple-700 ml-4 mt-1 space-y-1">
+                      <li>• <strong>With replyToTweetId:</strong> Tweet will be posted as a reply to the specified tweet</li>
+                      <li>• <strong>Without replyToTweetId:</strong> Tweet will be posted as a normal standalone tweet</li>
+                    </ul>
                   </div>
                 </div>
 
-                {/* Example Request */}
+                {/* Example Request - Reply */}
                 <div>
-                  <p className="text-purple-800 font-semibold mb-2">Example Request</p>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request (Reply to Tweet)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
                     <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
@@ -717,6 +726,20 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
   "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
   "text": "Hello from the X Forwarder API!",
   "replyToTweetId": "1867517889123456789"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Example Request - Normal Tweet */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request (Normal Tweet)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
+
+{
+  "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+  "text": "Hello from the X Forwarder API!"
 }`}</pre>
                   </div>
                 </div>
@@ -787,31 +810,129 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
           <div className="space-y-4">
             <p className="text-gray-600">
               Twitter webhooks will be processed automatically when the bot is connected.
-              Bot mentions will be printed to server logs.
+              Webhooks are forwarded to the configured endpoint (if any).
             </p>
 
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-              <div className="flex">
-                <svg className="w-5 h-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                </svg>
-                <div>
-                  <p className="text-blue-800 font-medium mb-1">Webhook Information</p>
-                  <p className="text-blue-700 text-sm">
-                    To see mentions in real-time, check the server logs with:<br/>
-                    <code className="bg-blue-100 px-2 py-1 rounded text-xs font-mono mt-2 inline-block">
-                      npm run dev
-                    </code>
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Webhook endpoint:</p>
+              <p className="text-sm text-gray-600 mb-2">This API receives webhooks at:</p>
               <code className="text-xs font-mono text-gray-900 bg-white px-3 py-2 rounded border border-gray-200 block">
                 {process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/webhooks/twitter
               </code>
+            </div>
+
+            {forwardingConfig?.configured && forwardingConfig.config?.endpoint && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm font-semibold text-green-800 mb-2">✓ Forwarding Enabled</p>
+                <p className="text-xs text-green-700">
+                  Webhooks are being forwarded to: <strong>{forwardingConfig.config.endpoint}</strong>
+                </p>
+              </div>
+            )}
+
+            {/* Webhook Forwarding Details */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                How Webhooks are Forwarded
+              </h3>
+
+              <p className="text-blue-700 text-xs mb-3">
+                When a webhook is received from Twitter, it is <strong>automatically forwarded</strong> to your configured endpoint with the following details:
+              </p>
+
+              <div className="space-y-3 text-xs">
+                {/* HTTP Method */}
+                <div>
+                  <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
+                  <code className="bg-blue-100 text-blue-900 px-2 py-1 rounded">POST</code>
+                </div>
+
+                {/* Headers */}
+                <div>
+                  <p className="text-blue-800 font-semibold mb-2">Headers Sent</p>
+                  <div className="bg-white rounded border border-blue-200 p-2 space-y-1 font-mono text-blue-900">
+                    <div>Content-Type: application/json</div>
+                    <div>X-Twitter-Webhooks-Signature: sha256=...</div>
+                    <div className="text-blue-600 text-[10px]">// Original Twitter signature (can be used to verify payload authenticity)</div>
+                  </div>
+                </div>
+
+                {/* Payload */}
+                <div>
+                  <p className="text-blue-800 font-semibold mb-2">Payload</p>
+                  <p className="text-blue-700 mb-2">
+                    The webhook payload is forwarded <strong>exactly as received</strong> from Twitter. No modifications are made.
+                  </p>
+                  <p className="text-blue-700 mb-2">Common event types you may receive:</p>
+                  <div className="bg-white rounded border border-blue-200 p-2 space-y-1 text-[10px]">
+                    <div className="text-blue-600">• <strong className="text-blue-900">tweet_create_events</strong> - New tweets (mentions, replies)</div>
+                    <div className="text-blue-600">• <strong className="text-blue-900">direct_message_events</strong> - Direct messages</div>
+                    <div className="text-blue-600">• <strong className="text-blue-900">favorite_events</strong> - Likes on tweets</div>
+                    <div className="text-blue-600">• <strong className="text-blue-900">follow_events</strong> - New followers</div>
+                  </div>
+                </div>
+
+                {/* Example Forwarded Request */}
+                <div>
+                  <p className="text-blue-800 font-semibold mb-2">Example Forwarded Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${forwardingConfig?.config?.endpoint || 'https://your-endpoint.com/api/webhooks/twitter'}
+Content-Type: application/json
+X-Twitter-Webhooks-Signature: sha256=abc123...
+
+{
+  "for_user_id": "123456789",
+  "tweet_create_events": [
+    {
+      "id_str": "987654321",
+      "text": "@${botStatus?.bot?.username || 'your_bot'} Hello!",
+      "user": {
+        "id_str": "111222333",
+        "screen_name": "user_handle",
+        "name": "User Name"
+      },
+      "created_at": "Thu Dec 12 12:00:00 +0000 2024",
+      "entities": {
+        "user_mentions": [
+          {
+            "screen_name": "${botStatus?.bot?.username || 'your_bot'}",
+            "id_str": "123456789"
+          }
+        ]
+      }
+    }
+  ]
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Expected Response */}
+                <div>
+                  <p className="text-blue-800 font-semibold mb-1">Expected Response from Your Endpoint</p>
+                  <p className="text-blue-700 mb-2">Your endpoint should respond with:</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-2">
+                    <pre className="text-[10px]">{`HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "success": true }`}</pre>
+                  </div>
+                  <p className="text-blue-600 mt-2">✓ Any 2xx status code = Success (webhook marked as delivered)</p>
+                  <p className="text-blue-600">✗ Other status codes = Error (logged for debugging)</p>
+                </div>
+
+                {/* Additional Info */}
+                <div className="bg-blue-100 border border-blue-300 rounded p-2 mt-2">
+                  <p className="text-blue-800 font-semibold text-[10px] mb-1">Additional Information</p>
+                  <ul className="text-blue-700 text-[10px] space-y-1">
+                    <li>• The forwarding happens asynchronously - Twitter receives immediate 200 OK</li>
+                    <li>• If forwarding fails, the error is logged but Twitter is not notified</li>
+                    <li>• The X-Twitter-Webhooks-Signature can be verified using your Twitter consumer secret</li>
+                    <li>• Full Twitter webhook documentation: <a href="https://developer.twitter.com/en/docs/twitter-api/enterprise/account-activity-api/guides/account-activity-data-objects" target="_blank" rel="noopener noreferrer" className="underline">Account Activity API</a></li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>
