@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getForwardingConfig } from '@/lib/twitter/config';
 import { updateLastCrcCheck } from '@/lib/twitter/webhook-storage';
+import { prisma } from '@/lib/db/prisma';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -231,79 +232,116 @@ export async function POST(request: NextRequest) {
     }
     console.log('');
 
-    // Forward webhook to configured endpoint
+    // Forward webhook to configured endpoint (project-specific)
     try {
-      const config = await getForwardingConfig();
-      const shouldForward = config && config.enabled && config.endpoint;
+      // Get the bot user ID from the webhook payload
+      const forUserId = body.for_user_id;
 
-      if (shouldForward) {
+      if (!forUserId) {
         console.log('');
-        console.log('🔄 FORWARDING WEBHOOK TO TARGET ENDPOINT');
-        console.log('────────────────────────────────────────────────────────────────────────────────');
-        console.log('   Target URL:', config.endpoint);
-        console.log('   Method: POST');
-
-        // Forward all relevant Twitter headers
-        const forwardHeaders: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'X-Forwarded-From': 'x-forwarder',
-        };
-
-        // Copy Twitter signature header if present (for validation on goodboy side)
-        const twitterSignature = request.headers.get('x-twitter-webhooks-signature');
-        if (twitterSignature) {
-          forwardHeaders['x-twitter-webhooks-signature'] = twitterSignature;
-        }
-
-        console.log('   Headers:');
-        Object.keys(forwardHeaders).forEach(key => {
-          console.log(`     ${key}: ${forwardHeaders[key].substring(0, 50)}${forwardHeaders[key].length > 50 ? '...' : ''}`);
-        });
-        console.log('');
-        console.log('   Payload (RAW):');
-        console.log(JSON.stringify(body, null, 2));
-        console.log('');
-
-        const startTime = Date.now();
-        const forwardResponse = await fetch(config.endpoint, {
-          method: 'POST',
-          headers: forwardHeaders,
-          body: JSON.stringify(body),
-        });
-        const duration = Date.now() - startTime;
-
-        console.log('   Response Status:', forwardResponse.status, forwardResponse.statusText);
-        console.log('   Response Time:', `${duration}ms`);
-        console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
-
-        if (!forwardResponse.ok) {
-          const errorText = await forwardResponse.text();
-          console.log('');
-          console.log('   ❌ ERROR RESPONSE:');
-          console.log(errorText);
-        } else {
-          try {
-            const responseBody = await forwardResponse.text();
-            if (responseBody) {
-              console.log('');
-              console.log('   📨 RESPONSE BODY:');
-              console.log(responseBody);
-            }
-          } catch (e) {
-            // Ignore if no body
-          }
-        }
-
-        console.log('────────────────────────────────────────────────────────────────────────────────');
+        console.log('⚠️  FORWARDING SKIPPED');
+        console.log('   Reason: No for_user_id in webhook payload, cannot determine project');
       } else {
+        // Find which bot (and project) this webhook is for
         console.log('');
-        console.log('⏭️  FORWARDING SKIPPED');
-        if (!config) {
-          console.log('   Reason: No forwarding configuration');
-        } else if (!config.enabled) {
-          console.log('   Reason: Forwarding disabled');
+        console.log('🔍 LOOKING UP PROJECT FOR BOT');
+        console.log('   Bot User ID:', forUserId);
+
+        const bot = await prisma.bot.findUnique({
+          where: { userId: forUserId },
+          include: {
+            project: {
+              include: {
+                forwardingConfig: true,
+              },
+            },
+          },
+        });
+
+        if (!bot) {
+          console.log('');
+          console.log('⚠️  FORWARDING SKIPPED');
+          console.log(`   Reason: No bot found for user ID: ${forUserId}`);
         } else {
-          console.log('   Reason: No endpoint configured');
+          console.log(`   ✅ Bot found: @${bot.username}`);
+          console.log(`   📁 Project: ${bot.project.name}`);
+
+          const config = bot.project.forwardingConfig;
+          const shouldForward = config && config.enabled && config.endpoint;
+
+          if (shouldForward) {
+            console.log('');
+            console.log('🔄 FORWARDING WEBHOOK TO TARGET ENDPOINT');
+            console.log('────────────────────────────────────────────────────────────────────────────────');
+            console.log('   Project:', bot.project.name);
+            console.log('   Bot:', `@${bot.username}`);
+            console.log('   Target URL:', config.endpoint);
+            console.log('   Method: POST');
+
+            // Forward all relevant Twitter headers
+            const forwardHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'X-Forwarded-From': 'x-forwarder',
+            };
+
+            // Copy Twitter signature header if present (for validation on goodboy side)
+            const twitterSignature = request.headers.get('x-twitter-webhooks-signature');
+            if (twitterSignature) {
+              forwardHeaders['x-twitter-webhooks-signature'] = twitterSignature;
+            }
+
+            console.log('   Headers:');
+            Object.keys(forwardHeaders).forEach(key => {
+              console.log(`     ${key}: ${forwardHeaders[key].substring(0, 50)}${forwardHeaders[key].length > 50 ? '...' : ''}`);
+            });
+            console.log('');
+            console.log('   Payload (RAW):');
+            console.log(JSON.stringify(body, null, 2));
+            console.log('');
+
+            const startTime = Date.now();
+            const forwardResponse = await fetch(config.endpoint, {
+              method: 'POST',
+              headers: forwardHeaders,
+              body: JSON.stringify(body),
+            });
+            const duration = Date.now() - startTime;
+
+            console.log('   Response Status:', forwardResponse.status, forwardResponse.statusText);
+            console.log('   Response Time:', `${duration}ms`);
+            console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
+
+            if (!forwardResponse.ok) {
+              const errorText = await forwardResponse.text();
+              console.log('');
+              console.log('   ❌ ERROR RESPONSE:');
+              console.log(errorText);
+            } else {
+              try {
+                const responseBody = await forwardResponse.text();
+                if (responseBody) {
+                  console.log('');
+                  console.log('   📨 RESPONSE BODY:');
+                  console.log(responseBody);
+                }
+              } catch (e) {
+                // Ignore if no body
+              }
+            }
+
+            console.log('────────────────────────────────────────────────────────────────────────────────');
+          } else {
+            console.log('');
+            console.log('⏭️  FORWARDING SKIPPED');
+            console.log('   Project:', bot.project.name);
+            if (!config) {
+              console.log('   Reason: No forwarding configuration for this project');
+            } else if (!config.enabled) {
+              console.log('   Reason: Forwarding disabled for this project');
+            } else {
+              console.log('   Reason: No endpoint configured for this project');
+            }
+          }
         }
       }
     } catch (forwardError: any) {
