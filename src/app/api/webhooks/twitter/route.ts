@@ -10,8 +10,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getForwardingConfig } from '@/lib/twitter/config';
-import { updateLastCrcCheck } from '@/lib/twitter/webhook-storage';
 import { prisma } from '@/lib/db/prisma';
 
 export const runtime = 'nodejs';
@@ -64,94 +62,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get forwarding config
-    const config = await getForwardingConfig();
-
-    if (!config || !config.enabled || !config.endpoint) {
-      console.log('⚠️  Forwarding not enabled or endpoint not configured, responding directly');
-
-      // Fallback: respond directly with our own CRC validation
-      const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-      if (!apiSecret) {
-        console.error('❌ CRC validation failed: TWITTER_OAUTH_API_SECRET not configured');
-        return NextResponse.json(
-          { error: 'Webhook not configured' },
-          { status: 500 }
-        );
-      }
-
-      const hmac = crypto
-        .createHmac('sha256', apiSecret)
-        .update(crcToken)
-        .digest('base64');
-
-      const responseToken = `sha256=${hmac}`;
-      console.log('✅ CRC validation successful (local)');
-      console.log('   Response token:', responseToken.substring(0, 30) + '...');
-      console.log('================================================================================');
-      console.log('');
-
-      return NextResponse.json({ response_token: responseToken });
+    // Respond directly with CRC validation
+    const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+    if (!apiSecret) {
+      console.error('❌ CRC validation failed: TWITTER_OAUTH_API_SECRET not configured');
+      return NextResponse.json(
+        { error: 'Webhook not configured' },
+        { status: 500 }
+      );
     }
 
-    // Forward CRC to configured endpoint
-    console.log('🔄 FORWARDING CRC TO TARGET ENDPOINT');
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('   Target URL:', config.endpoint);
-    console.log('   Query param: crc_token=' + crcToken.substring(0, 20) + '...');
-    console.log('');
+    const hmac = crypto
+      .createHmac('sha256', apiSecret)
+      .update(crcToken)
+      .digest('base64');
 
-    const forwardUrl = `${config.endpoint}?crc_token=${encodeURIComponent(crcToken)}`;
-    const startTime = Date.now();
-
-    const forwardResponse = await fetch(forwardUrl, {
-      method: 'GET',
-      headers: {
-        'X-Forwarded-From': 'x-forwarder',
-      },
-    });
-
-    const duration = Date.now() - startTime;
-
-    console.log('   Response Status:', forwardResponse.status, forwardResponse.statusText);
-    console.log('   Response Time:', `${duration}ms`);
-    console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
-    console.log('');
-
-    // Read response as text first to handle empty responses
-    const responseText = await forwardResponse.text();
-    console.log('   Response Body (raw):', responseText || '(empty)');
-    console.log('');
-
-    // Try to parse as JSON
-    let responseData;
-    try {
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('Empty response from target endpoint');
-      }
-      responseData = JSON.parse(responseText);
-      console.log('   📨 TARGET RESPONSE (parsed):');
-      console.log(JSON.stringify(responseData, null, 2));
-    } catch (parseError: any) {
-      console.error('   ❌ Failed to parse response as JSON:', parseError.message);
-      throw new Error(`Target endpoint returned invalid JSON: ${parseError.message}`);
-    }
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-
-    // Update last CRC check timestamp in Redis
-    try {
-      await updateLastCrcCheck();
-      console.log('📝 Updated lastCrcCheck timestamp');
-    } catch (error) {
-      console.error('⚠️  Failed to update lastCrcCheck:', error);
-      // Non-fatal, continue
-    }
-
+    const responseToken = `sha256=${hmac}`;
+    console.log('✅ CRC validation successful');
+    console.log('   Response token:', responseToken.substring(0, 30) + '...');
     console.log('================================================================================');
     console.log('');
 
-    // Return target's response to Twitter
-    return NextResponse.json(responseData, { status: forwardResponse.status });
+    return NextResponse.json({ response_token: responseToken });
   } catch (error: any) {
     console.error('❌ CRC validation error:', error);
     console.error('   Stack:', error.stack);
