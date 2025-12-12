@@ -2,6 +2,29 @@
 
 This document contains instructions and guidelines for development work on the X Forwarder project.
 
+## ⚠️ CRITICAL: ALWAYS BUILD BEFORE COMMIT
+
+**THIS IS NON-NEGOTIABLE:** You MUST run `npm run build` and verify it passes successfully BEFORE every commit.
+
+### Why This Is Absolutely Critical
+
+- **Failed builds break production** - Vercel deployments will fail
+- **Wastes time** - Build errors caught locally are 10x faster to fix than in CI/CD
+- **Breaks the team** - Other developers can't work on a broken codebase
+- **Prevents deployment** - You cannot deploy if the build fails
+
+### The One Rule
+
+```bash
+# ALWAYS run this before git commit:
+npm run build
+
+# Only if this succeeds ✓, then:
+git add .
+git commit -m "Your message"
+git push
+```
+
 ## Build and Deployment Policy
 
 ### Pre-Deployment Checklist
@@ -13,22 +36,18 @@ This document contains instructions and guidelines for development work on the X
    npx prisma generate
    ```
 
-2. **Run Type Checking**:
-   ```bash
-   npm run type-check
-   ```
-
-3. **Run Build**:
+2. **Run Build** (ALWAYS, EVERY TIME):
    ```bash
    npm run build
    ```
 
-4. **Verify Build Success**:
+3. **Verify Build Success**:
    - Build must complete without errors
    - Check for TypeScript type errors
    - Review any build warnings
+   - If build fails, FIX IT before committing
 
-5. **Only After Successful Build**:
+4. **Only After Successful Build**:
    ```bash
    git add .
    git commit -m "Your commit message"
@@ -45,16 +64,24 @@ This document contains instructions and guidelines for development work on the X
 
 ### Common Build Issues
 
-1. **Prisma Client Not Found**:
+1. **Module Not Found Errors**:
+   - **Problem**: `Module not found: Can't resolve '@/lib/...'`
+   - **Cause**: Deleted a file but other files still import it
+   - **Solution**:
+     - Search for all imports: `grep -r "from '@/lib/deleted-file'" src/`
+     - Remove or replace all references to the deleted file
+     - Run `npm run build` to verify
+
+2. **Prisma Client Not Found**:
    - Solution: Run `npx prisma generate`
    - Add `src/generated/prisma/index.ts` if missing
 
-2. **TypeScript Type Errors**:
+3. **TypeScript Type Errors**:
    - Array.find() returns `undefined`, not `null`
    - Don't use `|| null` with find operations
    - Check return types match expected types
 
-3. **Prisma Version Issues**:
+4. **Prisma Version Issues**:
    - Use Prisma 6.x (not 7.x which has engine issues)
    - Ensure DATABASE_URL is in datasource block
 
