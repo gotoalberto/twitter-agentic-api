@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { getProjectById } from '@/lib/db/projects';
 import { getBotByProjectId, deleteBotByProjectId } from '@/lib/db/bots';
-import { unsubscribeWebhook, deleteWebhook } from '@/lib/twitter/webhooks';
+import { unsubscribeWebhook } from '@/lib/twitter/webhooks';
 import { getWebhookRegistrationsByProjectId, deleteAllWebhookRegistrationsForProject } from '@/lib/db/webhooks';
 
 /**
@@ -42,7 +42,7 @@ export async function POST(
     console.log('🔌 Disconnecting bot:', bot.username);
     console.log('📦 Project:', project.name, `(${project.id})`);
 
-    // Unsubscribe from webhook and delete webhook
+    // Unsubscribe bot from webhook
     try {
       const webhooks = await getWebhookRegistrationsByProjectId(projectId);
       const subscribedWebhook = webhooks.find(w => w.subscribed);
@@ -52,7 +52,6 @@ export async function POST(
 
         const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
         const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
 
         if (consumerKey && consumerSecret) {
           // Unsubscribe bot using OAuth 1.0a
@@ -66,19 +65,14 @@ export async function POST(
 
           console.log('✅ Bot unsubscribed from webhook');
 
-          // Delete webhook from Twitter
-          if (bearerToken) {
-            console.log('🗑️  Deleting webhook from Twitter...');
-            await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
-            console.log('✅ Webhook deleted from Twitter');
-          }
-
-          // Delete webhook registrations from database
+          // Update subscription status in database (keep webhook registered, just mark as unsubscribed)
           await deleteAllWebhookRegistrationsForProject(projectId);
         }
+      } else {
+        console.log('⏭️  No subscribed webhook found, skipping unsubscribe');
       }
     } catch (webhookError: any) {
-      console.error('⚠️  Webhook cleanup failed (non-fatal):', webhookError.message);
+      console.error('⚠️  Webhook unsubscribe failed (non-fatal):', webhookError.message);
       // Continue anyway - bot will still be disconnected
     }
 

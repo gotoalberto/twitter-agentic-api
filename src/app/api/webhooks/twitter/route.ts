@@ -111,14 +111,30 @@ export async function GET(request: NextRequest) {
     });
 
     const duration = Date.now() - startTime;
-    const responseData = await forwardResponse.json();
 
     console.log('   Response Status:', forwardResponse.status, forwardResponse.statusText);
     console.log('   Response Time:', `${duration}ms`);
     console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
     console.log('');
-    console.log('   📨 TARGET RESPONSE:');
-    console.log(JSON.stringify(responseData, null, 2));
+
+    // Read response as text first to handle empty responses
+    const responseText = await forwardResponse.text();
+    console.log('   Response Body (raw):', responseText || '(empty)');
+    console.log('');
+
+    // Try to parse as JSON
+    let responseData;
+    try {
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Empty response from target endpoint');
+      }
+      responseData = JSON.parse(responseText);
+      console.log('   📨 TARGET RESPONSE (parsed):');
+      console.log(JSON.stringify(responseData, null, 2));
+    } catch (parseError: any) {
+      console.error('   ❌ Failed to parse response as JSON:', parseError.message);
+      throw new Error(`Target endpoint returned invalid JSON: ${parseError.message}`);
+    }
     console.log('────────────────────────────────────────────────────────────────────────────────');
 
     // Update last CRC check timestamp in Redis

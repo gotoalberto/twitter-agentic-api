@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { getOrCreateDefaultProject } from '@/lib/db/projects';
 import { saveBot } from '@/lib/db/bots';
+import { registerWebhook, subscribeWebhook, listWebhooks } from '@/lib/twitter/webhooks';
+import { saveWebhookRegistration, getWebhookRegistrationsByProjectId } from '@/lib/db/webhooks';
 
 export async function GET(request: NextRequest) {
   try {
@@ -104,6 +106,89 @@ export async function GET(request: NextRequest) {
     });
 
     console.log('💾 Bot saved to database');
+
+    // Register webhook and subscribe bot
+    try {
+      console.log('');
+      console.log('=== WEBHOOK REGISTRATION ===');
+
+      const bearerToken = process.env.X_API_BEARER_TOKEN;
+      const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
+      const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+
+      if (!bearerToken || !consumerKey || !consumerSecret) {
+        throw new Error('Missing required environment variables for webhook setup');
+      }
+
+      // Construct webhook URL
+      const webhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
+      console.log('📍 Webhook URL:', webhookUrl);
+
+      // Check if webhook already exists with this URL
+      const existingWebhooks = await getWebhookRegistrationsByProjectId(project.id);
+      let webhook = existingWebhooks.find(w => w.url === webhookUrl);
+
+      if (!webhook) {
+        // List webhooks to see if one already exists in Twitter
+        try {
+          const twitterWebhooks = await listWebhooks(bearerToken);
+          const matchingWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
+
+          if (matchingWebhook) {
+            console.log('✅ Found existing webhook in Twitter:', matchingWebhook.id);
+            // Save to database
+            await saveWebhookRegistration(project.id, {
+              webhookId: matchingWebhook.id,
+              url: matchingWebhook.url,
+              subscribed: false,
+            });
+            webhook = await getWebhookRegistrationsByProjectId(project.id).then(whs => whs.find(w => w.webhookId === matchingWebhook.id));
+          }
+        } catch (listError: any) {
+          console.log('⚠️  Could not list webhooks:', listError.message);
+        }
+      }
+
+      // Register new webhook if doesn't exist
+      if (!webhook) {
+        console.log('🔧 Registering new webhook...');
+        const { webhookId, url } = await registerWebhook(webhookUrl, bearerToken);
+
+        // Save to database
+        await saveWebhookRegistration(project.id, {
+          webhookId,
+          url,
+          subscribed: false,
+        });
+
+        console.log('✅ Webhook registered:', webhookId);
+
+        // Get the webhook we just saved
+        webhook = await getWebhookRegistrationsByProjectId(project.id).then(whs => whs.find(w => w.webhookId === webhookId));
+      }
+
+      if (webhook) {
+        // Subscribe bot to webhook
+        console.log('📌 Subscribing bot to webhook...');
+        await subscribeWebhook(consumerKey, consumerSecret, accessToken, accessSecret, webhook.webhookId);
+
+        // Update subscription status
+        await saveWebhookRegistration(project.id, {
+          webhookId: webhook.webhookId,
+          url: webhook.url,
+          subscribed: true,
+        });
+
+        console.log('✅ Bot subscribed to webhook');
+      }
+
+      console.log('=== WEBHOOK REGISTRATION COMPLETE ===');
+      console.log('');
+    } catch (webhookError: any) {
+      console.error('⚠️  Webhook setup failed (non-fatal):', webhookError.message);
+      console.error(webhookError);
+      // Continue anyway - bot is connected, webhook can be set up later
+    }
 
     // Clear cookies and redirect
     // If projectId was in cookie, redirect to project detail page
