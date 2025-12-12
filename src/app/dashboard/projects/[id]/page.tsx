@@ -29,6 +29,11 @@ interface Project {
   updatedAt: string;
 }
 
+interface ApiKeyConfig {
+  configured: boolean;
+  apiKey: string | null;
+}
+
 function ProjectDetailContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -41,8 +46,10 @@ function ProjectDetailContent() {
   const [forwardingConfig, setForwardingConfig] = useState<ForwardingConfig | null>(null);
   const [forwardingEndpoint, setForwardingEndpoint] = useState('');
   const [forwardingEnabled, setForwardingEnabled] = useState(true);
+  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingForwarding, setSavingForwarding] = useState(false);
+  const [generatingApiKey, setGeneratingApiKey] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -68,6 +75,7 @@ function ProjectDetailContent() {
       fetchProject();
       fetchBotStatus();
       fetchForwardingConfig();
+      fetchApiKeyConfig();
     }
   }, [status, projectId]);
 
@@ -166,6 +174,66 @@ function ProjectDetailContent() {
     } catch (error) {
       console.error('Error deleting forwarding config:', error);
       setMessage({ type: 'error', text: 'Error deleting forwarding endpoint' });
+    }
+  };
+
+  const fetchApiKeyConfig = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/api-key`);
+      const data = await res.json();
+      setApiKeyConfig(data);
+    } catch (error) {
+      console.error('Error fetching API key config:', error);
+    }
+  };
+
+  const generateApiKey = async () => {
+    if (apiKeyConfig?.configured) {
+      if (!confirm('This will replace your existing API key. Applications using the old key will stop working. Continue?')) {
+        return;
+      }
+    }
+
+    setGeneratingApiKey(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/api-key`, {
+        method: 'POST',
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({ type: 'success', text: 'API key generated successfully. Copy it now - it will not be shown again!' });
+        fetchApiKeyConfig();
+      } else {
+        setMessage({ type: 'error', text: 'Error generating API key' });
+      }
+    } catch (error) {
+      console.error('Error generating API key:', error);
+      setMessage({ type: 'error', text: 'Error generating API key' });
+    } finally {
+      setGeneratingApiKey(false);
+    }
+  };
+
+  const deleteApiKey = async () => {
+    if (!confirm('Remove API key protection? The tweet endpoint will become public.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/api-key`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'API key removed. Endpoint is now public.' });
+        fetchApiKeyConfig();
+      } else {
+        setMessage({ type: 'error', text: 'Error removing API key' });
+      }
+    } catch (error) {
+      console.error('Error removing API key:', error);
+      setMessage({ type: 'error', text: 'Error removing API key' });
     }
   };
 
@@ -502,6 +570,211 @@ Content-Type: application/json
                     Delete
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* API Key Configuration Card */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">API Key Authentication</h2>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 text-sm">
+              Protect your tweet publishing endpoint with an API key. When configured, all requests must include a valid X-API-Key header.
+            </p>
+
+            {/* API Key Status */}
+            {apiKeyConfig && (
+              <div className={`border-l-4 p-4 rounded ${
+                apiKeyConfig.configured
+                  ? 'bg-green-50 border-green-500'
+                  : 'bg-yellow-50 border-yellow-500'
+              }`}>
+                <div className="flex items-center">
+                  <svg className={`w-5 h-5 mr-2 ${
+                    apiKeyConfig.configured ? 'text-green-500' : 'text-yellow-500'
+                  }`} fill="currentColor" viewBox="0 0 20 20">
+                    {apiKeyConfig.configured ? (
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                    ) : (
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                    )}
+                  </svg>
+                  <p className={`font-medium ${
+                    apiKeyConfig.configured ? 'text-green-800' : 'text-yellow-800'
+                  }`}>
+                    {apiKeyConfig.configured
+                      ? 'API Key protection is enabled'
+                      : 'No API key configured - endpoint is public'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Show API Key if configured */}
+            {apiKeyConfig?.configured && apiKeyConfig.apiKey && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-700">Current API Key</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(apiKeyConfig.apiKey || '');
+                      setMessage({ type: 'success', text: 'API key copied to clipboard' });
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <code className="text-xs font-mono text-gray-900 bg-white px-3 py-2 rounded border border-gray-300 block break-all">
+                  {apiKeyConfig.apiKey}
+                </code>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={generateApiKey}
+                disabled={generatingApiKey}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+              >
+                {generatingApiKey
+                  ? 'Generating...'
+                  : apiKeyConfig?.configured
+                    ? 'Regenerate API Key'
+                    : 'Generate API Key'}
+              </button>
+              {apiKeyConfig?.configured && (
+                <button
+                  onClick={deleteApiKey}
+                  className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            {/* Tweet Publishing Endpoint Documentation */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mt-4">
+              <h3 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                Tweet Publishing API Documentation
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-1">Endpoint</p>
+                  <code className="bg-purple-100 text-purple-900 px-2 py-1 rounded block">
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+                  </code>
+                </div>
+
+                {/* HTTP Method */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-1">HTTP Method</p>
+                  <code className="bg-purple-100 text-purple-900 px-2 py-1 rounded">POST</code>
+                </div>
+
+                {/* Headers */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Headers</p>
+                  <div className="bg-white rounded border border-purple-200 p-2 space-y-1 font-mono text-purple-900">
+                    <div>Content-Type: application/json</div>
+                    {apiKeyConfig?.configured && (
+                      <div className="text-red-600 font-bold">X-API-Key: {apiKeyConfig.apiKey ? 'your_api_key_here' : 'REQUIRED'}</div>
+                    )}
+                    {!apiKeyConfig?.configured && (
+                      <div className="text-purple-600 text-[10px]">// No API key required (endpoint is public)</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Request Body */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Request Body</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "username": "your_bot_handle",
+  "text": "Your tweet text here (max 280 chars)",
+  "replyToTweetId": "1234567890" // optional
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
+
+{
+  "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+  "text": "Hello from the X Forwarder API!",
+  "replyToTweetId": "1867517889123456789"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "success": true,
+  "tweet": {
+    "id": "1867517889123456789",
+    "text": "Hello from the X Forwarder API!",
+    "url": "https://twitter.com/your_bot/status/1867517889123456789"
+  }
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    {apiKeyConfig?.configured && (
+                      <div>
+                        <p className="text-purple-700 text-[10px] mb-1">401 Unauthorized - Missing or invalid API key:</p>
+                        <div className="bg-gray-900 text-red-400 rounded p-2">
+                          <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">404 Not Found - Bot not found:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "No bot found with username: xyz" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">400 Bad Request - Invalid input:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "text must be 280 characters or less" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with curl */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example with curl</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet \\
+  -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
+  -d '{
+    "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+    "text": "Hello from curl!"
+  }'`}</pre>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

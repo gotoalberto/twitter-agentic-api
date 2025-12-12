@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { getBotByUsername } from '@/lib/db/bots';
+import { getProjectById } from '@/lib/db/projects';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,6 +106,52 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Bot found:', bot.username);
+    console.log('   Project ID:', bot.projectId);
+    console.log('');
+
+    // Validate API key
+    console.log('🔐 Validating API key...');
+    const apiKey = request.headers.get('x-api-key');
+
+    // Get project to check API key
+    const project = await getProjectById(bot.projectId);
+
+    if (!project) {
+      console.log('❌ Project not found');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if API key is required and validate it
+    if (project.apiKey) {
+      if (!apiKey) {
+        console.log('❌ Missing API key - X-API-Key header required');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'API key required - include X-API-Key header' },
+          { status: 401 }
+        );
+      }
+
+      if (apiKey !== project.apiKey) {
+        console.log('❌ Invalid API key');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Invalid API key' },
+          { status: 401 }
+        );
+      }
+
+      console.log('✅ API key validated');
+    } else {
+      console.log('ℹ️  No API key configured for this project');
+    }
     console.log('');
 
     // Get Twitter API credentials
