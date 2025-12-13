@@ -907,20 +907,9 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Direct Messages API Card */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Direct Messages API</h2>
-
-          <div className="space-y-4">
-            <p className="text-gray-600 text-sm">
-              Send direct messages on behalf of your bot. Same API key authentication as tweet endpoint.
-            </p>
 
             {/* DM API Documentation - Collapsible */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mt-4">
               <button
                 onClick={() => setDmDocsOpen(!dmDocsOpen)}
                 className="w-full flex items-center justify-between text-sm font-semibold text-indigo-900 hover:text-indigo-700 transition"
