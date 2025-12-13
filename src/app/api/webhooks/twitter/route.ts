@@ -209,31 +209,77 @@ export async function POST(request: NextRequest) {
             console.log('   Bot:', `@${bot.username}`);
             console.log('   Target URL:', config.endpoint);
 
-            // Determine event type from payload
+            // Filter payload to only include events relevant to this bot
+            const filteredPayload: any = {
+              for_user_id: body.for_user_id,
+            };
+
             let eventType = 'unknown';
-            if (body.tweet_create_events) eventType = 'tweet_create_events';
-            else if (body.direct_message_events) eventType = 'direct_message_events';
-            else if (body.favorite_events) eventType = 'favorite_events';
-            else if (body.follow_events) eventType = 'follow_events';
+            let hasRelevantEvents = false;
 
-            // Enqueue webhook for async delivery
-            try {
-              const { enqueueWebhook } = await import('@/lib/webhooks/queue');
+            // Filter tweet_create_events: Keep all (already filtered by for_user_id)
+            if (body.tweet_create_events && body.tweet_create_events.length > 0) {
+              filteredPayload.tweet_create_events = body.tweet_create_events;
+              eventType = 'tweet_create_events';
+              hasRelevantEvents = true;
+            }
 
-              await enqueueWebhook(
-                bot.project.id,
-                eventType,
-                body,
-                config.endpoint
+            // Filter direct_message_events: Keep all (already filtered by for_user_id)
+            if (body.direct_message_events && body.direct_message_events.length > 0) {
+              filteredPayload.direct_message_events = body.direct_message_events;
+              eventType = 'direct_message_events';
+              hasRelevantEvents = true;
+            }
+
+            // Filter favorite_events: Only where the favorited tweet belongs to our bot
+            if (body.favorite_events && body.favorite_events.length > 0) {
+              const relevantFavorites = body.favorite_events.filter((fav: any) =>
+                fav.favorited_status?.user?.id_str === forUserId
               );
+              if (relevantFavorites.length > 0) {
+                filteredPayload.favorite_events = relevantFavorites;
+                eventType = 'favorite_events';
+                hasRelevantEvents = true;
+                console.log(`   📊 Filtered favorite_events: ${body.favorite_events.length} → ${relevantFavorites.length}`);
+              }
+            }
 
-              console.log('   ✅ Webhook enqueued successfully');
-              console.log('   Event Type:', eventType);
-              console.log('   Status: pending (will be processed asynchronously)');
-            } catch (enqueueError: any) {
-              console.error('   ❌ Failed to enqueue webhook:', enqueueError.message);
-              console.error('   Stack:', enqueueError.stack);
-              // Continue execution - don't fail the whole webhook
+            // Filter follow_events: Only where our bot is the TARGET (being followed)
+            if (body.follow_events && body.follow_events.length > 0) {
+              const relevantFollows = body.follow_events.filter((follow: any) =>
+                follow.target?.id_str === forUserId
+              );
+              if (relevantFollows.length > 0) {
+                filteredPayload.follow_events = relevantFollows;
+                eventType = 'follow_events';
+                hasRelevantEvents = true;
+                console.log(`   📊 Filtered follow_events: ${body.follow_events.length} → ${relevantFollows.length}`);
+              }
+            }
+
+            // Only enqueue if we have relevant events after filtering
+            if (!hasRelevantEvents) {
+              console.log('   ⏭️  No relevant events for this bot after filtering');
+            } else {
+              // Enqueue webhook for async delivery
+              try {
+                const { enqueueWebhook } = await import('@/lib/webhooks/queue');
+
+                await enqueueWebhook(
+                  bot.project.id,
+                  eventType,
+                  filteredPayload,
+                  config.endpoint
+                );
+
+                console.log('   ✅ Webhook enqueued successfully');
+                console.log('   Event Type:', eventType);
+                console.log('   Status: pending (will be processed asynchronously)');
+              } catch (enqueueError: any) {
+                console.error('   ❌ Failed to enqueue webhook:', enqueueError.message);
+                console.error('   Stack:', enqueueError.stack);
+                // Continue execution - don't fail the whole webhook
+              }
             }
 
             console.log('────────────────────────────────────────────────────────────────────────────────');
