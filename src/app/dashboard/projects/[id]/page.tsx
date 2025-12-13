@@ -554,16 +554,10 @@ function ProjectDetailContent() {
 
               {forwardingConfig?.configured && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Current configuration:</p>
                   <p className="text-xs font-mono text-gray-900 break-all">
                     {forwardingConfig.config?.endpoint}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Status: <span className={forwardingConfig.config?.enabled ? 'text-green-600' : 'text-gray-600'}>
-                      {forwardingConfig.config?.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">
                     Updated: {forwardingConfig.config?.updatedAt ? new Date(forwardingConfig.config.updatedAt).toLocaleString('en-US') : 'N/A'}
                   </p>
                 </div>
