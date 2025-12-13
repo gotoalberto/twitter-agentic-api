@@ -108,6 +108,9 @@ export async function GET(request: NextRequest) {
     console.log('💾 Bot saved to database');
 
     // Register webhook and subscribe bot
+    let webhookSubscriptionFailed = false;
+    let webhookErrorMessage = '';
+
     try {
       console.log('');
       console.log('=== WEBHOOK REGISTRATION ===');
@@ -125,77 +128,124 @@ export async function GET(request: NextRequest) {
       console.log('📍 Webhook URL:', webhookUrl);
 
       // Check if webhook already exists with this URL
+      console.log('🔍 Checking for existing webhook registration in database...');
       const existingWebhooks = await getWebhookRegistrationsByProjectId(project.id);
-      let webhook = existingWebhooks.find(w => w.url === webhookUrl);
+      console.log(`   Found ${existingWebhooks.length} existing webhook(s) for this project`);
 
-      if (!webhook) {
+      let webhookId: string | null = null;
+      let existingWebhook = existingWebhooks.find(w => w.url === webhookUrl);
+
+      if (existingWebhook) {
+        console.log('✅ Found existing webhook registration in database');
+        console.log('   Webhook ID:', existingWebhook.webhookId);
+        console.log('   Already subscribed:', existingWebhook.subscribed);
+        webhookId = existingWebhook.webhookId;
+      } else {
         // List webhooks to see if one already exists in Twitter
+        console.log('🔍 Checking Twitter for existing webhook...');
         try {
           const twitterWebhooks = await listWebhooks(bearerToken);
+          console.log(`   Found ${twitterWebhooks.length} webhook(s) registered in Twitter`);
+
           const matchingWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
 
           if (matchingWebhook) {
             console.log('✅ Found existing webhook in Twitter:', matchingWebhook.id);
+            console.log('   Saving to database...');
+
             // Save to database
             await saveWebhookRegistration(project.id, {
               webhookId: matchingWebhook.id,
               url: matchingWebhook.url,
               subscribed: false,
             });
-            webhook = await getWebhookRegistrationsByProjectId(project.id).then(whs => whs.find(w => w.webhookId === matchingWebhook.id));
+
+            webhookId = matchingWebhook.id;
+            console.log('   ✅ Saved to database');
+          } else {
+            console.log('   No matching webhook found in Twitter');
           }
         } catch (listError: any) {
           console.log('⚠️  Could not list webhooks:', listError.message);
+          console.log('   Will attempt to register new webhook');
         }
       }
 
       // Register new webhook if doesn't exist
-      if (!webhook) {
-        console.log('🔧 Registering new webhook...');
-        const { webhookId, url } = await registerWebhook(webhookUrl, bearerToken);
+      if (!webhookId) {
+        console.log('🔧 Registering new webhook with Twitter...');
+        const result = await registerWebhook(webhookUrl, bearerToken);
+        webhookId = result.webhookId;
+
+        console.log('✅ Webhook registered in Twitter:', webhookId);
+        console.log('   Saving to database...');
 
         // Save to database
         await saveWebhookRegistration(project.id, {
-          webhookId,
-          url,
+          webhookId: webhookId,
+          url: result.url,
           subscribed: false,
         });
 
-        console.log('✅ Webhook registered:', webhookId);
-
-        // Get the webhook we just saved
-        webhook = await getWebhookRegistrationsByProjectId(project.id).then(whs => whs.find(w => w.webhookId === webhookId));
+        console.log('   ✅ Saved to database');
       }
 
-      if (webhook) {
-        // Subscribe bot to webhook
-        console.log('📌 Subscribing bot to webhook...');
-        await subscribeWebhook(consumerKey, consumerSecret, accessToken, accessSecret, webhook.webhookId);
-
-        // Update subscription status
-        await saveWebhookRegistration(project.id, {
-          webhookId: webhook.webhookId,
-          url: webhook.url,
-          subscribed: true,
-        });
-
-        console.log('✅ Bot subscribed to webhook');
+      // CRITICAL: Ensure we have a webhookId before attempting subscription
+      if (!webhookId) {
+        throw new Error('Failed to obtain webhook ID - cannot subscribe bot');
       }
 
+      // Subscribe bot to webhook
+      console.log('📌 Subscribing bot to webhook...');
+      console.log('   Bot username:', user.data.username);
+      console.log('   Webhook ID:', webhookId);
+
+      await subscribeWebhook(consumerKey, consumerSecret, accessToken, accessSecret, webhookId);
+      console.log('   ✅ Subscription successful');
+
+      // Update subscription status in database
+      console.log('💾 Updating subscription status in database...');
+      await saveWebhookRegistration(project.id, {
+        webhookId: webhookId,
+        url: webhookUrl,
+        subscribed: true,
+      });
+
+      console.log('✅ Bot subscribed to webhook successfully');
       console.log('=== WEBHOOK REGISTRATION COMPLETE ===');
       console.log('');
     } catch (webhookError: any) {
-      console.error('⚠️  Webhook setup failed (non-fatal):', webhookError.message);
-      console.error(webhookError);
+      webhookSubscriptionFailed = true;
+      webhookErrorMessage = webhookError.message || 'Unknown error';
+
+      console.error('');
+      console.error('❌ WEBHOOK SETUP FAILED');
+      console.error('   Error:', webhookErrorMessage);
+      console.error('   Stack:', webhookError.stack);
+      console.error('');
+      console.error('⚠️  Bot is connected but NOT subscribed to webhooks');
+      console.error('   You will need to subscribe manually from the dashboard');
+      console.error('');
+
       // Continue anyway - bot is connected, webhook can be set up later
     }
 
     // Clear cookies and redirect
     // If projectId was in cookie, redirect to project detail page
     // Otherwise redirect to main dashboard (backward compatibility)
-    const redirectUrl = projectIdFromCookie
-      ? `/dashboard/projects/${project.id}?success=bot_connected`
-      : '/dashboard?success=bot_connected';
+    let redirectUrl: string;
+
+    if (webhookSubscriptionFailed) {
+      // Bot connected but webhook subscription failed
+      redirectUrl = projectIdFromCookie
+        ? `/dashboard/projects/${project.id}?success=bot_connected&warning=webhook_subscription_failed&error_detail=${encodeURIComponent(webhookErrorMessage)}`
+        : `/dashboard?success=bot_connected&warning=webhook_subscription_failed&error_detail=${encodeURIComponent(webhookErrorMessage)}`;
+    } else {
+      // Everything succeeded
+      redirectUrl = projectIdFromCookie
+        ? `/dashboard/projects/${project.id}?success=bot_connected`
+        : '/dashboard?success=bot_connected';
+    }
 
     const response = NextResponse.redirect(
       new URL(redirectUrl, request.url)
