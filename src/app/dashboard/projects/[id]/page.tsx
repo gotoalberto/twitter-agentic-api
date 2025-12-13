@@ -34,6 +34,16 @@ interface ApiKeyConfig {
   apiKey: string | null;
 }
 
+interface WebhookLog {
+  id: string;
+  eventType: string;
+  forwardedTo: string;
+  status: string;
+  statusCode: number | null;
+  payload: any;
+  createdAt: string;
+}
+
 function ProjectDetailContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -51,6 +61,17 @@ function ProjectDetailContent() {
   const [savingForwarding, setSavingForwarding] = useState(false);
   const [generatingApiKey, setGeneratingApiKey] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // Collapsible sections state
+  const [webhookDocsOpen, setWebhookDocsOpen] = useState(false);
+  const [apiKeyDocsOpen, setApiKeyDocsOpen] = useState(false);
+  const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
+
+  // Webhook logs state
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [logsNextCursor, setLogsNextCursor] = useState<string | null>(null);
+  const [logsHasMore, setLogsHasMore] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -76,6 +97,7 @@ function ProjectDetailContent() {
       fetchBotStatus();
       fetchForwardingConfig();
       fetchApiKeyConfig();
+      fetchWebhookLogs();
     }
   }, [status, projectId]);
 
@@ -234,6 +256,39 @@ function ProjectDetailContent() {
     } catch (error) {
       console.error('Error removing API key:', error);
       setMessage({ type: 'error', text: 'Error removing API key' });
+    }
+  };
+
+  const fetchWebhookLogs = async (cursor?: string) => {
+    setLogsLoading(true);
+    try {
+      const url = cursor
+        ? `/api/projects/${projectId}/webhook-logs?cursor=${cursor}`
+        : `/api/projects/${projectId}/webhook-logs`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (cursor) {
+        // Append to existing logs (infinite scroll)
+        setWebhookLogs((prev) => [...prev, ...data.logs]);
+      } else {
+        // Initial load
+        setWebhookLogs(data.logs);
+      }
+
+      setLogsNextCursor(data.nextCursor);
+      setLogsHasMore(data.hasMore);
+    } catch (error) {
+      console.error('Error fetching webhook logs:', error);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const loadMoreLogs = () => {
+    if (logsNextCursor && logsHasMore && !logsLoading) {
+      fetchWebhookLogs(logsNextCursor);
     }
   };
 
@@ -485,16 +540,29 @@ function ProjectDetailContent() {
                 </div>
               )}
 
-              {/* Webhook Forwarding Documentation */}
+              {/* Webhook Forwarding Documentation - Collapsible */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-                <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                <button
+                  onClick={() => setWebhookDocsOpen(!webhookDocsOpen)}
+                  className="w-full flex items-center justify-between text-sm font-semibold text-blue-900 hover:text-blue-700 transition"
+                >
+                  <span className="flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                    </svg>
+                    Webhook Request Details
+                  </span>
+                  <svg
+                    className={`w-5 h-5 transition-transform ${webhookDocsOpen ? 'rotate-180' : ''}`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
-                  Webhook Request Details
-                </h3>
+                </button>
 
-                <div className="space-y-3 text-xs">
+                {webhookDocsOpen && (
+                  <div className="mt-3 space-y-3 text-xs">
                   {/* HTTP Method */}
                   <div>
                     <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
@@ -570,7 +638,8 @@ Content-Type: application/json
                     <p className="text-blue-600 mt-2">✓ Status 200-299 = Success (webhook will not retry)</p>
                     <p className="text-blue-600">✗ Other status = Error (may be retried)</p>
                   </div>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -657,16 +726,29 @@ Content-Type: application/json
               )}
             </div>
 
-            {/* Tweet Publishing Endpoint Documentation */}
+            {/* Tweet Publishing Endpoint Documentation - Collapsible */}
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mt-4">
-              <h3 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+              <button
+                onClick={() => setApiKeyDocsOpen(!apiKeyDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-purple-900 hover:text-purple-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  Tweet Publishing API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${apiKeyDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                Tweet Publishing API Documentation
-              </h3>
+              </button>
 
-              <div className="space-y-3 text-xs">
+              {apiKeyDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
                 {/* Endpoint URL */}
                 <div>
                   <p className="text-purple-800 font-semibold mb-1">Endpoint</p>
@@ -799,7 +881,8 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
   }'`}</pre>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -830,20 +913,34 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
               </div>
             )}
 
-            {/* Webhook Forwarding Details */}
+            {/* Webhook Forwarding Details - Collapsible */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-              <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+              <button
+                onClick={() => setWebhooksInfoDocsOpen(!webhooksInfoDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-blue-900 hover:text-blue-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  How Webhooks are Forwarded
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${webhooksInfoDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                How Webhooks are Forwarded
-              </h3>
+              </button>
 
-              <p className="text-blue-700 text-xs mb-3">
-                When a webhook is received from Twitter, it is <strong>automatically forwarded</strong> to your configured endpoint with the following details:
-              </p>
+              {webhooksInfoDocsOpen && (
+                <div className="mt-3">
+                  <p className="text-blue-700 text-xs mb-3">
+                    When a webhook is received from Twitter, it is <strong>automatically forwarded</strong> to your configured endpoint with the following details:
+                  </p>
 
-              <div className="space-y-3 text-xs">
+                  <div className="space-y-3 text-xs">
                 {/* HTTP Method */}
                 <div>
                   <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
@@ -933,8 +1030,146 @@ Content-Type: application/json
                     <li>• Full Twitter webhook documentation: <a href="https://developer.twitter.com/en/docs/twitter-api/enterprise/account-activity-api/guides/account-activity-data-objects" target="_blank" rel="noopener noreferrer" className="underline">Account Activity API</a></li>
                   </ul>
                 </div>
-              </div>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+
+        {/* Webhook Logs Card */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhook Logs</h2>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 text-sm">
+              Recent webhooks forwarded to your configured endpoint (last 100).
+            </p>
+
+            {webhookLogs.length === 0 && !logsLoading && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                <svg
+                  className="w-12 h-12 text-gray-400 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-sm">No webhook logs yet</p>
+                <p className="text-gray-400 text-xs mt-2">
+                  Logs will appear here when webhooks are forwarded to your endpoint
+                </p>
+              </div>
+            )}
+
+            {webhookLogs.length > 0 && (
+              <div className="space-y-3">
+                {webhookLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              log.status === 'success'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {log.status === 'success' ? '✓' : '✗'} {log.status.toUpperCase()}
+                          </span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {log.eventType}
+                          </span>
+                          {log.statusCode && (
+                            <span className="text-xs text-gray-500">
+                              HTTP {log.statusCode}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {new Date(log.createdAt).toLocaleString('en-US', {
+                            dateStyle: 'medium',
+                            timeStyle: 'medium',
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2 text-xs">
+                        <svg
+                          className="w-4 h-4 text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
+                        <span className="text-gray-600 font-medium">Forwarded to:</span>
+                      </div>
+                      <code className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 block break-all">
+                        {log.forwardedTo}
+                      </code>
+                    </div>
+
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-900 font-medium">
+                        View payload
+                      </summary>
+                      <div className="mt-2 bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                        <pre className="text-[10px]">
+                          {JSON.stringify(log.payload, null, 2)}
+                        </pre>
+                      </div>
+                    </details>
+                  </div>
+                ))}
+
+                {logsHasMore && (
+                  <button
+                    onClick={loadMoreLogs}
+                    disabled={logsLoading}
+                    className="w-full bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 font-medium py-3 px-4 rounded-lg transition duration-200"
+                  >
+                    {logsLoading ? 'Loading...' : 'Load More'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {logsLoading && webhookLogs.length === 0 && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            )}
           </div>
         </div>
       </div>

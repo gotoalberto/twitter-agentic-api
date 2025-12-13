@@ -262,6 +262,50 @@ export async function POST(request: NextRequest) {
             }
 
             console.log('────────────────────────────────────────────────────────────────────────────────');
+
+            // Save webhook log to database
+            try {
+              // Determine event type from payload
+              let eventType = 'unknown';
+              if (body.tweet_create_events) eventType = 'tweet_create_events';
+              else if (body.direct_message_events) eventType = 'direct_message_events';
+              else if (body.favorite_events) eventType = 'favorite_events';
+              else if (body.follow_events) eventType = 'follow_events';
+
+              // Create webhook log
+              await prisma.webhookLog.create({
+                data: {
+                  projectId: bot.project.id,
+                  eventType,
+                  forwardedTo: config.endpoint,
+                  status: forwardResponse.ok ? 'success' : 'error',
+                  statusCode: forwardResponse.status,
+                  payload: body,
+                },
+              });
+
+              // Keep only the last 100 logs for this project
+              // Get all logs ordered by createdAt DESC
+              const logs = await prisma.webhookLog.findMany({
+                where: { projectId: bot.project.id },
+                orderBy: { createdAt: 'desc' },
+                select: { id: true },
+              });
+
+              // Delete logs beyond the 100th
+              if (logs.length > 100) {
+                const logsToDelete = logs.slice(100).map(log => log.id);
+                await prisma.webhookLog.deleteMany({
+                  where: {
+                    id: { in: logsToDelete },
+                  },
+                });
+                console.log(`   🗑️  Cleaned up ${logsToDelete.length} old webhook logs`);
+              }
+            } catch (logError: any) {
+              console.error('   ⚠️  Failed to save webhook log:', logError.message);
+              // Continue execution even if logging fails
+            }
           } else {
             console.log('');
             console.log('⏭️  FORWARDING SKIPPED');

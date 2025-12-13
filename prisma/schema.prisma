@@ -31,6 +31,7 @@ model Project {
   bot                   Bot?
   forwardingConfig      ForwardingConfig?
   webhookRegistrations  WebhookRegistration[]
+  webhookLogs           WebhookLog[]
 
   @@map("projects")
 }
@@ -87,4 +88,22 @@ model WebhookRegistration {
   @@map("webhook_registrations")
   @@index([projectId])
   @@index([webhookId])
+}
+
+/// WebhookLog stores the last 100 webhook forwarding events for each project
+model WebhookLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  eventType   String   // tweet_create_events, direct_message_events, etc.
+  forwardedTo String   // URL where the webhook was forwarded
+  status      String   // success or error
+  statusCode  Int?     // HTTP status code from forwarding response
+  payload     Json     // Full webhook payload from Twitter
+  createdAt   DateTime @default(now())
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_logs")
+  @@index([projectId, createdAt(sort: Desc)])
 }
