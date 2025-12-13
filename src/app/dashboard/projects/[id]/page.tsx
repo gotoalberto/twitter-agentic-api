@@ -66,6 +66,7 @@ function ProjectDetailContent() {
   // Collapsible sections state
   const [webhookDocsOpen, setWebhookDocsOpen] = useState(false);
   const [apiKeyDocsOpen, setApiKeyDocsOpen] = useState(false);
+  const [dmDocsOpen, setDmDocsOpen] = useState(false);
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
 
   // Webhook logs state
@@ -878,6 +879,159 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
   -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
   -d '{
     "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+    "text": "Hello from curl!"
+  }'`}</pre>
+                  </div>
+                </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Direct Messages API Card */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Direct Messages API</h2>
+
+          <div className="space-y-4">
+            <p className="text-gray-600 text-sm">
+              Send direct messages on behalf of your bot. Same API key authentication as tweet endpoint.
+            </p>
+
+            {/* DM API Documentation - Collapsible */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+              <button
+                onClick={() => setDmDocsOpen(!dmDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-indigo-900 hover:text-indigo-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  Direct Message API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${dmDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {dmDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-1">Endpoint</p>
+                  <code className="bg-indigo-100 text-indigo-900 px-2 py-1 rounded block">
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm
+                  </code>
+                </div>
+
+                {/* HTTP Method */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-1">HTTP Method</p>
+                  <code className="bg-indigo-100 text-indigo-900 px-2 py-1 rounded">POST</code>
+                </div>
+
+                {/* Headers */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-2">Headers</p>
+                  <div className="bg-white rounded border border-indigo-200 p-2 space-y-1 font-mono text-indigo-900">
+                    <div>Content-Type: application/json</div>
+                    {apiKeyConfig?.configured && (
+                      <div className="text-red-600 font-bold">X-API-Key: {apiKeyConfig.apiKey ? 'your_api_key_here' : 'REQUIRED'}</div>
+                    )}
+                    {!apiKeyConfig?.configured && (
+                      <div className="text-indigo-600 text-[10px]">// No API key required (endpoint is public)</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Request Body */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-2">Request Body</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "username": "your_bot_handle",
+  "recipientId": "1234567890",  // Twitter user ID
+  "text": "Your message text (max 10000 chars)"
+}`}</pre>
+                  </div>
+                  <div className="mt-2 bg-indigo-100 border border-indigo-300 rounded p-2">
+                    <p className="text-[10px] text-indigo-800">
+                      <strong>Note:</strong> The recipient must allow DMs from your bot.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm
+Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
+
+{
+  "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+  "recipientId": "1234567890",
+  "text": "Hello! This is a DM from the bot."
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "success": true,
+  "dm": {
+    "id": "1867517889123456789",
+    "text": "Hello! This is a DM from the bot.",
+    "recipientId": "1234567890"
+  }
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    {apiKeyConfig?.configured && (
+                      <div>
+                        <p className="text-indigo-700 text-[10px] mb-1">401 Unauthorized - Missing or invalid API key:</p>
+                        <div className="bg-gray-900 text-red-400 rounded p-2">
+                          <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-indigo-700 text-[10px] mb-1">403 Forbidden - Recipient doesn't allow DMs:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Forbidden - check bot permissions or if recipient allows DMs" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-indigo-700 text-[10px] mb-1">404 Not Found - Bot not found:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "No bot found with username: xyz" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with curl */}
+                <div>
+                  <p className="text-indigo-800 font-semibold mb-2">Example with curl</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm \\
+  -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
+  -d '{
+    "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+    "recipientId": "1234567890",
     "text": "Hello from curl!"
   }'`}</pre>
                   </div>
