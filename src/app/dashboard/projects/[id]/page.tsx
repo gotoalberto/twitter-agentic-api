@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 
 interface BotStatus {
   connected: boolean;
@@ -74,6 +74,9 @@ function ProjectDetailContent() {
   const [logsNextCursor, setLogsNextCursor] = useState<string | null>(null);
   const [logsHasMore, setLogsHasMore] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // Ref for infinite scroll observer
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -293,6 +296,30 @@ function ProjectDetailContent() {
       fetchWebhookLogs(logsNextCursor);
     }
   };
+
+  // Infinite scroll with IntersectionObserver
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry.isIntersecting && logsHasMore && !logsLoading) {
+          loadMoreLogs();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [logsHasMore, logsLoading, logsNextCursor]);
 
   const connectBot = () => {
     window.location.href = `/api/projects/${projectId}/bot/authorize`;
@@ -1323,14 +1350,19 @@ Content-Type: application/json
                   </div>
                 ))}
 
+                {/* Infinite scroll trigger */}
                 {logsHasMore && (
-                  <button
-                    onClick={loadMoreLogs}
-                    disabled={logsLoading}
-                    className="w-full bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 font-medium py-3 px-4 rounded-lg transition duration-200"
+                  <div
+                    ref={loadMoreRef}
+                    className="flex items-center justify-center py-4"
                   >
-                    {logsLoading ? 'Loading...' : 'Load More'}
-                  </button>
+                    {logsLoading && (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                        <span>Loading more...</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

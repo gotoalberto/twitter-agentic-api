@@ -17,7 +17,7 @@ export async function GET(
     const projectId = params.id;
     const searchParams = request.nextUrl.searchParams;
     const cursor = searchParams.get('cursor'); // ID of last log from previous page
-    const limit = 20; // Number of logs per page
+    const limit = 10; // Number of logs per page
 
     // Build query
     const where = { projectId };
