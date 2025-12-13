@@ -100,6 +100,17 @@ export async function deliverWebhook(webhookLogId: string): Promise<boolean> {
 
     clearTimeout(timeoutId);
 
+    // Capture response body
+    let responseBody = null;
+    let responseText = '';
+    try {
+      responseText = await response.text();
+      responseBody = responseText ? JSON.parse(responseText) : null;
+    } catch (e) {
+      // If not JSON, store as plain text
+      responseBody = { text: responseText, error: 'Not valid JSON' };
+    }
+
     if (response.ok) {
       // Success! Mark as delivered
       await prisma.webhookLog.update({
@@ -109,18 +120,21 @@ export async function deliverWebhook(webhookLogId: string): Promise<boolean> {
           statusCode: response.status,
           deliveredAt: new Date(),
           errorMessage: null,
+          responseBody,
         },
       });
 
       console.log('   ✅ Webhook delivered successfully');
       console.log('   Status Code:', response.status);
+      console.log('   Response:', JSON.stringify(responseBody));
       return true;
     } else {
       // HTTP error - requeue for retry
       const errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       console.log('   ❌ Delivery failed:', errorMessage);
+      console.log('   Response:', JSON.stringify(responseBody));
 
-      await requeueFailedWebhook(webhookLogId, errorMessage);
+      await requeueFailedWebhook(webhookLogId, errorMessage, response.status, responseBody);
       return false;
     }
   } catch (error: any) {
@@ -142,10 +156,14 @@ export async function deliverWebhook(webhookLogId: string): Promise<boolean> {
  *
  * @param webhookLogId - ID of the webhook log to requeue
  * @param errorMessage - Error message to store
+ * @param statusCode - HTTP status code (optional)
+ * @param responseBody - Response body from endpoint (optional)
  */
 export async function requeueFailedWebhook(
   webhookLogId: string,
-  errorMessage: string
+  errorMessage: string,
+  statusCode?: number,
+  responseBody?: any
 ) {
   // Calculate next retry time (30 seconds from now)
   const nextRetryAt = new Date(Date.now() + INITIAL_RETRY_DELAY_SECONDS * 1000);
@@ -156,6 +174,8 @@ export async function requeueFailedWebhook(
       status: 'pending',
       errorMessage,
       nextRetryAt,
+      ...(statusCode !== undefined && { statusCode }),
+      ...(responseBody !== undefined && { responseBody }),
     },
   });
 

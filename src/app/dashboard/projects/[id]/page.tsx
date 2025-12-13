@@ -41,6 +41,7 @@ interface WebhookLog {
   status: string;
   statusCode: number | null;
   payload: any;
+  responseBody: any | null;
   createdAt: string;
 }
 
@@ -1183,6 +1184,19 @@ Content-Type: application/json
                         </pre>
                       </div>
                     </details>
+
+                    {log.responseBody && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-900 font-medium">
+                          View endpoint response
+                        </summary>
+                        <div className="mt-2 bg-gray-900 text-blue-400 rounded p-3 overflow-x-auto">
+                          <pre className="text-[10px]">
+                            {JSON.stringify(log.responseBody, null, 2)}
+                          </pre>
+                        </div>
+                      </details>
+                    )}
                   </div>
                 ))}
 

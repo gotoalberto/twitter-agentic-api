@@ -105,6 +105,7 @@ model WebhookLog {
   nextRetryAt    DateTime? // Timestamp for next retry (null for pending, set after failure)
   deliveredAt    DateTime? // Timestamp of successful delivery
   errorMessage   String?   // Last error message if delivery failed
+  responseBody   Json?     // Response body from the forwarding endpoint
   createdAt      DateTime  @default(now())
 
   // Relations
