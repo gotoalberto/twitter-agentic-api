@@ -203,109 +203,40 @@ export async function POST(request: NextRequest) {
 
           if (shouldForward) {
             console.log('');
-            console.log('🔄 FORWARDING WEBHOOK TO TARGET ENDPOINT');
+            console.log('📥 ENQUEUING WEBHOOK FOR ASYNC DELIVERY');
             console.log('────────────────────────────────────────────────────────────────────────────────');
             console.log('   Project:', bot.project.name);
             console.log('   Bot:', `@${bot.username}`);
             console.log('   Target URL:', config.endpoint);
-            console.log('   Method: POST');
 
-            // Forward all relevant Twitter headers
-            const forwardHeaders: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'X-Forwarded-From': 'x-forwarder',
-            };
+            // Determine event type from payload
+            let eventType = 'unknown';
+            if (body.tweet_create_events) eventType = 'tweet_create_events';
+            else if (body.direct_message_events) eventType = 'direct_message_events';
+            else if (body.favorite_events) eventType = 'favorite_events';
+            else if (body.follow_events) eventType = 'follow_events';
 
-            // Copy Twitter signature header if present (for validation on goodboy side)
-            const twitterSignature = request.headers.get('x-twitter-webhooks-signature');
-            if (twitterSignature) {
-              forwardHeaders['x-twitter-webhooks-signature'] = twitterSignature;
-            }
+            // Enqueue webhook for async delivery
+            try {
+              const { enqueueWebhook } = await import('@/lib/webhooks/queue');
 
-            console.log('   Headers:');
-            Object.keys(forwardHeaders).forEach(key => {
-              console.log(`     ${key}: ${forwardHeaders[key].substring(0, 50)}${forwardHeaders[key].length > 50 ? '...' : ''}`);
-            });
-            console.log('');
-            console.log('   Payload (RAW):');
-            console.log(JSON.stringify(body, null, 2));
-            console.log('');
+              await enqueueWebhook(
+                bot.project.id,
+                eventType,
+                body,
+                config.endpoint
+              );
 
-            const startTime = Date.now();
-            const forwardResponse = await fetch(config.endpoint, {
-              method: 'POST',
-              headers: forwardHeaders,
-              body: JSON.stringify(body),
-            });
-            const duration = Date.now() - startTime;
-
-            console.log('   Response Status:', forwardResponse.status, forwardResponse.statusText);
-            console.log('   Response Time:', `${duration}ms`);
-            console.log('   Success:', forwardResponse.ok ? '✅ YES' : '❌ NO');
-
-            if (!forwardResponse.ok) {
-              const errorText = await forwardResponse.text();
-              console.log('');
-              console.log('   ❌ ERROR RESPONSE:');
-              console.log(errorText);
-            } else {
-              try {
-                const responseBody = await forwardResponse.text();
-                if (responseBody) {
-                  console.log('');
-                  console.log('   📨 RESPONSE BODY:');
-                  console.log(responseBody);
-                }
-              } catch (e) {
-                // Ignore if no body
-              }
+              console.log('   ✅ Webhook enqueued successfully');
+              console.log('   Event Type:', eventType);
+              console.log('   Status: pending (will be processed asynchronously)');
+            } catch (enqueueError: any) {
+              console.error('   ❌ Failed to enqueue webhook:', enqueueError.message);
+              console.error('   Stack:', enqueueError.stack);
+              // Continue execution - don't fail the whole webhook
             }
 
             console.log('────────────────────────────────────────────────────────────────────────────────');
-
-            // Save webhook log to database
-            try {
-              // Determine event type from payload
-              let eventType = 'unknown';
-              if (body.tweet_create_events) eventType = 'tweet_create_events';
-              else if (body.direct_message_events) eventType = 'direct_message_events';
-              else if (body.favorite_events) eventType = 'favorite_events';
-              else if (body.follow_events) eventType = 'follow_events';
-
-              // Create webhook log
-              await prisma.webhookLog.create({
-                data: {
-                  projectId: bot.project.id,
-                  eventType,
-                  forwardedTo: config.endpoint,
-                  status: forwardResponse.ok ? 'success' : 'error',
-                  statusCode: forwardResponse.status,
-                  payload: body,
-                },
-              });
-
-              // Keep only the last 100 logs for this project
-              // Get all logs ordered by createdAt DESC
-              const logs = await prisma.webhookLog.findMany({
-                where: { projectId: bot.project.id },
-                orderBy: { createdAt: 'desc' },
-                select: { id: true },
-              });
-
-              // Delete logs beyond the 100th
-              if (logs.length > 100) {
-                const logsToDelete = logs.slice(100).map(log => log.id);
-                await prisma.webhookLog.deleteMany({
-                  where: {
-                    id: { in: logsToDelete },
-                  },
-                });
-                console.log(`   🗑️  Cleaned up ${logsToDelete.length} old webhook logs`);
-              }
-            } catch (logError: any) {
-              console.error('   ⚠️  Failed to save webhook log:', logError.message);
-              // Continue execution even if logging fails
-            }
           } else {
             console.log('');
             console.log('⏭️  FORWARDING SKIPPED');
