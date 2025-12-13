@@ -257,27 +257,30 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Only enqueue if we have relevant events after filtering
+            // Only forward if we have relevant events after filtering
             if (!hasRelevantEvents) {
               console.log('   ⏭️  No relevant events for this bot after filtering');
             } else {
-              // Enqueue webhook for async delivery
+              // Attempt immediate delivery
               try {
-                const { enqueueWebhook } = await import('@/lib/webhooks/queue');
+                const { deliverWebhookImmediately } = await import('@/lib/webhooks/queue');
 
-                await enqueueWebhook(
+                const success = await deliverWebhookImmediately(
                   bot.project.id,
                   eventType,
                   filteredPayload,
                   config.endpoint
                 );
 
-                console.log('   ✅ Webhook enqueued successfully');
+                if (success) {
+                  console.log('   ✅ Webhook delivered immediately');
+                } else {
+                  console.log('   🔄 Webhook delivery failed - queued for automatic retry');
+                }
                 console.log('   Event Type:', eventType);
-                console.log('   Status: pending (will be processed asynchronously)');
-              } catch (enqueueError: any) {
-                console.error('   ❌ Failed to enqueue webhook:', enqueueError.message);
-                console.error('   Stack:', enqueueError.stack);
+              } catch (deliveryError: any) {
+                console.error('   ❌ Failed to deliver webhook:', deliveryError.message);
+                console.error('   Stack:', deliveryError.stack);
                 // Continue execution - don't fail the whole webhook
               }
             }

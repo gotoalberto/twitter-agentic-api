@@ -1,10 +1,11 @@
 /**
  * Webhook Queue Management
  *
- * Implements a robust webhook delivery queue with:
- * - Infinite retries for failed deliveries
- * - FIFO ordering (failed webhooks go to the end of queue)
- * - Automatic retry scheduling with backoff
+ * Implements immediate webhook delivery with automatic retries:
+ * - Immediate delivery attempt when webhook is received
+ * - Failed deliveries are queued for retry
+ * - Automatic retry every 2 minutes via cron
+ * - Infinite retries with FIFO ordering
  */
 
 import { prisma } from '@/lib/db/prisma';
@@ -47,6 +48,142 @@ export async function enqueueWebhook(
 
   console.log('   ✅ Webhook enqueued with ID:', webhookLog.id);
   return webhookLog;
+}
+
+/**
+ * Attempt immediate webhook delivery (used when webhook first arrives)
+ * Saves the webhook log with appropriate status based on delivery result
+ *
+ * @param projectId - Project ID
+ * @param eventType - Type of webhook event
+ * @param payload - Full webhook payload from Twitter
+ * @param forwardUrl - URL to forward the webhook to
+ * @returns true if delivered successfully, false if failed (and queued for retry)
+ */
+export async function deliverWebhookImmediately(
+  projectId: string,
+  eventType: string,
+  payload: any,
+  forwardUrl: string
+): Promise<boolean> {
+  console.log('');
+  console.log('🚀 IMMEDIATE WEBHOOK DELIVERY ATTEMPT');
+  console.log('   Project ID:', projectId);
+  console.log('   Event Type:', eventType);
+  console.log('   Target URL:', forwardUrl);
+
+  const startTime = Date.now();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
+
+    const response = await fetch(forwardUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Forwarded-From': 'x-forwarder',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const duration = Date.now() - startTime;
+
+    // Capture response body
+    let responseBody = null;
+    let responseText = '';
+    try {
+      responseText = await response.text();
+      responseBody = responseText ? JSON.parse(responseText) : null;
+    } catch (e) {
+      // If not JSON, store as plain text
+      responseBody = { text: responseText, error: 'Not valid JSON' };
+    }
+
+    if (response.ok) {
+      // Success! Save as delivered
+      await prisma.webhookLog.create({
+        data: {
+          projectId,
+          eventType,
+          forwardedTo: forwardUrl,
+          status: 'delivered',
+          statusCode: response.status,
+          payload,
+          attempts: 1,
+          lastAttemptAt: new Date(),
+          deliveredAt: new Date(),
+          responseBody,
+        },
+      });
+
+      console.log('   ✅ Webhook delivered immediately');
+      console.log('   Status Code:', response.status);
+      console.log('   Duration:', `${duration}ms`);
+      console.log('   Response:', JSON.stringify(responseBody));
+      return true;
+    } else {
+      // HTTP error - save as pending for retry
+      const errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      console.log('   ❌ Immediate delivery failed:', errorMessage);
+      console.log('   Duration:', `${duration}ms`);
+      console.log('   Response:', JSON.stringify(responseBody));
+
+      const nextRetryAt = new Date(Date.now() + INITIAL_RETRY_DELAY_SECONDS * 1000);
+
+      await prisma.webhookLog.create({
+        data: {
+          projectId,
+          eventType,
+          forwardedTo: forwardUrl,
+          status: 'pending',
+          statusCode: response.status,
+          payload,
+          attempts: 1,
+          lastAttemptAt: new Date(),
+          nextRetryAt,
+          errorMessage,
+          responseBody,
+        },
+      });
+
+      console.log('   🔄 Webhook queued for retry');
+      console.log('   Next retry at:', nextRetryAt.toISOString());
+      return false;
+    }
+  } catch (error: any) {
+    // Network error or timeout - save as pending for retry
+    const duration = Date.now() - startTime;
+    const errorMessage = error.name === 'AbortError'
+      ? 'Request timeout (30s)'
+      : error.message || 'Unknown error';
+
+    console.log('   ❌ Immediate delivery failed:', errorMessage);
+    console.log('   Duration:', `${duration}ms`);
+
+    const nextRetryAt = new Date(Date.now() + INITIAL_RETRY_DELAY_SECONDS * 1000);
+
+    await prisma.webhookLog.create({
+      data: {
+        projectId,
+        eventType,
+        forwardedTo: forwardUrl,
+        status: 'pending',
+        payload,
+        attempts: 1,
+        lastAttemptAt: new Date(),
+        nextRetryAt,
+        errorMessage,
+      },
+    });
+
+    console.log('   🔄 Webhook queued for retry');
+    console.log('   Next retry at:', nextRetryAt.toISOString());
+    return false;
+  }
 }
 
 /**
