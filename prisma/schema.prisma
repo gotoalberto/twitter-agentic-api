@@ -122,13 +122,13 @@ model WebhookLog {
 /// Cache expires after 24 hours
 model IdempotentTweet {
   id               String   @id @default(cuid())
-  projectId        String   // Project that published the tweet
-  idempotencyKey   String   // Client-provided unique key (e.g., PendingReply.id)
-  tweetId          String   // Twitter tweet ID from successful publish
-  tweetText        String   // Tweet text (for debugging)
-  replyToTweetId   String?  // Original tweet ID if this is a reply
-  publishedAt      DateTime @default(now())
-  expiresAt        DateTime // Automatic cleanup after 24 hours
+  projectId        String   @map("project_id") // Project that published the tweet
+  idempotencyKey   String   @map("idempotency_key") // Client-provided unique key (e.g., PendingReply.id)
+  tweetId          String   @map("tweet_id") // Twitter tweet ID from successful publish
+  tweetText        String   @map("tweet_text") // Tweet text (for debugging)
+  replyToTweetId   String?  @map("reply_to_tweet_id") // Original tweet ID if this is a reply
+  publishedAt      DateTime @default(now()) @map("published_at")
+  expiresAt        DateTime @map("expires_at") // Automatic cleanup after 24 hours
 
   // Relations
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
