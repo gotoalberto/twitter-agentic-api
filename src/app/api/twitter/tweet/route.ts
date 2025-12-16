@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { getBotByUsername } from '@/lib/db/bots';
 import { getProjectById } from '@/lib/db/projects';
+import { prisma } from '@/lib/db/prisma';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,7 @@ interface TweetRequest {
   username: string;
   text: string;
   replyToTweetId?: string;
+  idempotencyKey?: string; // Optional idempotency key to prevent duplicate tweets
 }
 
 /**
@@ -29,7 +31,8 @@ interface TweetRequest {
  * {
  *   "username": "bot_handle",
  *   "text": "Tweet text",
- *   "replyToTweetId": "1234567890" // optional
+ *   "replyToTweetId": "1234567890", // optional
+ *   "idempotencyKey": "unique-key-123" // optional - prevents duplicate tweets on retry
  * }
  *
  * Response:
@@ -39,8 +42,15 @@ interface TweetRequest {
  *     "id": "1234567890",
  *     "text": "Tweet text",
  *     "url": "https://twitter.com/bot_handle/status/1234567890"
- *   }
+ *   },
+ *   "idempotent": true // optional - present if this was a cached idempotent response
  * }
+ *
+ * Idempotency:
+ * - If idempotencyKey is provided and a tweet was already published with the same key,
+ *   returns the existing tweet instead of publishing a duplicate
+ * - Idempotency keys expire after 24 hours
+ * - Use PendingReply.id or similar unique identifier as idempotency key
  */
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +68,7 @@ export async function POST(request: NextRequest) {
     console.log('   Username:', body.username);
     console.log('   Text length:', body.text?.length || 0);
     console.log('   Reply to:', body.replyToTweetId || 'N/A');
+    console.log('   Idempotency key:', body.idempotencyKey || 'N/A');
     console.log('');
 
     // Validate request
@@ -154,6 +165,48 @@ export async function POST(request: NextRequest) {
     }
     console.log('');
 
+    // Check for existing tweet with this idempotency key
+    if (body.idempotencyKey) {
+      console.log('🔍 Checking idempotency key...');
+
+      const existingTweet = await prisma.idempotentTweet.findUnique({
+        where: {
+          projectId_idempotencyKey: {
+            projectId: bot.projectId,
+            idempotencyKey: body.idempotencyKey,
+          },
+        },
+      });
+
+      if (existingTweet) {
+        console.log('✅ IDEMPOTENCY HIT - Tweet already published');
+        console.log('────────────────────────────────────────────────────────────────────────────────');
+        console.log('   Tweet ID:', existingTweet.tweetId);
+        console.log('   Published at:', existingTweet.publishedAt.toISOString());
+        console.log('   Time since publish:', `${Date.now() - existingTweet.publishedAt.getTime()}ms`);
+        console.log('   URL:', `https://twitter.com/${bot.username}/status/${existingTweet.tweetId}`);
+        console.log('────────────────────────────────────────────────────────────────────────────────');
+        console.log('   Returning cached result - NO duplicate tweet published');
+        console.log('================================================================================');
+        console.log('');
+
+        // Return the existing tweet (idempotency success)
+        return NextResponse.json({
+          success: true,
+          tweet: {
+            id: existingTweet.tweetId,
+            text: existingTweet.tweetText,
+            url: `https://twitter.com/${bot.username}/status/${existingTweet.tweetId}`,
+          },
+          idempotent: true, // Flag indicating this was an idempotent response
+        });
+      }
+
+      console.log('   No existing tweet found for this idempotency key');
+      console.log('   Proceeding with tweet publishing...');
+      console.log('');
+    }
+
     // Get Twitter API credentials
     const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
     const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
@@ -203,6 +256,37 @@ export async function POST(request: NextRequest) {
     console.log('   URL:', `https://twitter.com/${bot.username}/status/${response.data.id}`);
     console.log('────────────────────────────────────────────────────────────────────────────────');
     console.log('');
+
+    // Store idempotency key if provided (prevents duplicates on retry)
+    if (body.idempotencyKey) {
+      console.log('💾 Storing idempotency key...');
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // Expire after 24 hours
+
+      try {
+        await prisma.idempotentTweet.create({
+          data: {
+            projectId: bot.projectId,
+            idempotencyKey: body.idempotencyKey,
+            tweetId: response.data.id,
+            tweetText: response.data.text,
+            replyToTweetId: body.replyToTweetId || null,
+            expiresAt,
+          },
+        });
+
+        console.log('   ✅ Idempotency key stored');
+        console.log('   Expires at:', expiresAt.toISOString());
+      } catch (error: any) {
+        // Log error but don't fail the request (tweet was published successfully)
+        console.warn('   ⚠️  Failed to store idempotency key:', error.message);
+        console.warn('   This may result in duplicate tweets if client retries');
+      }
+
+      console.log('');
+    }
+
     console.log('================================================================================');
     console.log('');
 

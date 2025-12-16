@@ -32,6 +32,7 @@ model Project {
   forwardingConfig      ForwardingConfig?
   webhookRegistrations  WebhookRegistration[]
   webhookLogs           WebhookLog[]
+  idempotentTweets      IdempotentTweet[]
 
   @@map("projects")
 }
@@ -114,4 +115,26 @@ model WebhookLog {
   @@map("webhook_logs")
   @@index([projectId, createdAt(sort: Desc)])
   @@index([projectId, status, nextRetryAt])
+}
+
+/// IdempotentTweet stores tweet publishing requests with idempotency keys
+/// Prevents duplicate tweets from being published when clients retry requests
+/// Cache expires after 24 hours
+model IdempotentTweet {
+  id               String   @id @default(cuid())
+  projectId        String   // Project that published the tweet
+  idempotencyKey   String   // Client-provided unique key (e.g., PendingReply.id)
+  tweetId          String   // Twitter tweet ID from successful publish
+  tweetText        String   // Tweet text (for debugging)
+  replyToTweetId   String?  // Original tweet ID if this is a reply
+  publishedAt      DateTime @default(now())
+  expiresAt        DateTime // Automatic cleanup after 24 hours
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, idempotencyKey])
+  @@map("idempotent_tweets")
+  @@index([projectId, idempotencyKey])
+  @@index([expiresAt]) // For cleanup job
 }

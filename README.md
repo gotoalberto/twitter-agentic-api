@@ -208,11 +208,12 @@ curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
   -d '{
     "username": "bot_handle",
     "text": "Hello from X Forwarder!",
-    "replyToTweetId": "1234567890"
+    "replyToTweetId": "1234567890",
+    "idempotencyKey": "unique-key-123"
   }'
 ```
 
-Response:
+Response (first time):
 ```json
 {
   "success": true,
@@ -223,6 +224,21 @@ Response:
   }
 }
 ```
+
+Response (retry with same idempotencyKey):
+```json
+{
+  "success": true,
+  "tweet": {
+    "id": "1234567890",
+    "text": "Hello from X Forwarder!",
+    "url": "https://twitter.com/bot_handle/status/1234567890"
+  },
+  "idempotent": true
+}
+```
+
+**Note:** The `idempotent: true` flag indicates that the tweet was already published and this is a cached response. No duplicate tweet was created.
 
 ### 5. Monitor Operations
 
@@ -271,9 +287,16 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
   {
     "username": "bot_handle",
     "text": "Tweet text",
-    "replyToTweetId": "optional_tweet_id"
+    "replyToTweetId": "optional_tweet_id",
+    "idempotencyKey": "unique-key-123"
   }
   ```
+
+  **Idempotency Support:**
+  - `idempotencyKey` (optional): Prevents duplicate tweets on retry
+  - If a tweet was already published with the same key, returns the cached tweet
+  - Keys expire after 24 hours
+  - Use a unique identifier (e.g., database record ID) as the key
 
 ### Legacy Endpoints (Backward Compatible)
 
