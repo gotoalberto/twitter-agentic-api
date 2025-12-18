@@ -807,31 +807,40 @@ Content-Type: application/json
                     <pre className="text-[10px]">{`{
   "username": "your_bot_handle",
   "text": "Your tweet text here (max 280 chars)",
-  "replyToTweetId": "1234567890" // OPTIONAL - omit for normal tweet
+  "replyToTweetId": "1234567890", // OPTIONAL - omit for normal tweet
+  "imageUrl": "https://example.com/image.jpg", // OPTIONAL - image attachment
+  "videoUrl": "https://example.com/video.mp4", // OPTIONAL - video attachment
+  "idempotencyKey": "unique-key-123" // OPTIONAL - prevents duplicates on retry
 }`}</pre>
                   </div>
                   <div className="mt-2 bg-purple-100 border border-purple-300 rounded p-2">
-                    <p className="text-[10px] text-purple-800">
-                      <strong>Note:</strong> The <code className="bg-purple-200 px-1 rounded">replyToTweetId</code> parameter is <strong>optional</strong>:
+                    <p className="text-[10px] text-purple-800 mb-2">
+                      <strong>Optional Parameters:</strong>
                     </p>
-                    <ul className="text-[10px] text-purple-700 ml-4 mt-1 space-y-1">
-                      <li>• <strong>With replyToTweetId:</strong> Tweet will be posted as a reply to the specified tweet</li>
-                      <li>• <strong>Without replyToTweetId:</strong> Tweet will be posted as a normal standalone tweet</li>
+                    <ul className="text-[10px] text-purple-700 ml-4 space-y-1">
+                      <li>• <strong>replyToTweetId:</strong> Tweet ID to reply to (omit for standalone tweet)</li>
+                      <li>• <strong>imageUrl:</strong> URL of image to attach (PNG, JPG, GIF, WEBP)</li>
+                      <li>• <strong>videoUrl:</strong> URL of video to attach (MP4)</li>
+                      <li>• <strong>idempotencyKey:</strong> Unique key to prevent duplicate tweets on retry</li>
                     </ul>
+                    <p className="text-[10px] text-purple-800 mt-2">
+                      <strong>Note:</strong> Only one media type allowed per tweet (image OR video, not both)
+                    </p>
                   </div>
                 </div>
 
-                {/* Example Request - Reply */}
+                {/* Example Request - Reply with Image */}
                 <div>
-                  <p className="text-purple-800 font-semibold mb-2">Example Request (Reply to Tweet)</p>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request (Reply with Image)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
                     <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
 
 {
   "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
-  "text": "Hello from the X Forwarder API!",
-  "replyToTweetId": "1867517889123456789"
+  "text": "Check out this image! 🎨",
+  "replyToTweetId": "1867517889123456789",
+  "imageUrl": "https://example.com/image.jpg"
 }`}</pre>
                   </div>
                 </div>
@@ -846,6 +855,21 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
 {
   "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
   "text": "Hello from the X Forwarder API!"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Example Request - Tweet with Video */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request (Tweet with Video)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
+
+{
+  "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
+  "text": "Amazing video! 🎥",
+  "videoUrl": "https://example.com/video.mp4"
 }`}</pre>
                   </div>
                 </div>
@@ -894,13 +918,14 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
 
                 {/* Usage Example with curl */}
                 <div>
-                  <p className="text-purple-800 font-semibold mb-2">Example with curl</p>
+                  <p className="text-purple-800 font-semibold mb-2">Example with curl (with image)</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
                     <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet \\
   -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
   -d '{
     "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
-    "text": "Hello from curl!"
+    "text": "Hello from curl! 🎨",
+    "imageUrl": "https://picsum.photos/800/600"
   }'`}</pre>
                   </div>
                 </div>
