@@ -17,11 +17,27 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/**
+ * Download media from URL and return as Buffer
+ */
+async function downloadMedia(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Failed to download media: ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 interface TweetRequest {
   username: string;
   text: string;
   replyToTweetId?: string;
   idempotencyKey?: string; // Optional idempotency key to prevent duplicate tweets
+  imageUrl?: string; // Optional image URL to attach to tweet
+  videoUrl?: string; // Optional video URL to attach to tweet
 }
 
 /**
@@ -32,7 +48,9 @@ interface TweetRequest {
  *   "username": "bot_handle",
  *   "text": "Tweet text",
  *   "replyToTweetId": "1234567890", // optional
- *   "idempotencyKey": "unique-key-123" // optional - prevents duplicate tweets on retry
+ *   "idempotencyKey": "unique-key-123", // optional - prevents duplicate tweets on retry
+ *   "imageUrl": "https://example.com/image.jpg", // optional - URL of image to attach
+ *   "videoUrl": "https://example.com/video.mp4" // optional - URL of video to attach
  * }
  *
  * Response:
@@ -51,6 +69,14 @@ interface TweetRequest {
  *   returns the existing tweet instead of publishing a duplicate
  * - Idempotency keys expire after 24 hours
  * - Use PendingReply.id or similar unique identifier as idempotency key
+ *
+ * Media Attachments:
+ * - imageUrl and videoUrl are optional parameters
+ * - If provided, media is downloaded and uploaded to Twitter
+ * - Media is attached to the tweet (not as URL in text)
+ * - Only one media type per tweet (image OR video, not both)
+ * - Supported image formats: PNG, JPG, GIF, WEBP
+ * - Supported video formats: MP4
  */
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +95,8 @@ export async function POST(request: NextRequest) {
     console.log('   Text length:', body.text?.length || 0);
     console.log('   Reply to:', body.replyToTweetId || 'N/A');
     console.log('   Idempotency key:', body.idempotencyKey || 'N/A');
+    console.log('   Image URL:', body.imageUrl || 'N/A');
+    console.log('   Video URL:', body.videoUrl || 'N/A');
     console.log('');
 
     // Validate request
@@ -98,6 +126,17 @@ export async function POST(request: NextRequest) {
       console.log('');
       return NextResponse.json(
         { error: 'text must be 280 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    // Validate media parameters
+    if (body.imageUrl && body.videoUrl) {
+      console.log('❌ Cannot include both image and video');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Cannot include both imageUrl and videoUrl - choose one' },
         { status: 400 }
       );
     }
@@ -230,6 +269,43 @@ export async function POST(request: NextRequest) {
       accessSecret: bot.accessTokenSecret,
     });
 
+    // Handle media upload if provided
+    let mediaId: string | undefined;
+
+    if (body.imageUrl || body.videoUrl) {
+      const mediaUrl = body.imageUrl || body.videoUrl;
+      const mediaType = body.imageUrl ? 'image' : 'video';
+
+      console.log(`📸 Downloading ${mediaType} from URL...`);
+      console.log('   URL:', mediaUrl);
+
+      try {
+        const mediaBuffer = await downloadMedia(mediaUrl!);
+        console.log(`   Downloaded ${mediaBuffer.length} bytes`);
+
+        console.log(`📤 Uploading ${mediaType} to Twitter...`);
+        const uploadStartTime = Date.now();
+
+        mediaId = await client.v1.uploadMedia(mediaBuffer, {
+          mimeType: mediaType === 'image' ? 'image/jpeg' : 'video/mp4',
+        });
+
+        const uploadDuration = Date.now() - uploadStartTime;
+        console.log(`   ✅ ${mediaType} uploaded successfully`);
+        console.log('   Media ID:', mediaId);
+        console.log('   Duration:', `${uploadDuration}ms`);
+        console.log('');
+      } catch (error: any) {
+        console.error(`❌ Failed to upload ${mediaType}:`, error.message);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `Failed to upload ${mediaType}: ${error.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
     // Publish tweet
     console.log('📤 Publishing tweet...');
     const startTime = Date.now();
@@ -241,6 +317,12 @@ export async function POST(request: NextRequest) {
     if (body.replyToTweetId) {
       tweetData.reply = {
         in_reply_to_tweet_id: body.replyToTweetId,
+      };
+    }
+
+    if (mediaId) {
+      tweetData.media = {
+        media_ids: [mediaId],
       };
     }
 

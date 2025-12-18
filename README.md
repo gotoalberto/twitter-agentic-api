@@ -468,6 +468,30 @@ curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
   }'
 ```
 
+#### With Image Attachment
+
+```bash
+curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bot_handle",
+    "text": "Check out this image!",
+    "imageUrl": "https://example.com/image.jpg"
+  }'
+```
+
+#### With Video Attachment
+
+```bash
+curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bot_handle",
+    "text": "Check out this video!",
+    "videoUrl": "https://example.com/video.mp4"
+  }'
+```
+
 #### With Idempotency Key (Recommended)
 
 ```bash
@@ -580,9 +604,27 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
     "username": "bot_handle",
     "text": "Tweet text",
     "replyToTweetId": "optional_tweet_id",
-    "idempotencyKey": "unique-key-123"
+    "idempotencyKey": "unique-key-123",
+    "imageUrl": "https://example.com/image.jpg",
+    "videoUrl": "https://example.com/video.mp4"
   }
   ```
+
+  **Parameters:**
+  - `username` (required): Bot Twitter handle
+  - `text` (required): Tweet text (max 280 characters)
+  - `replyToTweetId` (optional): Tweet ID to reply to
+  - `idempotencyKey` (optional): Prevents duplicate tweets on retry
+  - `imageUrl` (optional): URL of image to attach to tweet
+  - `videoUrl` (optional): URL of video to attach to tweet
+
+  **Media Attachments:**
+  - `imageUrl` and `videoUrl` are optional
+  - Only one media type per tweet (image OR video, not both)
+  - Media is downloaded from URL and uploaded to Twitter
+  - Media appears in tweet (not as URL in text)
+  - Supported image formats: PNG, JPG, GIF, WEBP
+  - Supported video formats: MP4
 
   **Idempotency Support:**
   - `idempotencyKey` (optional): Prevents duplicate tweets on retry
