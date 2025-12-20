@@ -634,15 +634,19 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
 
 ### User Lookup
 
-- `POST /api/twitter/user` - Get detailed information about a Twitter user
-  ```json
-  {
-    "handle": "@username"
-  }
-  ```
+- `GET /api/twitter/user?handle=username` - Get detailed information about a Twitter user
 
-  **Parameters:**
-  - `handle` (required): Twitter handle (with or without @)
+  **Query Parameters:**
+  - `handle` (required): Twitter username WITHOUT @ symbol (e.g., "elonmusk")
+
+  **Headers:**
+  - `X-API-Key` (required): Valid API key from any registered project
+
+  **Example:**
+  ```bash
+  curl -X GET "https://bitso-twitter-api.vercel.app/api/twitter/user?handle=elonmusk" \
+    -H "X-API-Key: your_api_key_here"
+  ```
 
   **Response:**
   ```json

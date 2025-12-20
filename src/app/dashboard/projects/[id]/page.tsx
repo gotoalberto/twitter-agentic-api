@@ -1110,7 +1110,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 {/* HTTP Method */}
                 <div>
                   <p className="text-teal-800 font-semibold mb-1">HTTP Method</p>
-                  <code className="bg-teal-100 text-teal-900 px-2 py-1 rounded">POST</code>
+                  <code className="bg-teal-100 text-teal-900 px-2 py-1 rounded">GET</code>
                 </div>
 
                 {/* Description */}
@@ -1124,19 +1124,17 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-teal-800 font-semibold mb-2">Headers</p>
                   <div className="bg-white rounded border border-teal-200 p-2 space-y-1 font-mono text-teal-900">
-                    <div>Content-Type: application/json</div>
                     <div className="text-red-600 font-bold">X-API-Key: {apiKeyConfig?.apiKey || 'your_api_key_here'}</div>
                     <div className="text-teal-600 text-[10px]">// Your project API key is required</div>
                   </div>
                 </div>
 
-                {/* Request Body */}
+                {/* Query Parameters */}
                 <div>
-                  <p className="text-teal-800 font-semibold mb-2">Request Body</p>
-                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`{
-  "handle": "@username"  // or just "username" (@ is optional)
-}`}</pre>
+                  <p className="text-teal-800 font-semibold mb-2">Query Parameters</p>
+                  <div className="bg-white rounded border border-teal-200 p-2 space-y-1 font-mono text-teal-900">
+                    <div className="text-red-600 font-bold">handle (required)</div>
+                    <div className="text-teal-600 text-[10px]">// Twitter username WITHOUT @ symbol (e.g., "elonmusk")</div>
                   </div>
                 </div>
 
@@ -1144,13 +1142,8 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-teal-800 font-semibold mb-2">Example Request</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user
-Content-Type: application/json
-X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
-
-{
-  "handle": "@elonmusk"
-}`}</pre>
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user?handle=elonmusk
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                   </div>
                 </div>
 
@@ -1214,13 +1207,19 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
                     <div>
                       <p className="text-teal-700 text-[10px] mb-1">404 Not Found - User not found:</p>
                       <div className="bg-gray-900 text-red-400 rounded p-2">
-                        <pre className="text-[10px]">{`{ "error": "User not found: @username" }`}</pre>
+                        <pre className="text-[10px]">{`{ "error": "User not found: username" }`}</pre>
                       </div>
                     </div>
                     <div>
                       <p className="text-teal-700 text-[10px] mb-1">400 Bad Request - Missing handle:</p>
                       <div className="bg-gray-900 text-red-400 rounded p-2">
-                        <pre className="text-[10px]">{`{ "error": "handle is required" }`}</pre>
+                        <pre className="text-[10px]">{`{ "error": "handle query parameter is required" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-teal-700 text-[10px] mb-1">400 Bad Request - Handle contains @:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "handle must be username only (without @ symbol)" }`}</pre>
                       </div>
                     </div>
                   </div>
@@ -1230,12 +1229,8 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
                 <div>
                   <p className="text-teal-800 font-semibold mb-2">Example with curl</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}" \\
-  -d '{
-    "handle": "@gotoalberto"
-  }'`}</pre>
+                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user?handle=gotoalberto" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
                   </div>
                 </div>
 

@@ -1,7 +1,7 @@
 /**
  * Twitter User Information Endpoint
  *
- * POST: Get detailed information about a Twitter user by handle
+ * GET: Get detailed information about a Twitter user by handle
  *
  * This endpoint allows external applications to retrieve user information
  * including followers, account age, and other profile details.
@@ -15,17 +15,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-interface UserRequest {
-  handle: string; // Twitter handle (with or without @)
-}
-
 /**
- * POST: Get Twitter user information
+ * GET: Get Twitter user information
  *
- * Request body:
- * {
- *   "handle": "@username" or "username"
- * }
+ * Query parameters:
+ * - handle: Twitter username (WITHOUT @) - REQUIRED
+ *
+ * Example:
+ * GET /api/twitter/user?handle=elonmusk
  *
  * Response:
  * {
@@ -52,7 +49,7 @@ interface UserRequest {
  * - Requires X-API-Key header with valid API key from any registered project
  * - Any valid project API key can access this endpoint
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     console.log('');
     console.log('================================================================================');
@@ -61,30 +58,37 @@ export async function POST(request: NextRequest) {
     console.log('   Timestamp:', new Date().toISOString());
     console.log('');
 
-    // Parse request body
-    const body: UserRequest = await request.json();
+    // Get handle from query parameters
+    const { searchParams } = new URL(request.url);
+    const handle = searchParams.get('handle');
 
     console.log('📋 Request details:');
-    console.log('   Handle:', body.handle);
+    console.log('   Handle:', handle);
     console.log('');
 
     // Validate request
-    if (!body.handle) {
+    if (!handle) {
       console.log('❌ Missing handle');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: 'handle is required' },
+        { error: 'handle query parameter is required' },
         { status: 400 }
       );
     }
 
-    // Clean handle (remove @ if present)
-    const cleanHandle = body.handle.startsWith('@')
-      ? body.handle.substring(1)
-      : body.handle;
+    // Validate handle doesn't contain @
+    if (handle.includes('@')) {
+      console.log('❌ Handle contains @ symbol');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'handle must be username only (without @ symbol)' },
+        { status: 400 }
+      );
+    }
 
-    console.log('   Clean handle:', cleanHandle);
+    console.log('   Username:', handle);
     console.log('');
 
     // Validate API key
@@ -166,7 +170,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Fetching user information from Twitter...');
     const startTime = Date.now();
 
-    const userResponse = await client.v2.userByUsername(cleanHandle, {
+    const userResponse = await client.v2.userByUsername(handle, {
       'user.fields': [
         'id',
         'name',
@@ -189,7 +193,7 @@ export async function POST(request: NextRequest) {
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: `User not found: @${cleanHandle}` },
+        { error: `User not found: ${handle}` },
         { status: 404 }
       );
     }
