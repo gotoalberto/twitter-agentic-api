@@ -68,6 +68,7 @@ function ProjectDetailContent() {
   const [apiKeyDocsOpen, setApiKeyDocsOpen] = useState(false);
   const [dmDocsOpen, setDmDocsOpen] = useState(false);
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
+  const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
 
   // Webhook logs state
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
@@ -1070,6 +1071,186 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
     "text": "Hello from curl!"
   }'`}</pre>
                   </div>
+                </div>
+                </div>
+              )}
+            </div>
+
+            {/* User Lookup API Documentation - Collapsible */}
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setUserLookupDocsOpen(!userLookupDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-teal-900 hover:text-teal-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  User Lookup API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${userLookupDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {userLookupDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-1">Endpoint</p>
+                  <code className="bg-teal-100 text-teal-900 px-2 py-1 rounded block">
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user
+                  </code>
+                </div>
+
+                {/* HTTP Method */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-1">HTTP Method</p>
+                  <code className="bg-teal-100 text-teal-900 px-2 py-1 rounded">POST</code>
+                </div>
+
+                {/* Description */}
+                <div className="bg-teal-100 border border-teal-300 rounded p-2">
+                  <p className="text-[10px] text-teal-800">
+                    <strong>Purpose:</strong> Get detailed information about any Twitter user including followers, account age, verification status, and profile details.
+                  </p>
+                </div>
+
+                {/* Headers */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-2">Headers</p>
+                  <div className="bg-white rounded border border-teal-200 p-2 space-y-1 font-mono text-teal-900">
+                    <div>Content-Type: application/json</div>
+                    <div className="text-red-600 font-bold">X-API-Key: {apiKeyConfig?.apiKey || 'your_api_key_here'}</div>
+                    <div className="text-teal-600 text-[10px]">// Your project API key is required</div>
+                  </div>
+                </div>
+
+                {/* Request Body */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-2">Request Body</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "handle": "@username"  // or just "username" (@ is optional)
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user
+Content-Type: application/json
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
+
+{
+  "handle": "@elonmusk"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "success": true,
+  "user": {
+    "id": "44196397",
+    "username": "elonmusk",
+    "name": "Elon Musk",
+    "description": "Tesla, SpaceX, Neuralink, The Boring Company",
+    "created_at": "2009-06-02T20:12:29.000Z",
+    "account_age_days": 5680,
+    "followers_count": 168500000,
+    "following_count": 574,
+    "tweet_count": 42300,
+    "verified": true,
+    "verified_type": "blue",
+    "protected": false,
+    "profile_image_url": "https://pbs.twimg.com/profile_images/...",
+    "url": "https://twitter.com/elonmusk"
+  }
+}`}</pre>
+                  </div>
+                  <div className="mt-2 bg-teal-100 border border-teal-300 rounded p-2">
+                    <p className="text-[10px] text-teal-800 mb-2">
+                      <strong>Response Fields:</strong>
+                    </p>
+                    <ul className="text-[10px] text-teal-700 ml-4 space-y-1">
+                      <li>• <strong>id:</strong> Twitter user ID</li>
+                      <li>• <strong>username:</strong> Twitter handle (without @)</li>
+                      <li>• <strong>name:</strong> Display name</li>
+                      <li>• <strong>description:</strong> User bio/description</li>
+                      <li>• <strong>created_at:</strong> Account creation date (ISO 8601)</li>
+                      <li>• <strong>account_age_days:</strong> Number of days since account creation</li>
+                      <li>• <strong>followers_count:</strong> Number of followers</li>
+                      <li>• <strong>following_count:</strong> Number of accounts following</li>
+                      <li>• <strong>tweet_count:</strong> Total number of tweets</li>
+                      <li>• <strong>verified:</strong> Whether account is verified</li>
+                      <li>• <strong>verified_type:</strong> Type of verification (blue, business, government, null)</li>
+                      <li>• <strong>protected:</strong> Whether tweets are protected (private)</li>
+                      <li>• <strong>profile_image_url:</strong> Profile picture URL</li>
+                      <li>• <strong>url:</strong> Full Twitter profile URL</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-teal-700 text-[10px] mb-1">401 Unauthorized - Missing or invalid API key:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-teal-700 text-[10px] mb-1">404 Not Found - User not found:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "User not found: @username" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-teal-700 text-[10px] mb-1">400 Bad Request - Missing handle:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "handle is required" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with curl */}
+                <div>
+                  <p className="text-teal-800 font-semibold mb-2">Example with curl</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}" \\
+  -d '{
+    "handle": "@gotoalberto"
+  }'`}</pre>
+                  </div>
+                </div>
+
+                {/* Use Cases */}
+                <div className="bg-teal-100 border border-teal-300 rounded p-2">
+                  <p className="text-[10px] text-teal-800 mb-2">
+                    <strong>Common Use Cases:</strong>
+                  </p>
+                  <ul className="text-[10px] text-teal-700 ml-4 space-y-1">
+                    <li>• Anti-spam validation (check account age before processing)</li>
+                    <li>• User verification (check follower count, verified status)</li>
+                    <li>• Profile information display in your application</li>
+                    <li>• Account age requirements for certain features</li>
+                    <li>• Bot detection (analyze follower/following ratio, tweet count)</li>
+                  </ul>
                 </div>
                 </div>
               )}

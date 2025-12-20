@@ -632,6 +632,52 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
   - Keys expire after 24 hours
   - Use a unique identifier (e.g., database record ID) as the key
 
+### User Lookup
+
+- `POST /api/twitter/user` - Get detailed information about a Twitter user
+  ```json
+  {
+    "handle": "@username"
+  }
+  ```
+
+  **Parameters:**
+  - `handle` (required): Twitter handle (with or without @)
+
+  **Response:**
+  ```json
+  {
+    "success": true,
+    "user": {
+      "id": "1234567890",
+      "username": "username",
+      "name": "Display Name",
+      "description": "User bio...",
+      "created_at": "2013-12-14T04:35:55.000Z",
+      "account_age_days": 4025,
+      "followers_count": 1234,
+      "following_count": 567,
+      "tweet_count": 8901,
+      "verified": false,
+      "verified_type": "blue" | "business" | "government" | null,
+      "protected": false,
+      "profile_image_url": "https://...",
+      "url": "https://twitter.com/username"
+    }
+  }
+  ```
+
+  **Authentication:**
+  - Requires `X-API-Key` header with valid API key from any registered project
+  - Any valid project API key can access this endpoint
+
+  **Use Cases:**
+  - Anti-spam validation (check account age before processing)
+  - User verification (check follower count, verified status)
+  - Profile information display in your application
+  - Account age requirements for certain features
+  - Bot detection (analyze follower/following ratio, tweet count)
+
 ### Legacy Endpoints (Backward Compatible)
 
 These endpoints use the default "goodboy" project:
