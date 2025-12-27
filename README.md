@@ -50,10 +50,13 @@ This is useful when:
 - 🤖 Bot connection via Twitter OAuth 1.0a
 - 📡 Real-time webhook forwarding with header preservation
 - 💾 Secure credential storage with AES-256-GCM encryption
-- 📝 Detailed logging of all operations
+- 📝 Detailed logging of all operations with timestamps
 - ⚡ Automatic webhook subscription/unsubscription
 - 🎯 Tweet publishing API endpoint
 - 🔄 CRC validation handled automatically
+- 🔁 **Retry logic with exponential backoff** for webhook registration
+- 🛡️ **Transaction rollback** - bot connection fails if webhook registration fails
+- 🚨 **Clear error messages** - users get actionable feedback on failures
 
 ### Database & Infrastructure
 
@@ -902,11 +905,25 @@ bitso-twitter-api/
 
 ### Webhook registration fails
 
+**New Behavior (v2.0+):** If webhook registration fails, the bot connection is automatically rolled back. You'll see a clear error message explaining the failure.
+
+Common causes and solutions:
+
 - **Verify Bearer Token** is correct and has webhook permissions
 - **Check Twitter app** has Account Activity API access enabled
-- **Ensure bot is connected** before saving forwarding config
-- **Check webhook limit** - Twitter allows 1 webhook per app (delete old ones)
-- **Review logs** for API errors (401, 403, etc.)
+- **Check webhook limit** - Twitter allows 1 webhook per app (delete old webhooks via Twitter Developer Portal)
+- **Transient failures** - The system will automatically retry 3 times with exponential backoff
+- **Review deployment logs** for detailed error messages:
+  ```bash
+  vercel logs <deployment-url> --token <your-token>
+  ```
+- **Check for API rate limits** - Wait a few minutes and try again
+- **Verify network connectivity** - Ensure the deployment can reach Twitter's API
+
+**If the bot was previously connected but now shows as disconnected:**
+- The webhook registration likely failed and the bot was automatically removed
+- Try connecting the bot again - the system will retry the webhook registration
+- Check the error message for specific details about what went wrong
 
 ### Events not forwarding
 
