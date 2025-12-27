@@ -97,23 +97,30 @@ export async function GET(request: NextRequest) {
       console.log('📦 Using default project:', project.name, `(${project.id})`);
     }
 
+    console.log('💾 Saving bot to database...');
+
     // Save bot to PostgreSQL with encrypted tokens
-    await saveBot(project.id, {
+    const savedBot = await saveBot(project.id, {
       userId: user.data.id,
       username: user.data.username,
       accessToken,
       accessTokenSecret: accessSecret,
     });
 
-    console.log('💾 Bot saved to database');
+    console.log('✅ Bot saved to database');
+    console.log('   Bot ID:', savedBot.id);
+    console.log('   Username:', savedBot.username);
 
     // Register webhook and subscribe bot
-    let webhookSubscriptionFailed = false;
+    // CRITICAL: If this fails, we must delete the bot to ensure consistency
+    let webhookRegistrationSucceeded = false;
     let webhookErrorMessage = '';
 
     try {
       console.log('');
-      console.log('=== WEBHOOK REGISTRATION ===');
+      console.log('================================================================================');
+      console.log('=== WEBHOOK REGISTRATION PROCESS ===');
+      console.log('================================================================================');
 
       const bearerToken = process.env.X_API_BEARER_TOKEN;
       const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
@@ -211,41 +218,69 @@ export async function GET(request: NextRequest) {
         subscribed: true,
       });
 
-      console.log('✅ Bot subscribed to webhook successfully');
-      console.log('=== WEBHOOK REGISTRATION COMPLETE ===');
+      webhookRegistrationSucceeded = true;
+      console.log('');
+      console.log('================================================================================');
+      console.log('✅ WEBHOOK REGISTRATION COMPLETE');
+      console.log('================================================================================');
+      console.log('   Bot:', savedBot.username);
+      console.log('   Webhook URL:', webhookUrl);
+      console.log('   Status: Fully configured and subscribed');
+      console.log('   Timestamp:', new Date().toISOString());
+      console.log('================================================================================');
       console.log('');
     } catch (webhookError: any) {
-      webhookSubscriptionFailed = true;
       webhookErrorMessage = webhookError.message || 'Unknown error';
 
       console.error('');
-      console.error('❌ WEBHOOK SETUP FAILED');
+      console.error('================================================================================');
+      console.error('❌ WEBHOOK REGISTRATION FAILED');
+      console.error('================================================================================');
       console.error('   Error:', webhookErrorMessage);
       console.error('   Stack:', webhookError.stack);
+      console.error('   Timestamp:', new Date().toISOString());
       console.error('');
-      console.error('⚠️  Bot is connected but NOT subscribed to webhooks');
-      console.error('   You will need to subscribe manually from the dashboard');
+      console.error('🔄 ROLLING BACK BOT CONNECTION');
+      console.error('   A bot without webhooks cannot receive events from Twitter.');
+      console.error('   Deleting bot from database to maintain consistency...');
       console.error('');
 
-      // Continue anyway - bot is connected, webhook can be set up later
+      // CRITICAL: Delete the bot we just saved to maintain consistency
+      // A bot without webhooks is useless and will confuse users
+      try {
+        const { deleteBotByProjectId } = await import('@/lib/db/bots');
+        await deleteBotByProjectId(project.id);
+        console.error('   ✅ Bot deleted successfully');
+        console.error('   The user will need to reconnect the bot');
+      } catch (deleteError: any) {
+        console.error('   ❌ CRITICAL: Failed to delete bot:', deleteError.message);
+        console.error('   Manual intervention may be required');
+        console.error('   Project ID:', project.id);
+        console.error('   Bot Username:', savedBot.username);
+      }
+
+      console.error('');
+      console.error('================================================================================');
+      console.error('❌ BOT CONNECTION FAILED - WEBHOOK REGISTRATION REQUIRED');
+      console.error('================================================================================');
+      console.error('');
+
+      // Throw error to redirect user to error page
+      // DO NOT continue - webhook registration is critical
+      throw new Error(`Webhook registration failed: ${webhookErrorMessage}. Please try connecting the bot again. If the issue persists, contact support.`);
     }
 
     // Clear cookies and redirect
     // If projectId was in cookie, redirect to project detail page
     // Otherwise redirect to main dashboard (backward compatibility)
-    let redirectUrl: string;
 
-    if (webhookSubscriptionFailed) {
-      // Bot connected but webhook subscription failed
-      redirectUrl = projectIdFromCookie
-        ? `/dashboard/projects/${project.id}?success=bot_connected&warning=webhook_subscription_failed&error_detail=${encodeURIComponent(webhookErrorMessage)}`
-        : `/dashboard?success=bot_connected&warning=webhook_subscription_failed&error_detail=${encodeURIComponent(webhookErrorMessage)}`;
-    } else {
-      // Everything succeeded
-      redirectUrl = projectIdFromCookie
-        ? `/dashboard/projects/${project.id}?success=bot_connected`
-        : '/dashboard?success=bot_connected';
-    }
+    // At this point, webhookRegistrationSucceeded must be true
+    // (if it was false, we would have thrown an error above)
+    const redirectUrl = projectIdFromCookie
+      ? `/dashboard/projects/${project.id}?success=bot_connected`
+      : '/dashboard?success=bot_connected';
+
+    console.log('✅ Redirecting to:', redirectUrl);
 
     const response = NextResponse.redirect(
       new URL(redirectUrl, request.url)

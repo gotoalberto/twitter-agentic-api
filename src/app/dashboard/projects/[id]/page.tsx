@@ -91,9 +91,29 @@ function ProjectDetailContent() {
     const error = searchParams.get('error');
 
     if (success === 'bot_connected') {
-      setMessage({ type: 'success', text: 'Bot connected successfully' });
+      setMessage({
+        type: 'success',
+        text: '✅ Bot connected successfully! The bot is now subscribed to webhooks and will receive events from Twitter.'
+      });
     } else if (error) {
-      setMessage({ type: 'error', text: `Error: ${error}` });
+      // Format error message based on error type
+      let errorMessage = error;
+
+      if (error.includes('Webhook registration failed')) {
+        errorMessage = '❌ Bot connection failed: Unable to register webhook with Twitter. This is required for the bot to receive events (mentions, DMs, etc.). Please try connecting the bot again. If the problem persists, check the deployment logs for details.';
+      } else if (error.includes('oauth_params_missing')) {
+        errorMessage = '❌ OAuth parameters missing. Please start the bot connection process again.';
+      } else if (error.includes('twitter_not_configured')) {
+        errorMessage = '❌ Twitter API credentials are not configured. Please contact the administrator.';
+      } else if (error.includes('twitter_user_fetch_failed')) {
+        errorMessage = '❌ Failed to retrieve bot account information from Twitter. Please try again.';
+      } else if (error.includes('project_not_found')) {
+        errorMessage = '❌ Project not found. Please contact support.';
+      } else {
+        errorMessage = `❌ Error: ${decodeURIComponent(error)}`;
+      }
+
+      setMessage({ type: 'error', text: errorMessage });
     }
   }, [searchParams]);
 

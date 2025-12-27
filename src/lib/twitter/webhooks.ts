@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { retryWithBackoff } from '@/lib/utils/retry';
 
 /**
  * Twitter Webhooks Management Service
@@ -6,6 +7,11 @@ import crypto from 'crypto';
  *
  * Handles registration, subscription, and unsubscription of Twitter webhooks
  * using Twitter's Account Activity API
+ *
+ * Features:
+ * - Automatic retries with exponential backoff for transient failures
+ * - Detailed logging for debugging and monitoring
+ * - Proper error handling and reporting
  */
 
 /**
@@ -88,60 +94,104 @@ function generateOAuthHeader(
 /**
  * Register a new webhook with Twitter's API v2
  * Uses Bearer Token (OAuth 2.0)
+ *
+ * This function includes automatic retries with exponential backoff
+ * to handle transient network failures or rate limits.
+ *
+ * @throws Error if registration fails after all retries
  */
 export async function registerWebhook(
   webhookUrl: string,
   bearerToken: string
 ): Promise<{ webhookId: string; url: string }> {
-  console.log('🔧 Registering webhook with Twitter API v2...');
+  console.log('');
+  console.log('================================================================================');
+  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API');
+  console.log('================================================================================');
   console.log('   URL:', webhookUrl);
   console.log('   Bearer token present:', !!bearerToken);
+  console.log('   Timestamp:', new Date().toISOString());
+  console.log('');
 
-  const response = await fetch(
-    'https://api.twitter.com/2/webhooks',
+  return await retryWithBackoff(
+    async () => {
+      const response = await fetch(
+        'https://api.twitter.com/2/webhooks',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${bearerToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: webhookUrl }),
+        }
+      );
+
+      console.log('📡 Twitter API Response:', response.status, response.statusText);
+
+      if (!response.ok) {
+        let error: any;
+        try {
+          error = await response.json();
+        } catch (jsonError) {
+          console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
+          const errorMsg = `Twitter API error: ${response.status} ${response.statusText}`;
+
+          // Log detailed error for debugging
+          console.error('   Request URL:', 'https://api.twitter.com/2/webhooks');
+          console.error('   Request Method: POST');
+          console.error('   Response Status:', response.status);
+          console.error('   Response Status Text:', response.statusText);
+
+          throw new Error(errorMsg);
+        }
+
+        console.error('❌ Twitter API Error Response:');
+        console.error('   Status:', response.status);
+        console.error('   Error:', JSON.stringify(error, null, 2));
+
+        const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
+        throw new Error(`Twitter API error: ${errorMessage}`);
+      }
+
+      const result = await response.json();
+      console.log('📦 Twitter API Response Body:', JSON.stringify(result, null, 2));
+
+      const webhookId = result.data?.id;
+
+      if (!webhookId) {
+        console.error('❌ No webhook ID in response. Full response:', JSON.stringify(result, null, 2));
+        throw new Error('Webhook registered but no ID returned by Twitter API');
+      }
+
+      console.log('');
+      console.log('✅ WEBHOOK REGISTERED SUCCESSFULLY');
+      console.log('   Webhook ID:', webhookId);
+      console.log('   URL:', webhookUrl);
+      console.log('   Timestamp:', new Date().toISOString());
+      console.log('================================================================================');
+      console.log('');
+
+      return {
+        webhookId: webhookId,
+        url: webhookUrl,
+      };
+    },
     {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-        'Content-Type': 'application/json',
+      maxAttempts: 3,
+      initialDelayMs: 2000,
+      maxDelayMs: 8000,
+      backoffMultiplier: 2,
+      onRetry: (error, attempt, delay) => {
+        console.log('');
+        console.log('⚠️  WEBHOOK REGISTRATION RETRY');
+        console.log('   Attempt:', attempt, '/ 3');
+        console.log('   Error:', error.message);
+        console.log('   Next retry in:', delay, 'ms');
+        console.log('');
       },
-      body: JSON.stringify({ url: webhookUrl }),
     }
   );
-
-  console.log('📡 Twitter API Response:', response.status, response.statusText);
-
-  if (!response.ok) {
-    let error: any;
-    try {
-      error = await response.json();
-    } catch (jsonError) {
-      console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
-      throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
-    }
-    console.error('❌ Twitter API Error:', error);
-    throw new Error(
-      `Twitter API error: ${error.errors?.[0]?.message || error.detail || response.statusText}`
-    );
-  }
-
-  const result = await response.json();
-  console.log('📦 Twitter API Response Body:', JSON.stringify(result));
-
-  const webhookId = result.data?.id;
-
-  if (!webhookId) {
-    console.error('❌ No webhook ID in response. Full response:', result);
-    throw new Error('Webhook registered but no ID returned');
-  }
-
-  console.log('✅ Webhook registered successfully');
-  console.log('   Webhook ID:', webhookId);
-
-  return {
-    webhookId: webhookId,
-    url: webhookUrl,
-  };
 }
 
 /**
@@ -185,6 +235,11 @@ export async function deleteWebhook(
 /**
  * Subscribe a bot account to the webhook (API v2)
  * Uses OAuth 1.0a with bot's access tokens
+ *
+ * This function includes automatic retries with exponential backoff
+ * to handle transient network failures or rate limits.
+ *
+ * @throws Error if subscription fails after all retries
  */
 export async function subscribeWebhook(
   consumerKey: string,
@@ -193,57 +248,100 @@ export async function subscribeWebhook(
   accessSecret: string,
   webhookId: string
 ): Promise<void> {
-  console.log('📌 Subscribing bot to webhook (API v2)...');
+  console.log('');
+  console.log('================================================================================');
+  console.log('📌 SUBSCRIBING BOT TO WEBHOOK');
+  console.log('================================================================================');
   console.log('   Webhook ID:', webhookId);
+  console.log('   Timestamp:', new Date().toISOString());
+  console.log('');
 
-  const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/all`;
+  await retryWithBackoff(
+    async () => {
+      const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/all`;
 
-  const authHeader = generateOAuthHeader(
-    'POST',
-    url,
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessSecret
-  );
+      const authHeader = generateOAuthHeader(
+        'POST',
+        url,
+        consumerKey,
+        consumerSecret,
+        accessToken,
+        accessSecret
+      );
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json',
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📡 Twitter API Response:', response.status, response.statusText);
+
+      if (!response.ok) {
+        let error: any;
+        try {
+          error = await response.json();
+        } catch (jsonError) {
+          console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
+          const errorMsg = `Twitter API error: ${response.status} ${response.statusText}`;
+
+          // Log detailed error for debugging
+          console.error('   Request URL:', url);
+          console.error('   Request Method: POST');
+          console.error('   Response Status:', response.status);
+          console.error('   Response Status Text:', response.statusText);
+
+          throw new Error(errorMsg);
+        }
+
+        // "Subscription already exists" is not an error - return success
+        if (error.detail?.includes('Subscription already exists') || response.status === 409) {
+          console.log('');
+          console.log('✅ SUBSCRIPTION ALREADY EXISTS (OK)');
+          console.log('   Webhook ID:', webhookId);
+          console.log('   Status: Already subscribed');
+          console.log('   Timestamp:', new Date().toISOString());
+          console.log('================================================================================');
+          console.log('');
+          return;
+        }
+
+        console.error('❌ Twitter API Error Response:');
+        console.error('   Status:', response.status);
+        console.error('   Error:', JSON.stringify(error, null, 2));
+
+        const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
+        throw new Error(`Twitter API error: ${errorMessage}`);
+      }
+
+      const data = await response.json();
+      console.log('📦 Subscription Response:', JSON.stringify(data, null, 2));
+
+      console.log('');
+      console.log('✅ BOT SUBSCRIBED SUCCESSFULLY');
+      console.log('   Webhook ID:', webhookId);
+      console.log('   Subscription Status:', data.data?.subscribed ? 'Subscribed' : 'Completed');
+      console.log('   Timestamp:', new Date().toISOString());
+      console.log('================================================================================');
+      console.log('');
     },
-  });
-
-  if (!response.ok) {
-    let error: any;
-    try {
-      error = await response.json();
-    } catch (jsonError) {
-      console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
-      throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
+    {
+      maxAttempts: 3,
+      initialDelayMs: 2000,
+      maxDelayMs: 8000,
+      backoffMultiplier: 2,
+      onRetry: (error, attempt, delay) => {
+        console.log('');
+        console.log('⚠️  WEBHOOK SUBSCRIPTION RETRY');
+        console.log('   Attempt:', attempt, '/ 3');
+        console.log('   Error:', error.message);
+        console.log('   Next retry in:', delay, 'ms');
+        console.log('');
+      },
     }
-
-    // "Subscription already exists" is not an error
-    if (error.detail?.includes('Subscription already exists') || response.status === 409) {
-      console.log('✅ Subscription already exists (OK)');
-      return;
-    }
-
-    console.error('❌ Twitter API Error:', error);
-    throw new Error(
-      `Twitter API error: ${error.errors?.[0]?.message || error.detail || response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  console.log('📦 Subscription response:', JSON.stringify(data));
-
-  if (data.data?.subscribed) {
-    console.log('✅ Bot subscribed successfully');
-  } else {
-    console.log('✅ Bot subscription completed');
-  }
+  );
 }
 
 /**
