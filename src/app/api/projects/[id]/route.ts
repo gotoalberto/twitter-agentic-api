@@ -77,34 +77,32 @@ export async function DELETE(
     console.log('🗑️  Deleting project:', project.name, `(${project.id})`);
 
     // Clean up webhooks if bot is connected
+    let bot = null;
     try {
-      const bot = await getBotByProjectId(id);
+      bot = await getBotByProjectId(id);
       const webhooks = await getWebhookRegistrationsByProjectId(id);
       const subscribedWebhook = webhooks.find(w => w.subscribed);
 
       if (subscribedWebhook && bot) {
         console.log('📍 Cleaning up webhooks...');
 
-        const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
         const bearerToken = process.env.X_API_BEARER_TOKEN;
 
-        if (consumerKey && consumerSecret) {
-          // Unsubscribe bot
+        if (bearerToken) {
+          // Unsubscribe bot using Bearer Token (updated to use correct endpoint)
           await unsubscribeWebhook(
-            consumerKey,
-            consumerSecret,
-            bot.accessToken,
-            bot.accessTokenSecret,
-            subscribedWebhook.webhookId
+            subscribedWebhook.webhookId,
+            bot.userId,
+            bearerToken
           );
           console.log('✅ Bot unsubscribed from webhook');
 
           // Delete webhook from Twitter
-          if (bearerToken) {
-            await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
-            console.log('✅ Webhook deleted from Twitter');
-          }
+          await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
+          console.log('✅ Webhook deleted from Twitter');
+        } else {
+          console.error('❌ X_API_BEARER_TOKEN not found - cannot clean up webhook subscription');
+          throw new Error('Bearer token not configured');
         }
 
         // Delete webhook registrations from database
@@ -113,6 +111,10 @@ export async function DELETE(
       }
     } catch (webhookError: any) {
       console.error('⚠️  Webhook cleanup failed (non-fatal):', webhookError.message);
+      console.error('   This may leave an orphaned subscription in Twitter');
+      if (bot) {
+        console.error('   You can manually clean it up using: node scripts/delete-orphaned-subscriptions.mjs', bot.userId);
+      }
       // Continue anyway - project will still be deleted
     }
 

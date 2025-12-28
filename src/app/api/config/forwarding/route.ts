@@ -246,14 +246,12 @@ export async function DELETE() {
 
       try {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
-        const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
         const bot = await getBotByProjectId(project.id);
 
         // Unsubscribe bot if subscribed
-        if (bot && consumerKey && consumerSecret) {
+        if (bot && bearerToken) {
           console.log('📍 Unsubscribing bot from webhook...');
-          await unsubscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, subscribedWebhook.webhookId);
+          await unsubscribeWebhook(subscribedWebhook.webhookId, bot.userId, bearerToken);
           console.log('✅ Bot unsubscribed');
         }
 

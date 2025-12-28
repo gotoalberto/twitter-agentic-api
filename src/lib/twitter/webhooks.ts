@@ -346,52 +346,81 @@ export async function subscribeWebhook(
 
 /**
  * Unsubscribe a bot account from the webhook (API v2)
- * Uses OAuth 1.0a with bot's access tokens
+ * Uses Bearer Token (simpler and more reliable than OAuth 1.0a)
+ *
+ * Updated to use correct endpoint: /subscriptions/{user_id}/all
+ * This prevents orphaned subscriptions when bots are disconnected or projects deleted.
+ *
+ * @param webhookId - Twitter webhook ID
+ * @param userId - Twitter user ID of the bot to unsubscribe
+ * @param bearerToken - Twitter API Bearer Token (app-level authentication)
  */
 export async function unsubscribeWebhook(
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessSecret: string,
-  webhookId: string
+  webhookId: string,
+  userId: string,
+  bearerToken: string
 ): Promise<void> {
-  console.log('📍 Unsubscribing bot from webhook (API v2)...');
+  console.log('');
+  console.log('================================================================================');
+  console.log('🔌 UNSUBSCRIBING BOT FROM WEBHOOK');
+  console.log('================================================================================');
   console.log('   Webhook ID:', webhookId);
+  console.log('   User ID:', userId);
+  console.log('   Timestamp:', new Date().toISOString());
+  console.log('');
 
-  const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/all`;
+  // Correct endpoint according to official Twitter API documentation
+  const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/${userId}/all`;
 
-  const authHeader = generateOAuthHeader(
-    'DELETE',
-    url,
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessSecret
-  );
+  console.log('📡 Making DELETE request...');
+  console.log('   URL:', url);
+  console.log('   Auth: Bearer Token');
+  console.log('');
 
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${bearerToken}`,
     },
   });
+
+  console.log('📡 Twitter API Response:', response.status, response.statusText);
 
   if (!response.ok) {
     let error: any;
     try {
       error = await response.json();
     } catch (jsonError) {
-      console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
+      console.error('');
+      console.error('❌ UNSUBSCRIBE FAILED (no JSON body)');
+      console.error('   Status:', response.status, response.statusText);
+      console.error('   URL:', url);
+      console.error('   User ID:', userId);
+      console.error('   Webhook ID:', webhookId);
+      console.error('');
       throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
     }
-    console.error('❌ Twitter API Error:', error);
-    throw new Error(
-      `Twitter API error: ${error.errors?.[0]?.message || error.detail || response.statusText}`
-    );
+
+    console.error('');
+    console.error('❌ UNSUBSCRIBE FAILED');
+    console.error('   Status:', response.status);
+    console.error('   Error:', JSON.stringify(error, null, 2));
+    console.error('   URL:', url);
+    console.error('   User ID:', userId);
+    console.error('   Webhook ID:', webhookId);
+    console.error('');
+
+    const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
+    throw new Error(`Twitter API error: ${errorMessage}`);
   }
 
-  console.log('✅ Bot unsubscribed from webhook successfully');
+  console.log('');
+  console.log('✅ BOT UNSUBSCRIBED SUCCESSFULLY');
+  console.log('   User ID:', userId);
+  console.log('   Webhook ID:', webhookId);
+  console.log('   Timestamp:', new Date().toISOString());
+  console.log('================================================================================');
+  console.log('');
 }
 
 /**

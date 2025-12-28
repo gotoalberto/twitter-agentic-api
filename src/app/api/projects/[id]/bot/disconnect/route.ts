@@ -50,29 +50,31 @@ export async function POST(
       if (subscribedWebhook) {
         console.log('📍 Unsubscribing bot from webhook...');
 
-        const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+        const bearerToken = process.env.X_API_BEARER_TOKEN;
 
-        if (consumerKey && consumerSecret) {
-          // Unsubscribe bot using OAuth 1.0a
+        if (bearerToken) {
+          // Unsubscribe bot using Bearer Token (updated to use correct endpoint)
           await unsubscribeWebhook(
-            consumerKey,
-            consumerSecret,
-            bot.accessToken,
-            bot.accessTokenSecret,
-            subscribedWebhook.webhookId
+            subscribedWebhook.webhookId,
+            bot.userId,
+            bearerToken
           );
 
           console.log('✅ Bot unsubscribed from webhook');
 
           // Update subscription status in database (keep webhook registered, just mark as unsubscribed)
           await deleteAllWebhookRegistrationsForProject(projectId);
+        } else {
+          console.error('❌ X_API_BEARER_TOKEN not found - cannot unsubscribe bot');
+          throw new Error('Bearer token not configured');
         }
       } else {
         console.log('⏭️  No subscribed webhook found, skipping unsubscribe');
       }
     } catch (webhookError: any) {
       console.error('⚠️  Webhook unsubscribe failed (non-fatal):', webhookError.message);
+      console.error('   This may leave an orphaned subscription in Twitter');
+      console.error('   You can manually clean it up using: node scripts/delete-orphaned-subscriptions.mjs', bot.userId);
       // Continue anyway - bot will still be disconnected
     }
 
