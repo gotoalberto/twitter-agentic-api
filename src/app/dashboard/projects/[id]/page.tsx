@@ -1187,7 +1187,24 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
     "verified_type": "blue",
     "protected": false,
     "profile_image_url": "https://pbs.twimg.com/profile_images/...",
-    "url": "https://twitter.com/elonmusk"
+    "url": "https://twitter.com/elonmusk",
+    "following": [
+      {
+        "id": "783214",
+        "username": "twitter",
+        "name": "Twitter",
+        "description": "What's happening?!",
+        "followers_count": 61500000,
+        "following_count": 0,
+        "tweet_count": 23400,
+        "verified": true,
+        "verified_type": "business",
+        "profile_image_url": "https://pbs.twimg.com/profile_images/..."
+      }
+      // ... up to 100 users
+    ],
+    "total_following": 100,
+    "following_next_token": "ABCD1234..." // null if no more results
   }
 }`}</pre>
                   </div>
@@ -1210,6 +1227,9 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                       <li>• <strong>protected:</strong> Whether tweets are protected (private)</li>
                       <li>• <strong>profile_image_url:</strong> Profile picture URL</li>
                       <li>• <strong>url:</strong> Full Twitter profile URL</li>
+                      <li>• <strong>following:</strong> Array of users this user follows (max 100 per request)</li>
+                      <li>• <strong>total_following:</strong> Number of users in the following array</li>
+                      <li>• <strong>following_next_token:</strong> Token for pagination (null if no more results)</li>
                     </ul>
                   </div>
                 </div>
@@ -1265,6 +1285,9 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                     <li>• Profile information display in your application</li>
                     <li>• Account age requirements for certain features</li>
                     <li>• Bot detection (analyze follower/following ratio, tweet count)</li>
+                    <li>• Social graph analysis (discover user's network and connections)</li>
+                    <li>• Influencer relationship mapping (identify shared connections)</li>
+                    <li>• Community discovery (find users with similar interests)</li>
                   </ul>
                 </div>
                 </div>
