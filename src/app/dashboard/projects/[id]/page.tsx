@@ -69,6 +69,7 @@ function ProjectDetailContent() {
   const [dmDocsOpen, setDmDocsOpen] = useState(false);
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
   const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
+  const [isFollowingDocsOpen, setIsFollowingDocsOpen] = useState(false);
 
   // Webhook logs state
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
@@ -1288,6 +1289,159 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                     <li>• Social graph analysis (discover user's network and connections)</li>
                     <li>• Influencer relationship mapping (identify shared connections)</li>
                     <li>• Community discovery (find users with similar interests)</li>
+                  </ul>
+                </div>
+                </div>
+              )}
+            </div>
+
+            {/* Is Following API Documentation - Collapsible */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setIsFollowingDocsOpen(!isFollowingDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-purple-900 hover:text-purple-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  Is Following Check API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${isFollowingDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {isFollowingDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-1">Endpoint</p>
+                  <div className="bg-white rounded border border-purple-200 p-2 font-mono text-purple-900">
+                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Description</p>
+                  <p className="text-purple-700">
+                    Check if one Twitter user follows another user. This endpoint iterates through all users that userA follows to determine if userB is in that list. Handles pagination automatically.
+                  </p>
+                </div>
+
+                {/* Query Parameters */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Query Parameters</p>
+                  <div className="bg-white rounded border border-purple-200 p-2 space-y-2 font-mono text-purple-900">
+                    <div>
+                      <div className="text-red-600 font-bold">userA (required)</div>
+                      <div className="text-purple-600 text-[10px]">// Twitter username to check (WITHOUT @ symbol, e.g., "gotoalberto")</div>
+                    </div>
+                    <div>
+                      <div className="text-red-600 font-bold">userB (required)</div>
+                      <div className="text-purple-600 text-[10px]">// Twitter username to check if followed by userA (WITHOUT @ symbol, e.g., "elonmusk")</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "success": true,
+  "userA": "gotoalberto",
+  "userB": "elonmusk",
+  "isFollowing": true,
+  "meta": {
+    "totalChecked": 250,
+    "iterations": 1,
+    "durationMs": 450
+  }
+}`}</pre>
+                  </div>
+                  <div className="mt-2 bg-purple-100 border border-purple-300 rounded p-2">
+                    <p className="text-[10px] text-purple-800 mb-2">
+                      <strong>Response Fields:</strong>
+                    </p>
+                    <ul className="text-[10px] text-purple-700 ml-4 space-y-1">
+                      <li>• <strong>success:</strong> Boolean indicating if request succeeded</li>
+                      <li>• <strong>userA:</strong> Twitter handle of user being checked</li>
+                      <li>• <strong>userB:</strong> Twitter handle of potentially followed user</li>
+                      <li>• <strong>isFollowing:</strong> Boolean - true if userA follows userB, false otherwise</li>
+                      <li>• <strong>meta.totalChecked:</strong> Total number of users checked during search</li>
+                      <li>• <strong>meta.iterations:</strong> Number of API calls made (pagination)</li>
+                      <li>• <strong>meta.durationMs:</strong> Time taken to complete check in milliseconds</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">401 Unauthorized - Missing or invalid API key:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">404 Not Found - User not found:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "User not found: username" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">400 Bad Request - Missing parameters:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "userA and userB query parameters are required" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-purple-700 text-[10px] mb-1">400 Bad Request - Handle contains @:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "handles must be usernames only (without @ symbol)" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with curl */}
+                <div>
+                  <p className="text-purple-800 font-semibold mb-2">Example with curl</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
+                  </div>
+                </div>
+
+                {/* Use Cases */}
+                <div className="bg-purple-100 border border-purple-300 rounded p-2">
+                  <p className="text-[10px] text-purple-800 mb-2">
+                    <strong>Common Use Cases:</strong>
+                  </p>
+                  <ul className="text-[10px] text-purple-700 ml-4 space-y-1">
+                    <li>• Anti-spam validation (check if user follows legitimate accounts)</li>
+                    <li>• Community verification (ensure users follow required accounts)</li>
+                    <li>• Access control (gate features based on follow relationships)</li>
+                    <li>• Relationship verification (confirm mutual connections)</li>
+                    <li>• Influencer validation (check if user follows brand ambassadors)</li>
+                    <li>• Trust scoring (build reputation based on who users follow)</li>
                   </ul>
                 </div>
                 </div>
