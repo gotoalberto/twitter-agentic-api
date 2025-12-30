@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { prisma } from '@/lib/db/prisma';
+import { decrypt } from '@/lib/utils/encryption';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -149,11 +150,16 @@ export async function GET(request: NextRequest) {
 
     // Create Twitter client with OAuth 1.0a using the bot's credentials
     console.log('🔑 Initializing Twitter client...');
+
+    // Decrypt bot credentials
+    const decryptedAccessToken = decrypt(project.bot.accessToken);
+    const decryptedAccessSecret = decrypt(project.bot.accessTokenSecret);
+
     const client = new TwitterApi({
       appKey: consumerKey,
       appSecret: consumerSecret,
-      accessToken: project.bot.accessToken,
-      accessSecret: project.bot.accessTokenSecret,
+      accessToken: decryptedAccessToken,
+      accessSecret: decryptedAccessSecret,
     });
 
     // Get user IDs for both users
