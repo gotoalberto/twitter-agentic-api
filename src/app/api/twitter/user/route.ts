@@ -41,7 +41,23 @@ export const maxDuration = 30;
  *     "verified_type": "blue" | "business" | "government" | null,
  *     "protected": false,
  *     "profile_image_url": "https://...",
- *     "url": "https://twitter.com/username"
+ *     "url": "https://twitter.com/username",
+ *     "following": [
+ *       {
+ *         "id": "9876543210",
+ *         "username": "followeduser",
+ *         "name": "Followed User",
+ *         "description": "Bio...",
+ *         "followers_count": 1000,
+ *         "following_count": 500,
+ *         "tweet_count": 5000,
+ *         "verified": true,
+ *         "verified_type": "blue",
+ *         "profile_image_url": "https://..."
+ *       }
+ *     ],
+ *     "total_following": 567,
+ *     "following_next_token": "ABCD1234..." | null
  *   }
  * }
  *
@@ -223,6 +239,48 @@ export async function GET(request: NextRequest) {
     console.log('────────────────────────────────────────────────────────────────────────────────');
     console.log('');
 
+    // Fetch following list
+    console.log('🔍 Fetching following list...');
+    const followingStartTime = Date.now();
+
+    const followingResponse = await client.v2.following(user.id, {
+      max_results: 100, // Maximum allowed by API
+      'user.fields': [
+        'id',
+        'username',
+        'name',
+        'description',
+        'public_metrics',
+        'verified',
+        'verified_type',
+        'profile_image_url',
+      ],
+    });
+
+    const followingDuration = Date.now() - followingStartTime;
+
+    const followingList = followingResponse.data?.map(followedUser => ({
+      id: followedUser.id,
+      username: followedUser.username,
+      name: followedUser.name,
+      description: followedUser.description || null,
+      followers_count: followedUser.public_metrics?.followers_count || 0,
+      following_count: followedUser.public_metrics?.following_count || 0,
+      tweet_count: followedUser.public_metrics?.tweet_count || 0,
+      verified: followedUser.verified || false,
+      verified_type: followedUser.verified_type || null,
+      profile_image_url: followedUser.profile_image_url || null,
+    })) || [];
+
+    console.log('');
+    console.log('✅ FOLLOWING LIST RETRIEVED');
+    console.log('────────────────────────────────────────────────────────────────────────────────');
+    console.log('   Total following retrieved:', followingList.length);
+    console.log('   Pagination available:', !!followingResponse.meta.next_token);
+    console.log('   Duration:', `${followingDuration}ms`);
+    console.log('────────────────────────────────────────────────────────────────────────────────');
+    console.log('');
+
     console.log('================================================================================');
     console.log('');
 
@@ -243,6 +301,9 @@ export async function GET(request: NextRequest) {
         protected: user.protected || false,
         profile_image_url: user.profile_image_url || null,
         url: `https://twitter.com/${user.username}`,
+        following: followingList,
+        total_following: followingList.length,
+        following_next_token: followingResponse.meta.next_token || null,
       },
     });
   } catch (error: any) {
