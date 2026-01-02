@@ -308,6 +308,9 @@ export async function POST(request: NextRequest) {
 
     // Publish tweet
     console.log('📤 Publishing tweet...');
+    console.log('   Tweet text preview:', body.text.substring(0, 100) + (body.text.length > 100 ? '...' : ''));
+    console.log('   Tweet text length:', body.text.length);
+    console.log('   Tweet text (full):', JSON.stringify(body.text)); // Show escaped version for debugging
     const startTime = Date.now();
 
     const tweetData: any = {
@@ -382,8 +385,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('❌ TWEET PUBLISHING ERROR');
-    console.error('   Error:', error.message);
+    console.error('   Error message:', error.message);
+    console.error('   Error code:', error.code);
+    console.error('   Error type:', error.type);
     console.error('   Stack:', error.stack);
+
+    // Log full Twitter API error response if available
+    if (error.data) {
+      console.error('   Twitter API Error Data:', JSON.stringify(error.data, null, 2));
+    }
+    if (error.errors) {
+      console.error('   Twitter API Errors:', JSON.stringify(error.errors, null, 2));
+    }
+    if (error.rateLimit) {
+      console.error('   Rate Limit Info:', JSON.stringify(error.rateLimit, null, 2));
+    }
 
     // Check for specific Twitter API errors
     if (error.code === 403) {
