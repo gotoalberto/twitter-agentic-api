@@ -207,7 +207,15 @@ export async function GET(request: NextRequest) {
       console.log('   Bot username:', user.data.username);
       console.log('   Webhook ID:', webhookId);
 
-      await subscribeWebhook(consumerKey, consumerSecret, accessToken, accessSecret, webhookId);
+      await subscribeWebhook(
+        consumerKey,
+        consumerSecret,
+        accessToken,
+        accessSecret,
+        webhookId,
+        user.data.id, // userId
+        bearerToken   // bearerToken for unsubscribe if needed
+      );
       console.log('   ✅ Subscription successful');
 
       // Update subscription status in database

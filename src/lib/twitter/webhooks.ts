@@ -239,6 +239,8 @@ export async function deleteWebhook(
  * This function includes automatic retries with exponential backoff
  * to handle transient network failures or rate limits.
  *
+ * If subscription already exists, it will be deleted and recreated to ensure it's active.
+ *
  * @throws Error if subscription fails after all retries
  */
 export async function subscribeWebhook(
@@ -246,7 +248,9 @@ export async function subscribeWebhook(
   consumerSecret: string,
   accessToken: string,
   accessSecret: string,
-  webhookId: string
+  webhookId: string,
+  userId: string,
+  bearerToken: string
 ): Promise<void> {
   console.log('');
   console.log('================================================================================');
@@ -296,16 +300,37 @@ export async function subscribeWebhook(
           throw new Error(errorMsg);
         }
 
-        // "Subscription already exists" is not an error - return success
-        if (error.detail?.includes('Subscription already exists') || response.status === 409) {
+        // Check if subscription already exists
+        const isDuplicateSubscription =
+          error.detail?.includes('Subscription already exists') ||
+          error.errors?.[0]?.message?.includes('Subscription already exists') ||
+          error.errors?.[0]?.message?.includes('DuplicateSubscriptionFailed') ||
+          response.status === 409;
+
+        if (isDuplicateSubscription) {
           console.log('');
-          console.log('✅ SUBSCRIPTION ALREADY EXISTS (OK)');
+          console.log('⚠️  SUBSCRIPTION ALREADY EXISTS - RECREATING');
           console.log('   Webhook ID:', webhookId);
-          console.log('   Status: Already subscribed');
+          console.log('   User ID:', userId);
           console.log('   Timestamp:', new Date().toISOString());
-          console.log('================================================================================');
           console.log('');
-          return;
+
+          // Delete existing subscription
+          console.log('🗑️  Deleting existing subscription...');
+          try {
+            await unsubscribeWebhook(webhookId, userId, bearerToken);
+            console.log('   ✅ Existing subscription deleted successfully');
+          } catch (unsubscribeError: any) {
+            console.error('   ⚠️  Failed to delete existing subscription:', unsubscribeError.message);
+            console.error('   Continuing with subscription attempt...');
+          }
+
+          console.log('');
+          console.log('🔄 Retrying subscription after deletion...');
+          console.log('');
+
+          // Retry subscription (throw error to trigger retry mechanism)
+          throw new Error('Subscription existed and was deleted - retrying subscription');
         }
 
         console.error('❌ Twitter API Error Response:');

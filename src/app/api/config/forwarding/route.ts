@@ -180,7 +180,15 @@ export async function POST(request: NextRequest) {
         if (webhook) {
           // Subscribe bot to webhook
           console.log('📌 Subscribing bot to webhook...');
-          await subscribeWebhook(consumerKey, consumerSecret, bot.accessToken, bot.accessTokenSecret, webhook.webhookId);
+          await subscribeWebhook(
+            consumerKey,
+            consumerSecret,
+            bot.accessToken,
+            bot.accessTokenSecret,
+            webhook.webhookId,
+            bot.userId,    // userId for unsubscribe if needed
+            bearerToken    // bearerToken for unsubscribe if needed
+          );
 
           // Update subscription status
           await saveWebhookRegistration(project.id, {
