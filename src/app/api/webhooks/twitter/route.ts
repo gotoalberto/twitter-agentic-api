@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
           include: {
             project: {
               include: {
-                forwardingConfig: true,
+                forwardingEndpoints: true, // NEW: Get all endpoints
               },
             },
           },
@@ -198,16 +198,20 @@ export async function POST(request: NextRequest) {
           console.log(`   ✅ Bot found: @${bot.username}`);
           console.log(`   📁 Project: ${bot.project.name}`);
 
-          const config = bot.project.forwardingConfig;
-          const shouldForward = config && config.enabled && config.endpoint;
+          const endpoints = bot.project.forwardingEndpoints;
 
-          if (shouldForward) {
+          if (!endpoints || endpoints.length === 0) {
             console.log('');
-            console.log('📥 ENQUEUING WEBHOOK FOR ASYNC DELIVERY');
+            console.log('⏭️  FORWARDING SKIPPED');
+            console.log('   Project:', bot.project.name);
+            console.log('   Reason: No forwarding endpoints configured for this project');
+          } else {
+            console.log('');
+            console.log('📥 DELIVERING WEBHOOK TO ALL ENDPOINTS');
             console.log('────────────────────────────────────────────────────────────────────────────────');
             console.log('   Project:', bot.project.name);
             console.log('   Bot:', `@${bot.username}`);
-            console.log('   Target URL:', config.endpoint);
+            console.log('   Endpoints:', endpoints.length);
 
             // Filter payload to only include events relevant to this bot
             const filteredPayload: any = {
@@ -261,22 +265,16 @@ export async function POST(request: NextRequest) {
             if (!hasRelevantEvents) {
               console.log('   ⏭️  No relevant events for this bot after filtering');
             } else {
-              // Attempt immediate delivery
+              // Deliver to ALL endpoints
               try {
-                const { deliverWebhookImmediately } = await import('@/lib/webhooks/queue');
+                const { deliverToAllEndpoints } = await import('@/lib/webhooks/delivery');
 
-                const success = await deliverWebhookImmediately(
+                await deliverToAllEndpoints(
                   bot.project.id,
                   eventType,
-                  filteredPayload,
-                  config.endpoint
+                  filteredPayload
                 );
 
-                if (success) {
-                  console.log('   ✅ Webhook delivered immediately');
-                } else {
-                  console.log('   🔄 Webhook delivery failed - queued for automatic retry');
-                }
                 console.log('   Event Type:', eventType);
               } catch (deliveryError: any) {
                 console.error('   ❌ Failed to deliver webhook:', deliveryError.message);
@@ -286,17 +284,6 @@ export async function POST(request: NextRequest) {
             }
 
             console.log('────────────────────────────────────────────────────────────────────────────────');
-          } else {
-            console.log('');
-            console.log('⏭️  FORWARDING SKIPPED');
-            console.log('   Project:', bot.project.name);
-            if (!config) {
-              console.log('   Reason: No forwarding configuration for this project');
-            } else if (!config.enabled) {
-              console.log('   Reason: Forwarding disabled for this project');
-            } else {
-              console.log('   Reason: No endpoint configured for this project');
-            }
           }
         }
       }

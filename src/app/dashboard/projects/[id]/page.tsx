@@ -13,15 +13,6 @@ interface BotStatus {
   } | null;
 }
 
-interface ForwardingConfig {
-  configured: boolean;
-  config: {
-    endpoint: string;
-    enabled: boolean;
-    updatedAt: string;
-  } | null;
-}
-
 interface Project {
   id: string;
   name: string;
@@ -45,6 +36,20 @@ interface WebhookLog {
   createdAt: string;
 }
 
+interface ForwardingEndpoint {
+  id: string;
+  projectId: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    deliveries: number;
+  };
+}
+
 function ProjectDetailContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -54,12 +59,8 @@ function ProjectDetailContent() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
-  const [forwardingConfig, setForwardingConfig] = useState<ForwardingConfig | null>(null);
-  const [forwardingEndpoint, setForwardingEndpoint] = useState('');
-  const [forwardingEnabled, setForwardingEnabled] = useState(true);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingForwarding, setSavingForwarding] = useState(false);
   const [generatingApiKey, setGeneratingApiKey] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
@@ -76,6 +77,13 @@ function ProjectDetailContent() {
   const [logsNextCursor, setLogsNextCursor] = useState<string | null>(null);
   const [logsHasMore, setLogsHasMore] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // Forwarding endpoints state
+  const [endpoints, setEndpoints] = useState<ForwardingEndpoint[]>([]);
+  const [showAddEndpoint, setShowAddEndpoint] = useState(false);
+  const [newEndpointName, setNewEndpointName] = useState('');
+  const [newEndpointUrl, setNewEndpointUrl] = useState('');
+  const [savingEndpoint, setSavingEndpoint] = useState(false);
 
   // Ref for infinite scroll observer
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -122,9 +130,9 @@ function ProjectDetailContent() {
     if (status === 'authenticated' && projectId) {
       fetchProject();
       fetchBotStatus();
-      fetchForwardingConfig();
       fetchApiKeyConfig();
       fetchWebhookLogs();
+      fetchEndpoints();
     }
   }, [status, projectId]);
 
@@ -153,76 +161,6 @@ function ProjectDetailContent() {
       setBotStatus(data);
     } catch (error) {
       console.error('Error fetching bot status:', error);
-    }
-  };
-
-  const fetchForwardingConfig = async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/forwarding`);
-      const data = await res.json();
-      setForwardingConfig(data);
-      if (data.config) {
-        setForwardingEndpoint(data.config.endpoint);
-        setForwardingEnabled(data.config.enabled);
-      }
-    } catch (error) {
-      console.error('Error fetching forwarding config:', error);
-    }
-  };
-
-  const saveForwardingConfig = async () => {
-    if (!forwardingEndpoint.trim()) {
-      setMessage({ type: 'error', text: 'Please enter a valid endpoint URL' });
-      return;
-    }
-
-    setSavingForwarding(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/forwarding`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: forwardingEndpoint,
-          enabled: forwardingEnabled,
-        }),
-      });
-
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Forwarding endpoint saved successfully' });
-        fetchForwardingConfig();
-      } else {
-        const error = await res.json();
-        setMessage({ type: 'error', text: error.error || 'Error saving endpoint' });
-      }
-    } catch (error) {
-      console.error('Error saving forwarding config:', error);
-      setMessage({ type: 'error', text: 'Error saving forwarding endpoint' });
-    } finally {
-      setSavingForwarding(false);
-    }
-  };
-
-  const deleteForwardingConfig = async () => {
-    if (!confirm('Are you sure you want to delete the forwarding endpoint?')) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/projects/${projectId}/forwarding`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Forwarding endpoint deleted successfully' });
-        setForwardingEndpoint('');
-        setForwardingEnabled(true);
-        fetchForwardingConfig();
-      } else {
-        setMessage({ type: 'error', text: 'Error deleting endpoint' });
-      }
-    } catch (error) {
-      console.error('Error deleting forwarding config:', error);
-      setMessage({ type: 'error', text: 'Error deleting forwarding endpoint' });
     }
   };
 
@@ -342,6 +280,123 @@ function ProjectDetailContent() {
       }
     };
   }, [logsHasMore, logsLoading, logsNextCursor]);
+
+  const fetchEndpoints = async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/endpoints`);
+      const data = await res.json();
+      setEndpoints(data.endpoints || []);
+    } catch (error) {
+      console.error('Error fetching endpoints:', error);
+    }
+  };
+
+  const addEndpoint = async () => {
+    if (!newEndpointName.trim() || !newEndpointUrl.trim()) {
+      setMessage({ type: 'error', text: 'Please provide both name and URL' });
+      return;
+    }
+
+    setSavingEndpoint(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/endpoints`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newEndpointName,
+          url: newEndpointUrl,
+          enabled: true,
+          priority: 0
+        })
+      });
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Endpoint added successfully' });
+        setShowAddEndpoint(false);
+        setNewEndpointName('');
+        setNewEndpointUrl('');
+        fetchEndpoints();
+      } else {
+        const error = await res.json();
+        setMessage({ type: 'error', text: error.error || 'Failed to add endpoint' });
+      }
+    } catch (error) {
+      console.error('Error adding endpoint:', error);
+      setMessage({ type: 'error', text: 'Error adding endpoint' });
+    } finally {
+      setSavingEndpoint(false);
+    }
+  };
+
+  const toggleEndpoint = async (endpointId: string, currentlyEnabled: boolean) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/endpoints/${endpointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !currentlyEnabled })
+      });
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: currentlyEnabled ? 'Endpoint paused' : 'Endpoint enabled'
+        });
+        fetchEndpoints();
+      } else {
+        setMessage({ type: 'error', text: 'Failed to update endpoint' });
+      }
+    } catch (error) {
+      console.error('Error toggling endpoint:', error);
+      setMessage({ type: 'error', text: 'Error updating endpoint' });
+    }
+  };
+
+  const deleteEndpoint = async (endpointId: string, endpointName: string) => {
+    if (!confirm(`Delete endpoint "${endpointName}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/endpoints/${endpointId}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Endpoint deleted successfully' });
+        fetchEndpoints();
+      } else {
+        setMessage({ type: 'error', text: 'Failed to delete endpoint' });
+      }
+    } catch (error) {
+      console.error('Error deleting endpoint:', error);
+      setMessage({ type: 'error', text: 'Error deleting endpoint' });
+    }
+  };
+
+  const resumeEndpoint = async (endpointId: string, endpointName: string) => {
+    if (!confirm(`Resume all paused webhooks for "${endpointName}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/endpoints/${endpointId}/resume`, {
+        method: 'POST'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({
+          type: 'success',
+          text: `${data.resumedCount} webhook(s) resumed and processing started`
+        });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to resume webhooks' });
+      }
+    } catch (error) {
+      console.error('Error resuming webhooks:', error);
+      setMessage({ type: 'error', text: 'Error resuming webhooks' });
+    }
+  };
 
   const connectBot = () => {
     window.location.href = `/api/projects/${projectId}/bot/authorize`;
@@ -517,130 +572,222 @@ function ProjectDetailContent() {
           )}
         </div>
 
-        {/* Webhook Forwarding Card */}
+        {/* Forwarding Endpoints Card */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Webhook Forwarding</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Forwarding Endpoints</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Configure multiple endpoints to receive webhooks. Webhooks are delivered to all active endpoints.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddEndpoint(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Endpoint
+            </button>
+          </div>
 
-          <div className="space-y-4">
-            <p className="text-gray-600 text-sm">
-              Configure an endpoint to automatically forward all Twitter webhooks.
-              The payload will be sent exactly as received from Twitter.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="endpoint" className="block text-sm font-medium text-gray-700 mb-2">
-                  Forwarding Endpoint URL
-                </label>
-                <input
-                  id="endpoint"
-                  type="url"
-                  value={forwardingEndpoint}
-                  onChange={(e) => setForwardingEndpoint(e.target.value)}
-                  placeholder="https://your-api.com/webhooks/twitter"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-
+          {/* Endpoints List */}
+          {endpoints.length === 0 ? (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
               <div className="flex items-center">
-                <input
-                  id="enabled"
-                  type="checkbox"
-                  checked={forwardingEnabled}
-                  onChange={(e) => setForwardingEnabled(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="enabled" className="ml-2 text-sm text-gray-700">
-                  Enable forwarding
-                </label>
+                <svg className="w-5 h-5 text-yellow-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                </svg>
+                <p className="text-yellow-800 font-medium">No endpoints configured</p>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={saveForwardingConfig}
-                  disabled={savingForwarding}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+              <p className="text-yellow-700 text-sm mt-2">
+                Add at least one endpoint to start receiving webhook events from Twitter.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {endpoints.map((endpoint) => (
+                <div
+                  key={endpoint.id}
+                  className={`border rounded-lg p-4 ${
+                    endpoint.enabled
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-gray-300 bg-gray-50'
+                  }`}
                 >
-                  {savingForwarding ? 'Saving...' : 'Save Configuration'}
-                </button>
-                {forwardingConfig?.configured && (
-                  <button
-                    onClick={deleteForwardingConfig}
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          endpoint.enabled
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          {endpoint.enabled ? '✓ Active' : '⏸ Paused'}
+                        </span>
+                        <h3 className="font-semibold text-gray-900">{endpoint.name}</h3>
+                      </div>
+                      <p className="text-sm text-gray-600 font-mono break-all">
+                        {endpoint.url}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <span>
+                          {endpoint._count?.deliveries || 0} webhooks delivered
+                        </span>
+                        <span>
+                          Created: {new Date(endpoint.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
 
-              {forwardingConfig?.configured && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs font-mono text-gray-900 break-all">
-                    {forwardingConfig.config?.endpoint}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Updated: {forwardingConfig.config?.updatedAt ? new Date(forwardingConfig.config.updatedAt).toLocaleString('en-US') : 'N/A'}
-                  </p>
+                    <div className="flex flex-col gap-2 ml-4">
+                      <button
+                        onClick={() => toggleEndpoint(endpoint.id, endpoint.enabled)}
+                        className={`px-3 py-1 rounded text-sm font-medium transition ${
+                          endpoint.enabled
+                            ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                            : 'bg-green-500 hover:bg-green-600 text-white'
+                        }`}
+                      >
+                        {endpoint.enabled ? 'Pause' : 'Enable'}
+                      </button>
+                      {!endpoint.enabled && (
+                        <button
+                          onClick={() => resumeEndpoint(endpoint.id, endpoint.name)}
+                          className="px-3 py-1 rounded text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white transition"
+                        >
+                          Resume Webhooks
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteEndpoint(endpoint.id, endpoint.name)}
+                        className="px-3 py-1 rounded text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              )}
+              ))}
+            </div>
+          )}
 
-              {/* Webhook Forwarding Documentation - Collapsible */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-                <button
-                  onClick={() => setWebhookDocsOpen(!webhookDocsOpen)}
-                  className="w-full flex items-center justify-between text-sm font-semibold text-blue-900 hover:text-blue-700 transition"
-                >
-                  <span className="flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                    </svg>
-                    How Webhooks are Forwarded
-                  </span>
-                  <svg
-                    className={`w-5 h-5 transition-transform ${webhookDocsOpen ? 'rotate-180' : ''}`}
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
+          {/* Add Endpoint Modal */}
+          {showAddEndpoint && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Endpoint</h3>
 
-                {webhookDocsOpen && (
-                  <div className="mt-3 space-y-3 text-xs">
-                  {/* HTTP Method */}
+                <div className="space-y-4">
                   <div>
-                    <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
-                    <code className="bg-blue-100 text-blue-900 px-2 py-1 rounded">POST</code>
+                    <label htmlFor="endpoint-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Endpoint Name
+                    </label>
+                    <input
+                      id="endpoint-name"
+                      type="text"
+                      value={newEndpointName}
+                      onChange={(e) => setNewEndpointName(e.target.value)}
+                      placeholder="e.g., Primary Endpoint, Backup, Analytics"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
 
-                  {/* Headers */}
                   <div>
-                    <p className="text-blue-800 font-semibold mb-2">Headers</p>
-                    <div className="bg-white rounded border border-blue-200 p-2 space-y-1 font-mono text-blue-900">
-                      <div>Content-Type: application/json</div>
-                      <div>X-Twitter-Webhooks-Signature: sha256=...</div>
-                      <div className="text-blue-600 text-[10px]">// Signature for payload verification (optional)</div>
-                    </div>
+                    <label htmlFor="endpoint-url" className="block text-sm font-medium text-gray-700 mb-1">
+                      Endpoint URL
+                    </label>
+                    <input
+                      id="endpoint-url"
+                      type="url"
+                      value={newEndpointUrl}
+                      onChange={(e) => setNewEndpointUrl(e.target.value)}
+                      placeholder="https://your-app.com/webhooks/twitter"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                   </div>
 
-                  {/* Body Format */}
-                  <div>
-                    <p className="text-blue-800 font-semibold mb-2">Body Format</p>
-                    <p className="text-blue-700 mb-2">The webhook payload is forwarded as received from Twitter. Common event types:</p>
-                    <div className="bg-white rounded border border-blue-200 p-2 space-y-1 text-[10px]">
-                      <div className="text-blue-600">• <strong className="text-blue-900">tweet_create_events</strong> - New tweets mentioning the bot</div>
-                      <div className="text-blue-600">• <strong className="text-blue-900">direct_message_events</strong> - Direct messages to the bot</div>
-                      <div className="text-blue-600">• <strong className="text-blue-900">favorite_events</strong> - Likes on bot tweets</div>
-                      <div className="text-blue-600">• <strong className="text-blue-900">follow_events</strong> - New followers</div>
-                    </div>
+                  <div className="flex gap-2 mt-6">
+                    <button
+                      onClick={addEndpoint}
+                      disabled={savingEndpoint}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+                    >
+                      {savingEndpoint ? 'Adding...' : 'Add Endpoint'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddEndpoint(false);
+                        setNewEndpointName('');
+                        setNewEndpointUrl('');
+                      }}
+                      className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition"
+                    >
+                      Cancel
+                    </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  {/* Example */}
-                  <div>
-                    <p className="text-blue-800 font-semibold mb-2">Example Request</p>
-                    <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                      <pre className="text-[10px]">{`POST ${forwardingEndpoint || 'https://your-api.com/webhooks/twitter'}
+          {/* Webhook Forwarding Documentation - Collapsible */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+            <button
+              onClick={() => setWebhookDocsOpen(!webhookDocsOpen)}
+              className="w-full flex items-center justify-between text-sm font-semibold text-blue-900 hover:text-blue-700 transition"
+            >
+              <span className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                How Webhooks are Forwarded
+              </span>
+              <svg
+                className={`w-5 h-5 transition-transform ${webhookDocsOpen ? 'rotate-180' : ''}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {webhookDocsOpen && (
+              <div className="mt-3 space-y-3 text-xs">
+              {/* HTTP Method */}
+              <div>
+                <p className="text-blue-800 font-semibold mb-1">HTTP Method</p>
+                <code className="bg-blue-100 text-blue-900 px-2 py-1 rounded">POST</code>
+              </div>
+
+              {/* Headers */}
+              <div>
+                <p className="text-blue-800 font-semibold mb-2">Headers</p>
+                <div className="bg-white rounded border border-blue-200 p-2 space-y-1 font-mono text-blue-900">
+                  <div>Content-Type: application/json</div>
+                  <div>X-Twitter-Webhooks-Signature: sha256=...</div>
+                  <div className="text-blue-600 text-[10px]">// Signature for payload verification (optional)</div>
+                </div>
+              </div>
+
+              {/* Body Format */}
+              <div>
+                <p className="text-blue-800 font-semibold mb-2">Body Format</p>
+                <p className="text-blue-700 mb-2">The webhook payload is forwarded as received from Twitter. Common event types:</p>
+                <div className="bg-white rounded border border-blue-200 p-2 space-y-1 text-[10px]">
+                  <div className="text-blue-600">• <strong className="text-blue-900">tweet_create_events</strong> - New tweets mentioning the bot</div>
+                  <div className="text-blue-600">• <strong className="text-blue-900">direct_message_events</strong> - Direct messages to the bot</div>
+                  <div className="text-blue-600">• <strong className="text-blue-900">favorite_events</strong> - Likes on bot tweets</div>
+                  <div className="text-blue-600">• <strong className="text-blue-900">follow_events</strong> - New followers</div>
+                </div>
+              </div>
+
+              {/* Example */}
+              <div>
+                <p className="text-blue-800 font-semibold mb-2">Example Request</p>
+                <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                  <pre className="text-[10px]">{`POST https://your-endpoint.com/webhooks/twitter
 Content-Type: application/json
 X-Twitter-Webhooks-Signature: sha256=abc123...
 
@@ -667,26 +814,24 @@ X-Twitter-Webhooks-Signature: sha256=abc123...
     }
   ]
 }`}</pre>
-                    </div>
-                  </div>
+                </div>
+              </div>
 
-                  {/* Response Expected */}
-                  <div>
-                    <p className="text-blue-800 font-semibold mb-1">Expected Response</p>
-                    <p className="text-blue-700 mb-2">Your endpoint should respond with:</p>
-                    <div className="bg-gray-900 text-green-400 rounded p-2">
-                      <pre className="text-[10px]">{`HTTP/1.1 200 OK
+              {/* Response Expected */}
+              <div>
+                <p className="text-blue-800 font-semibold mb-1">Expected Response</p>
+                <p className="text-blue-700 mb-2">Your endpoint should respond with:</p>
+                <div className="bg-gray-900 text-green-400 rounded p-2">
+                  <pre className="text-[10px]">{`HTTP/1.1 200 OK
 Content-Type: application/json
 
 { "success": true }`}</pre>
-                    </div>
-                    <p className="text-blue-600 mt-2">✓ Status 200-299 = Success (webhook will not retry)</p>
-                    <p className="text-blue-600">✗ Other status = Error (may be retried)</p>
-                  </div>
-                  </div>
-                )}
+                </div>
+                <p className="text-blue-600 mt-2">✓ Status 200-299 = Success (webhook will not retry)</p>
+                <p className="text-blue-600">✗ Other status = Error (may be retried)</p>
               </div>
-            </div>
+              </div>
+            )}
           </div>
         </div>
 

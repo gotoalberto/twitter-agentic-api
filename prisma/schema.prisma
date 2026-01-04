@@ -29,9 +29,11 @@ model Project {
 
   // Relations
   bot                   Bot?
-  forwardingConfig      ForwardingConfig?
+  forwardingConfig      ForwardingConfig?     // DEPRECATED: Will be removed after migration
+  forwardingEndpoints   ForwardingEndpoint[]  // NEW: Multiple endpoints support
   webhookRegistrations  WebhookRegistration[]
-  webhookLogs           WebhookLog[]
+  webhookLogs           WebhookLog[]          // DEPRECATED: Will be removed after migration
+  webhookDeliveries     WebhookDelivery[]     // NEW: Endpoint-specific delivery tracking
   idempotentTweets      IdempotentTweet[]
 
   @@map("projects")
@@ -115,6 +117,59 @@ model WebhookLog {
   @@map("webhook_logs")
   @@index([projectId, createdAt(sort: Desc)])
   @@index([projectId, status, nextRetryAt])
+}
+
+/// ForwardingEndpoint defines webhook forwarding endpoints for a project
+/// A project can have multiple endpoints (primary, backup, analytics, etc.)
+/// Replaces the 1:1 ForwardingConfig with 1:N relationship
+model ForwardingEndpoint {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String   // "Endpoint Principal", "Backup", "Analytics"
+  url       String   // https://app.com/api/webhooks/twitter
+  enabled   Boolean  @default(true)
+  priority  Int      @default(0) // Lower number = higher priority
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@map("forwarding_endpoints")
+  @@index([projectId])
+  @@index([projectId, enabled])
+  @@index([projectId, priority])
+}
+
+/// WebhookDelivery tracks delivery of webhooks to specific endpoints
+/// Replaces WebhookLog with endpoint-specific tracking
+/// Supports "paused" status for disabled endpoints
+model WebhookDelivery {
+  id            String    @id @default(cuid())
+  projectId     String
+  endpointId    String    // Which endpoint this delivery is for
+  eventType     String    // tweet_create_events, follow_events, etc.
+  payload       Json      // Full webhook payload
+  status        String    @default("pending") // pending | processing | delivered | paused
+  statusCode    Int?      // HTTP status code from forwarding response
+  attempts      Int       @default(0) // Number of delivery attempts
+  lastAttemptAt DateTime? // Timestamp of last delivery attempt
+  nextRetryAt   DateTime? // Timestamp for next retry
+  deliveredAt   DateTime? // Timestamp of successful delivery
+  errorMessage  String?   // Last error message if delivery failed
+  responseBody  Json?     // Response body from the forwarding endpoint
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  project  Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  endpoint ForwardingEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([projectId, status, nextRetryAt])
+  @@index([endpointId, status])
+  @@index([endpointId, status, nextRetryAt])
 }
 
 /// IdempotentTweet stores tweet publishing requests with idempotency keys

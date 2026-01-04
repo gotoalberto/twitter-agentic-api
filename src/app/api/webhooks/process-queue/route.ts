@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { processWebhookQueue } from '@/lib/webhooks/queue';
+import { processDeliveryQueue } from '@/lib/webhooks/delivery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const projectId = searchParams.get('projectId') || undefined;
+    const endpointId = searchParams.get('endpointId') || undefined;
     const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     console.log('');
@@ -34,11 +35,12 @@ export async function POST(request: NextRequest) {
     console.log('================================================================================');
     console.log('   Timestamp:', new Date().toISOString());
     console.log('   Project ID:', projectId || 'All projects');
+    console.log('   Endpoint ID:', endpointId || 'All endpoints');
     console.log('   Batch limit:', limit);
     console.log('');
 
-    // Process the queue
-    const processed = await processWebhookQueue(projectId, limit);
+    // Process the delivery queue
+    const processed = await processDeliveryQueue(projectId, endpointId, limit);
 
     console.log('');
     console.log('✅ QUEUE PROCESSING COMPLETE');
