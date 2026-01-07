@@ -16,6 +16,7 @@ interface BotStatus {
 interface Project {
   id: string;
   name: string;
+  apiEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +63,7 @@ function ProjectDetailContent() {
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingApiKey, setGeneratingApiKey] = useState(false);
+  const [togglingApi, setTogglingApi] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Collapsible sections state
@@ -221,6 +223,41 @@ function ProjectDetailContent() {
     } catch (error) {
       console.error('Error removing API key:', error);
       setMessage({ type: 'error', text: 'Error removing API key' });
+    }
+  };
+
+  const toggleApiAccess = async () => {
+    if (!project) return;
+
+    const newStatus = !project.apiEnabled;
+    const action = newStatus ? 'enable' : 'disable';
+
+    if (!confirm(`Are you sure you want to ${action} API access for this project? ${!newStatus ? 'All API requests will be blocked.' : 'API requests will be allowed again.'}`)) {
+      return;
+    }
+
+    setTogglingApi(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/api-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newStatus }),
+      });
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: `API access ${newStatus ? 'enabled' : 'disabled'} successfully.`
+        });
+        fetchProject();
+      } else {
+        setMessage({ type: 'error', text: 'Error updating API status' });
+      }
+    } catch (error) {
+      console.error('Error toggling API access:', error);
+      setMessage({ type: 'error', text: 'Error updating API status' });
+    } finally {
+      setTogglingApi(false);
     }
   };
 
@@ -570,6 +607,63 @@ function ProjectDetailContent() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* API Access Control Card */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">API Access Control</h2>
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              project?.apiEnabled
+                ? 'bg-green-100 text-green-800'
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {project?.apiEnabled ? 'Enabled' : 'Disabled'}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {project?.apiEnabled ? (
+              <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                  </svg>
+                  <p className="text-green-800 font-medium">API access is enabled</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                  </svg>
+                  <p className="text-red-800 font-medium">API access is disabled</p>
+                </div>
+              </div>
+            )}
+
+            <p className="text-gray-600 text-sm">
+              Control API access for all endpoints (user lookup, DM, tweet publishing, and is-following).
+              When disabled, all API requests will return a 403 error.
+            </p>
+
+            <button
+              onClick={toggleApiAccess}
+              disabled={togglingApi || !project}
+              className={`w-full ${
+                project?.apiEnabled
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-green-500 hover:bg-green-600'
+              } disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg`}
+            >
+              {togglingApi
+                ? 'Updating...'
+                : project?.apiEnabled
+                  ? 'Disable API Access'
+                  : 'Enable API Access'}
+            </button>
+          </div>
         </div>
 
         {/* Forwarding Endpoints Card */}

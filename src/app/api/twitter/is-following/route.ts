@@ -120,6 +120,20 @@ export async function GET(request: NextRequest) {
     console.log('   Project:', project.name);
     console.log('');
 
+    // Check if API is enabled for this project
+    if (!project.apiEnabled) {
+      console.log('❌ API disabled for this project');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'API access is disabled for this project. Please enable it in the project settings.' },
+        { status: 403 }
+      );
+    }
+
+    console.log('✅ API enabled for project');
+    console.log('');
+
     // Check if project has a connected bot (required for Twitter API access)
     if (!project.bot) {
       console.log('❌ Project has no connected bot');
