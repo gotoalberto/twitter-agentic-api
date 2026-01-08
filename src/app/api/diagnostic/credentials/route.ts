@@ -53,14 +53,14 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Test with pepesdogbot credentials
-    console.log('📦 Fetching pepesdogbot from database...');
-    const bot = await getBotByUsername('pepesdogbot');
+    // Test with BitsoOnchain credentials
+    console.log('📦 Fetching BitsoOnchain from database...');
+    const bot = await getBotByUsername('BitsoOnchain');
 
     if (!bot) {
       return NextResponse.json({
         success: false,
-        error: 'Bot pepesdogbot not found in database',
+        error: 'Bot BitsoOnchain not found in database',
         result,
       }, { status: 404 });
     }
@@ -88,41 +88,78 @@ export async function GET(request: NextRequest) {
         success: true,
       });
 
-      // Test 2: Get user info (READ permission)
-      console.log('📖 Testing READ permission...');
-      const user = await client.v2.me();
+      // Test 2: Get user info (v2.me)
+      console.log('📖 Testing v2.me() - Verify bot credentials...');
+      try {
+        const user = await client.v2.me();
+        result.tests.push({
+          name: 'v2.me() - Bot credential verification',
+          success: true,
+          username: user.data.username,
+          userId: user.data.id,
+        });
+      } catch (error: any) {
+        console.error('❌ v2.me() failed:', error.message);
+        result.tests.push({
+          name: 'v2.me() - Bot credential verification',
+          success: false,
+          error: error.message,
+          code: error.code || null,
+          type: error.type || null,
+          data: error.data || null,
+          errors: error.errors || null,
+        });
+      }
 
-      result.tests.push({
-        name: 'Read permission test',
-        success: true,
-        username: user.data.username,
-        userId: user.data.id,
-      });
+      // Test 3: userByUsername('gotoalberto') - THIS IS THE FAILING CALL
+      console.log('🔍 Testing userByUsername("gotoalberto") - THE FAILING ENDPOINT...');
+      try {
+        const userResponse = await client.v2.userByUsername('gotoalberto', {
+          'user.fields': [
+            'id',
+            'name',
+            'username',
+            'created_at',
+            'description',
+            'public_metrics',
+            'verified',
+            'verified_type',
+            'protected',
+            'profile_image_url',
+            'url',
+          ],
+        });
 
-      // Test 3: Post a test tweet (WRITE permission)
-      console.log('✏️  Testing WRITE permission...');
-      const testTweet = `Diagnostic test - ${Date.now()}`;
-      const tweet = await client.v2.tweet(testTweet);
+        result.tests.push({
+          name: 'userByUsername("gotoalberto") - User lookup',
+          success: true,
+          username: userResponse.data?.username,
+          userId: userResponse.data?.id,
+          followers: userResponse.data?.public_metrics?.followers_count || 0,
+        });
+      } catch (error: any) {
+        console.error('❌ userByUsername("gotoalberto") failed:', error.message);
+        console.error('   Error code:', error.code);
+        console.error('   Error type:', error.type);
+        console.error('   Error data:', JSON.stringify(error.data || {}, null, 2));
+        console.error('   Error errors:', JSON.stringify(error.errors || {}, null, 2));
 
-      result.tests.push({
-        name: 'Write permission test',
-        success: true,
-        tweetId: tweet.data.id,
-        tweetUrl: `https://twitter.com/${bot.username}/status/${tweet.data.id}`,
-      });
-
-      // Clean up: delete test tweet
-      console.log('🗑️  Cleaning up test tweet...');
-      await client.v2.deleteTweet(tweet.data.id);
-
-      result.tests.push({
-        name: 'Test tweet cleanup',
-        success: true,
-      });
+        result.tests.push({
+          name: 'userByUsername("gotoalberto") - User lookup',
+          success: false,
+          error: error.message,
+          code: error.code || null,
+          type: error.type || null,
+          data: error.data || null,
+          errors: error.errors || null,
+          rateLimit: error.rateLimit || null,
+          fullError: JSON.stringify(error, null, 2),
+        });
+      }
 
       return NextResponse.json({
         success: true,
-        message: 'All credentials are working correctly',
+        message: 'Diagnostic tests completed',
         result,
       });
 
