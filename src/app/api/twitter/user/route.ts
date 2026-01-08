@@ -328,11 +328,23 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('❌ USER LOOKUP ERROR');
-    console.error('   Error:', error.message);
+    console.error('   Error message:', error.message);
+    console.error('   Error code:', error.code);
+    console.error('   Error type:', error.type);
+    console.error('   Error data:', JSON.stringify(error.data || {}, null, 2));
+    console.error('   Error errors:', JSON.stringify(error.errors || {}, null, 2));
+    console.error('   Error rateLimit:', JSON.stringify(error.rateLimit || {}, null, 2));
+    console.error('   Full error object:', JSON.stringify(error, null, 2));
     console.error('   Stack:', error.stack);
 
     // Check for specific Twitter API errors
-    if (error.code === 403) {
+    if (error.code === 402) {
+      console.error('   ⚠️  ERROR 402: Payment Required');
+      console.error('   This usually means:');
+      console.error('   - The Twitter API plan has expired or is suspended');
+      console.error('   - The bot account is suspended');
+      console.error('   - Payment is required for the API tier');
+    } else if (error.code === 403) {
       console.error('   Reason: Forbidden - check bot permissions');
     } else if (error.code === 401) {
       console.error('   Reason: Unauthorized - check bot credentials');
