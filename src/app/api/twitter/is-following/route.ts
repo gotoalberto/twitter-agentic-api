@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { prisma } from '@/lib/db/prisma';
 import { decrypt } from '@/lib/utils/encryption';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -148,16 +149,27 @@ export async function GET(request: NextRequest) {
     console.log('✅ Bot found:', project.bot.username);
     console.log('');
 
-    // Get Twitter API credentials
-    const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-    const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+    // Get Twitter API credentials from the project's TwitterApp (DB) or fall back to env vars
+    let consumerKey: string | undefined;
+    let consumerSecret: string | undefined;
+
+    const twitterApp = await getTwitterAppByProjectId(project.id);
+    if (twitterApp) {
+      consumerKey = twitterApp.consumerKey;
+      consumerSecret = twitterApp.consumerSecret;
+      console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name);
+    } else {
+      consumerKey = process.env.TWITTER_OAUTH_API_KEY;
+      consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+      console.log('🔑 Using credentials from env vars (fallback)');
+    }
 
     if (!consumerKey || !consumerSecret) {
       console.log('❌ Missing Twitter API credentials');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: 'Twitter API credentials not configured' },
+        { error: 'Twitter API credentials not configured. Please associate a Twitter App with this project.' },
         { status: 500 }
       );
     }

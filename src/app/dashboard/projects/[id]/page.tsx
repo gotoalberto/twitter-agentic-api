@@ -13,10 +13,18 @@ interface BotStatus {
   } | null;
 }
 
+interface TwitterAppOption {
+  id: string;
+  name: string;
+  webhookEnv: string;
+}
+
 interface Project {
   id: string;
   name: string;
   apiEnabled: boolean;
+  twitterAppId: string | null;
+  twitterApp: { id: string; name: string; webhookEnv: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +73,11 @@ function ProjectDetailContent() {
   const [generatingApiKey, setGeneratingApiKey] = useState(false);
   const [togglingApi, setTogglingApi] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // Twitter App state
+  const [availableApps, setAvailableApps] = useState<TwitterAppOption[]>([]);
+  const [selectedAppId, setSelectedAppId] = useState<string>('');
+  const [savingApp, setSavingApp] = useState(false);
 
   // Collapsible sections state
   const [webhookDocsOpen, setWebhookDocsOpen] = useState(false);
@@ -135,8 +148,42 @@ function ProjectDetailContent() {
       fetchApiKeyConfig();
       fetchWebhookLogs();
       fetchEndpoints();
+      fetchAvailableApps();
     }
   }, [status, projectId]);
+
+  const fetchAvailableApps = async () => {
+    try {
+      const res = await fetch('/api/twitter-apps');
+      const data = await res.json();
+      setAvailableApps(data.apps || []);
+    } catch (error) {
+      console.error('Error fetching Twitter Apps:', error);
+    }
+  };
+
+  const saveTwitterApp = async () => {
+    setSavingApp(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/app`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ twitterAppId: selectedAppId || null }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage({ type: 'success', text: 'Twitter App assigned successfully' });
+        fetchProject();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to assign Twitter App' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to assign Twitter App' });
+    } finally {
+      setSavingApp(false);
+    }
+  };
 
   const fetchProject = async () => {
     try {
@@ -144,6 +191,8 @@ function ProjectDetailContent() {
       if (res.ok) {
         const data = await res.json();
         setProject(data.project);
+        // Sync selectedAppId with current project value
+        setSelectedAppId(data.project.twitterAppId || '');
       } else {
         setMessage({ type: 'error', text: 'Project not found' });
         router.push('/dashboard');
@@ -534,6 +583,84 @@ function ProjectDetailContent() {
             </div>
           </div>
         )}
+
+        {/* Twitter App Card */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Twitter App</h2>
+            {project.twitterApp ? (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                {project.twitterApp.name}
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                Not configured
+              </span>
+            )}
+          </div>
+
+          {!project.twitterApp && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded mb-4">
+              <p className="text-yellow-800 text-sm font-medium">
+                No Twitter App assigned. You must assign a Twitter App before connecting a bot.
+                {availableApps.length === 0 && (
+                  <span> <a href="/dashboard/apps" className="underline hover:no-underline">Create a Twitter App first</a>.</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {availableApps.length > 0 ? (
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedAppId}
+                onChange={(e) => setSelectedAppId(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— No app assigned —</option>
+                {availableApps.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.name} ({app.webhookEnv})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={saveTwitterApp}
+                disabled={savingApp || selectedAppId === (project.twitterAppId || '')}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {savingApp ? 'Saving...' : 'Assign'}
+              </button>
+              <a
+                href="/dashboard/apps"
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                Manage Apps
+              </a>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500 mb-3">No Twitter Apps configured yet.</p>
+              <a
+                href="/dashboard/apps"
+                className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                Create Twitter App
+              </a>
+            </div>
+          )}
+
+          {project.twitterApp && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400">
+                Webhook env: <span className="font-medium text-gray-600">{project.twitterApp.webhookEnv}</span>
+                {' · '}Webhook URL: <span className="font-mono text-gray-600 break-all">
+                  {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/twitter/{project.twitterApp.id}
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Bot Status Card */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">

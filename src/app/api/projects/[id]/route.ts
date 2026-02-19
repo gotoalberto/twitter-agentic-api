@@ -5,6 +5,7 @@ import { getProjectById, deleteProject } from '@/lib/db/projects';
 import { unsubscribeWebhook, deleteWebhook } from '@/lib/twitter/webhooks';
 import { getBotByProjectId } from '@/lib/db/bots';
 import { getWebhookRegistrationsByProjectId, deleteAllWebhookRegistrationsForProject } from '@/lib/db/webhooks';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 
 /**
  * GET: Get a specific project with all its data
@@ -86,10 +87,19 @@ export async function DELETE(
       if (subscribedWebhook && bot) {
         console.log('📍 Cleaning up webhooks...');
 
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
+        // Get bearer token from TwitterApp (DB) or fall back to env var
+        let bearerToken: string | undefined;
+        const twitterApp = await getTwitterAppByProjectId(id);
+        if (twitterApp) {
+          bearerToken = twitterApp.bearerToken;
+          console.log('🔑 Using bearer token from TwitterApp DB:', twitterApp.name);
+        } else {
+          bearerToken = process.env.X_API_BEARER_TOKEN;
+          console.log('🔑 Using bearer token from env vars (fallback)');
+        }
 
         if (bearerToken) {
-          // Unsubscribe bot using Bearer Token (updated to use correct endpoint)
+          // Unsubscribe bot using Bearer Token
           await unsubscribeWebhook(
             subscribedWebhook.webhookId,
             bot.userId,
@@ -101,8 +111,8 @@ export async function DELETE(
           await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
           console.log('✅ Webhook deleted from Twitter');
         } else {
-          console.error('❌ X_API_BEARER_TOKEN not found - cannot clean up webhook subscription');
-          throw new Error('Bearer token not configured');
+          console.error('❌ Bearer token not found - cannot clean up webhook subscription');
+          throw new Error('Bearer token not configured. Associate a Twitter App with this project.');
         }
 
         // Delete webhook registrations from database

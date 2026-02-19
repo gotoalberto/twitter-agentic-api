@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 
 interface Project {
@@ -135,6 +135,12 @@ function DashboardContent() {
             <p className="text-sm text-gray-500">X Forwarder</p>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/dashboard/apps')}
+              className="text-sm text-gray-600 hover:text-gray-900 font-medium transition border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg"
+            >
+              Twitter Apps
+            </button>
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">
                 @{(session?.user as any)?.twitterHandle}

@@ -3,9 +3,13 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { TwitterApi } from 'twitter-api-v2';
 import { getProjectById } from '@/lib/db/projects';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 
 /**
  * GET: Start OAuth 1.0a flow for connecting a bot to a specific project
+ *
+ * Credentials are loaded from the project's associated TwitterApp (stored in DB).
+ * Falls back to env vars if no TwitterApp is configured (backward compat).
  */
 export async function GET(
   request: NextRequest,
@@ -16,10 +20,7 @@ export async function GET(
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id: projectId } = await params;
@@ -32,9 +33,24 @@ export async function GET(
       );
     }
 
-    // Get OAuth 1.0a credentials
-    const apiKey = process.env.TWITTER_OAUTH_API_KEY;
-    const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+    // Get credentials from the project's TwitterApp (DB) or fall back to env vars
+    let apiKey: string | undefined;
+    let apiSecret: string | undefined;
+    let twitterAppId: string | undefined;
+
+    const twitterApp = await getTwitterAppByProjectId(projectId);
+
+    if (twitterApp) {
+      apiKey = twitterApp.consumerKey;
+      apiSecret = twitterApp.consumerSecret;
+      twitterAppId = twitterApp.id;
+      console.log('🔐 Using credentials from TwitterApp DB:', twitterApp.name);
+    } else {
+      // Fallback to env vars for projects without an associated app
+      apiKey = process.env.TWITTER_OAUTH_API_KEY;
+      apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+      console.log('🔐 Using credentials from env vars (no TwitterApp configured)');
+    }
 
     if (!apiKey || !apiSecret) {
       console.error('Twitter OAuth 1.0a credentials not configured');
@@ -62,7 +78,7 @@ export async function GET(
 
     console.log('✅ OAuth auth link generated');
 
-    // Store oauth_token_secret, oauth_token, and projectId in secure cookies
+    // Store oauth_token_secret, oauth_token, projectId and twitterAppId in secure cookies
     const response = NextResponse.redirect(authLink.url);
 
     response.cookies.set('oauth_token_secret', authLink.oauth_token_secret, {
@@ -89,6 +105,17 @@ export async function GET(
       maxAge: 600,
       path: '/',
     });
+
+    // Store twitterAppId so the callback knows which app to use
+    if (twitterAppId) {
+      response.cookies.set('oauth_twitter_app_id', twitterAppId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+    }
 
     return response;
   } catch (error: any) {

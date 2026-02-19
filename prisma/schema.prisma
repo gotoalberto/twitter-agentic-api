@@ -18,17 +18,37 @@ datasource db {
 // MODELS
 // ============================================================================
 
+/// TwitterApp stores the Twitter API credentials for a specific application
+/// Multiple projects can share the same Twitter App credentials
+model TwitterApp {
+  id             String   @id @default(cuid())
+  name           String   @unique // Display name (e.g. "Bitso Onchain App")
+  consumerKey    String   // OAuth 1.0a Consumer Key (encrypted)
+  consumerSecret String   // OAuth 1.0a Consumer Secret (encrypted)
+  bearerToken    String   // App-only Bearer Token (encrypted)
+  webhookEnv     String   @default("production") // Twitter webhook environment name
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  projects Project[]
+
+  @@map("twitter_apps")
+}
+
 /// Project represents an external application that uses the X Forwarder
 /// to publish tweets and receive webhooks
 model Project {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  apiKey     String?  // API key for authenticating tweet publishing requests
-  apiEnabled Boolean  @default(true) // Enable/disable API access for this project
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  apiKey       String?  // API key for authenticating tweet publishing requests
+  apiEnabled   Boolean  @default(true) // Enable/disable API access for this project
+  twitterAppId String?  // Associated Twitter App (optional for backward compat)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
+  twitterApp            TwitterApp?           @relation(fields: [twitterAppId], references: [id])
   bot                   Bot?
   forwardingConfig      ForwardingConfig?     // DEPRECATED: Will be removed after migration
   forwardingEndpoints   ForwardingEndpoint[]  // NEW: Multiple endpoints support
@@ -38,6 +58,7 @@ model Project {
   idempotentTweets      IdempotentTweet[]
 
   @@map("projects")
+  @@index([twitterAppId])
 }
 
 /// Bot represents a Twitter/X bot account connected to a project

@@ -5,6 +5,7 @@ import { getProjectById } from '@/lib/db/projects';
 import { getBotByProjectId, deleteBotByProjectId } from '@/lib/db/bots';
 import { unsubscribeWebhook } from '@/lib/twitter/webhooks';
 import { getWebhookRegistrationsByProjectId, deleteAllWebhookRegistrationsForProject } from '@/lib/db/webhooks';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 
 /**
  * POST: Disconnect bot from a specific project
@@ -50,10 +51,18 @@ export async function POST(
       if (subscribedWebhook) {
         console.log('📍 Unsubscribing bot from webhook...');
 
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
+        // Get bearer token from TwitterApp (DB) or fall back to env var
+        let bearerToken: string | undefined;
+        const twitterApp = await getTwitterAppByProjectId(projectId);
+        if (twitterApp) {
+          bearerToken = twitterApp.bearerToken;
+          console.log('🔑 Using bearer token from TwitterApp DB:', twitterApp.name);
+        } else {
+          bearerToken = process.env.X_API_BEARER_TOKEN;
+          console.log('🔑 Using bearer token from env vars (fallback)');
+        }
 
         if (bearerToken) {
-          // Unsubscribe bot using Bearer Token (updated to use correct endpoint)
           await unsubscribeWebhook(
             subscribedWebhook.webhookId,
             bot.userId,
@@ -62,11 +71,10 @@ export async function POST(
 
           console.log('✅ Bot unsubscribed from webhook');
 
-          // Update subscription status in database (keep webhook registered, just mark as unsubscribed)
           await deleteAllWebhookRegistrationsForProject(projectId);
         } else {
-          console.error('❌ X_API_BEARER_TOKEN not found - cannot unsubscribe bot');
-          throw new Error('Bearer token not configured');
+          console.error('❌ Bearer token not found - cannot unsubscribe bot');
+          throw new Error('Bearer token not configured. Associate a Twitter App with this project.');
         }
       } else {
         console.log('⏭️  No subscribed webhook found, skipping unsubscribe');

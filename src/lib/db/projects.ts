@@ -5,12 +5,13 @@
  */
 
 import { prisma } from './prisma';
-import type { Project, Bot, ForwardingConfig, WebhookRegistration } from '@/generated/prisma';
+import type { Project, Bot, ForwardingConfig, WebhookRegistration, TwitterApp } from '@/generated/prisma';
 
 export type ProjectWithRelations = Project & {
   bot: Bot | null;
   forwardingConfig: ForwardingConfig | null;
   webhookRegistrations: WebhookRegistration[];
+  twitterApp: TwitterApp | null;
 };
 
 /**
@@ -36,6 +37,7 @@ export async function getAllProjects(): Promise<ProjectWithRelations[]> {
       bot: true,
       forwardingConfig: true,
       webhookRegistrations: true,
+      twitterApp: true,
     },
     orderBy: {
       createdAt: 'asc',
@@ -55,6 +57,7 @@ export async function getProjectById(id: string): Promise<ProjectWithRelations |
       bot: true,
       forwardingConfig: true,
       webhookRegistrations: true,
+      twitterApp: true,
     },
   });
 
@@ -71,6 +74,7 @@ export async function getProjectByName(name: string): Promise<ProjectWithRelatio
       bot: true,
       forwardingConfig: true,
       webhookRegistrations: true,
+      twitterApp: true,
     },
   });
 
