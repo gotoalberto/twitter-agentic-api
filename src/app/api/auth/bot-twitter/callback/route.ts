@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     let apiKey: string | undefined;
     let apiSecret: string | undefined;
     let bearerToken: string | undefined;
+    let webhookEnv: string = process.env.TWITTER_WEBHOOK_ENV || 'production';
     let resolvedTwitterAppId: string | undefined;
 
     if (twitterAppIdFromCookie) {
@@ -47,8 +48,9 @@ export async function GET(request: NextRequest) {
         apiKey = twitterApp.consumerKey;
         apiSecret = twitterApp.consumerSecret;
         bearerToken = twitterApp.bearerToken;
+        webhookEnv = twitterApp.webhookEnv;
         resolvedTwitterAppId = twitterApp.id;
-        console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name);
+        console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name, '| env:', webhookEnv);
       }
     }
 
@@ -57,7 +59,8 @@ export async function GET(request: NextRequest) {
       apiKey = process.env.TWITTER_OAUTH_API_KEY;
       apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
       bearerToken = process.env.X_API_BEARER_TOKEN;
-      console.log('🔑 Using credentials from env vars (fallback)');
+      webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+      console.log('🔑 Using credentials from env vars (fallback) | env:', webhookEnv);
     }
 
     if (!apiKey || !apiSecret) {
@@ -171,7 +174,7 @@ export async function GET(request: NextRequest) {
         // Check Twitter API for existing webhook
         console.log('🔍 Checking Twitter for existing webhook...');
         try {
-          const twitterWebhooks = await listWebhooks(bearerToken);
+          const twitterWebhooks = await listWebhooks(bearerToken, webhookEnv);
           console.log(`   Found ${twitterWebhooks.length} webhook(s) in Twitter`);
 
           const matchingWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
@@ -193,7 +196,7 @@ export async function GET(request: NextRequest) {
       // Register new webhook if doesn't exist
       if (!webhookId) {
         console.log('🔧 Registering new webhook with Twitter...');
-        const result = await registerWebhook(webhookUrl, bearerToken);
+        const result = await registerWebhook(webhookUrl, apiKey!, apiSecret!, webhookEnv);
         webhookId = result.webhookId;
         console.log('✅ Webhook registered in Twitter:', webhookId);
         await saveWebhookRegistration(project.id, {
@@ -210,13 +213,14 @@ export async function GET(request: NextRequest) {
       // Subscribe bot to webhook
       console.log('📌 Subscribing bot to webhook...');
       await subscribeWebhook(
-        apiKey,
-        apiSecret,
+        apiKey!,
+        apiSecret!,
         accessToken,
         accessSecret,
         webhookId,
         user.data.id,
-        bearerToken
+        bearerToken!,
+        webhookEnv
       );
       console.log('   ✅ Subscription successful');
 

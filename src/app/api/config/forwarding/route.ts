@@ -101,8 +101,11 @@ export async function POST(request: NextRequest) {
 
       try {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
-        if (bearerToken && existingWebhook.webhookId) {
-          await deleteWebhook(existingWebhook.webhookId, bearerToken);
+        const ck = process.env.TWITTER_OAUTH_API_KEY;
+        const cs = process.env.TWITTER_OAUTH_API_SECRET;
+        const wEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+        if (bearerToken && ck && cs && existingWebhook.webhookId) {
+          await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv);
           await deleteAllWebhookRegistrationsForProject(project.id);
           console.log('✅ Old webhook deleted');
         }
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
         const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
         const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+        const webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
 
         if (!bearerToken || !consumerKey || !consumerSecret) {
           throw new Error('Missing required environment variables for webhook setup');
@@ -143,7 +147,7 @@ export async function POST(request: NextRequest) {
         if (!webhook || webhook.url !== webhookUrl) {
           // List webhooks to see if one already exists
           try {
-            const webhooks = await listWebhooks(bearerToken);
+            const webhooks = await listWebhooks(bearerToken, webhookEnv);
             const matchingWebhook = webhooks.find(w => w.url === webhookUrl);
 
             if (matchingWebhook) {
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
         // Register new webhook if doesn't exist
         if (!webhook) {
           console.log('🔧 Registering new webhook...');
-          const { webhookId, url } = await registerWebhook(webhookUrl, bearerToken);
+          const { webhookId, url } = await registerWebhook(webhookUrl, consumerKey, consumerSecret, webhookEnv);
 
           // Save to database
           await saveWebhookRegistration(project.id, {
@@ -186,8 +190,9 @@ export async function POST(request: NextRequest) {
             bot.accessToken,
             bot.accessTokenSecret,
             webhook.webhookId,
-            bot.userId,    // userId for unsubscribe if needed
-            bearerToken    // bearerToken for unsubscribe if needed
+            bot.userId,
+            bearerToken,
+            webhookEnv
           );
 
           // Update subscription status
@@ -254,18 +259,21 @@ export async function DELETE() {
 
       try {
         const bearerToken = process.env.X_API_BEARER_TOKEN;
+        const consumerKeyDel = process.env.TWITTER_OAUTH_API_KEY;
+        const consumerSecretDel = process.env.TWITTER_OAUTH_API_SECRET;
+        const webhookEnvDel = process.env.TWITTER_WEBHOOK_ENV || 'production';
         const bot = await getBotByProjectId(project.id);
 
         // Unsubscribe bot if subscribed
         if (bot && bearerToken) {
           console.log('📍 Unsubscribing bot from webhook...');
-          await unsubscribeWebhook(subscribedWebhook.webhookId, bot.userId, bearerToken);
+          await unsubscribeWebhook(subscribedWebhook.webhookId, bot.userId, bearerToken, webhookEnvDel);
           console.log('✅ Bot unsubscribed');
         }
 
         // Delete webhook
-        if (bearerToken) {
-          await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
+        if (consumerKeyDel && consumerSecretDel) {
+          await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel);
           console.log('✅ Webhook deleted from Twitter');
         }
 

@@ -3,20 +3,21 @@ import { retryWithBackoff } from '@/lib/utils/retry';
 
 /**
  * Twitter Webhooks Management Service
- * Based on xbot implementation
  *
- * Handles registration, subscription, and unsubscription of Twitter webhooks
- * using Twitter's Account Activity API
+ * Uses Twitter Account Activity API v1.1 endpoints.
+ * v1.1 does NOT require the app to be inside a Project in the Developer Portal,
+ * unlike the v2 endpoints which mandate this. This allows standalone apps to work.
  *
- * Features:
- * - Automatic retries with exponential backoff for transient failures
- * - Detailed logging for debugging and monitoring
- * - Proper error handling and reporting
+ * v1.1 endpoint format:
+ *   POST   /1.1/account_activity/all/{env}/webhooks.json?url={webhookUrl}
+ *   GET    /1.1/account_activity/all/{env}/webhooks.json
+ *   DELETE /1.1/account_activity/all/{env}/webhooks/{webhookId}.json
+ *   POST   /1.1/account_activity/all/{env}/subscriptions.json
+ *   DELETE /1.1/account_activity/all/{env}/subscriptions/{userId}/all.json
  */
 
 /**
  * Generate OAuth 1.0a signature for Twitter API requests
- * Required for subscription/unsubscription endpoints
  */
 function generateOAuthSignature(
   method: string,
@@ -25,30 +26,28 @@ function generateOAuthSignature(
   consumerSecret: string,
   tokenSecret?: string
 ): string {
-  // Sort parameters alphabetically
   const sortedParams = Object.keys(params)
     .sort()
     .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
     .join('&');
 
-  // Create signature base string
   const signatureBase = [
     method.toUpperCase(),
     encodeURIComponent(url),
     encodeURIComponent(sortedParams),
   ].join('&');
 
-  // Create signing key
   const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret || '')}`;
 
-  // Generate signature
   const hmac = crypto.createHmac('sha1', signingKey);
   hmac.update(signatureBase);
   return hmac.digest('base64');
 }
 
 /**
- * Generate OAuth 1.0a authorization header
+ * Generate OAuth 1.0a Authorization header.
+ * additionalParams: extra query/body params that must be included in the signature
+ * (e.g. the `url` param for webhook registration).
  */
 function generateOAuthHeader(
   method: string,
@@ -56,7 +55,8 @@ function generateOAuthHeader(
   consumerKey: string,
   consumerSecret: string,
   accessToken?: string,
-  accessSecret?: string
+  accessSecret?: string,
+  additionalParams?: Record<string, string>
 ): string {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const nonce = crypto.randomBytes(32).toString('base64').replace(/\W/g, '');
@@ -73,10 +73,13 @@ function generateOAuthHeader(
     oauthParams.oauth_token = accessToken;
   }
 
+  // Include additional request params (query/body) in signature as required by OAuth 1.0a spec
+  const allSignatureParams = { ...oauthParams, ...(additionalParams || {}) };
+
   const signature = generateOAuthSignature(
     method,
     url,
-    oauthParams,
+    allSignatureParams,
     consumerSecret,
     accessSecret
   );
@@ -92,38 +95,47 @@ function generateOAuthHeader(
 }
 
 /**
- * Register a new webhook with Twitter's API v2
- * Uses Bearer Token (OAuth 2.0)
- *
- * This function includes automatic retries with exponential backoff
- * to handle transient network failures or rate limits.
- *
- * @throws Error if registration fails after all retries
+ * Register a new webhook with Twitter Account Activity API v1.1
+ * Auth: App-level OAuth 1.0a (consumer key/secret, no user tokens)
+ * POST /1.1/account_activity/all/{env}/webhooks.json?url={webhookUrl}
  */
 export async function registerWebhook(
   webhookUrl: string,
-  bearerToken: string
+  consumerKey: string,
+  consumerSecret: string,
+  webhookEnv: string
 ): Promise<{ webhookId: string; url: string }> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API');
+  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API v1.1');
   console.log('================================================================================');
   console.log('   URL:', webhookUrl);
-  console.log('   Bearer token present:', !!bearerToken);
+  console.log('   Env:', webhookEnv);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
+  const apiUrl = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
+
   return await retryWithBackoff(
     async () => {
+      // The 'url' query param must be included in the OAuth signature
+      const authHeader = generateOAuthHeader(
+        'POST',
+        apiUrl,
+        consumerKey,
+        consumerSecret,
+        undefined,
+        undefined,
+        { url: webhookUrl }
+      );
+
       const response = await fetch(
-        'https://api.twitter.com/2/webhooks',
+        `${apiUrl}?url=${encodeURIComponent(webhookUrl)}`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${bearerToken}`,
-            'Content-Type': 'application/json',
+            'Authorization': authHeader,
           },
-          body: JSON.stringify({ url: webhookUrl }),
         }
       );
 
@@ -133,115 +145,93 @@ export async function registerWebhook(
         let error: any;
         try {
           error = await response.json();
-        } catch (jsonError) {
-          console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
-          const errorMsg = `Twitter API error: ${response.status} ${response.statusText}`;
-
-          // Log detailed error for debugging
-          console.error('   Request URL:', 'https://api.twitter.com/2/webhooks');
-          console.error('   Request Method: POST');
-          console.error('   Response Status:', response.status);
-          console.error('   Response Status Text:', response.statusText);
-
-          throw new Error(errorMsg);
+        } catch {
+          throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
         }
-
-        console.error('❌ Twitter API Error Response:');
-        console.error('   Status:', response.status);
-        console.error('   Error:', JSON.stringify(error, null, 2));
-
+        console.error('❌ Twitter API Error:', JSON.stringify(error, null, 2));
         const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
         throw new Error(`Twitter API error: ${errorMessage}`);
       }
 
+      // v1.1 returns {id, url, valid, created_at} directly (no data wrapper)
       const result = await response.json();
       console.log('📦 Twitter API Response Body:', JSON.stringify(result, null, 2));
 
-      const webhookId = result.data?.id;
+      const webhookId = result.id;
 
       if (!webhookId) {
-        console.error('❌ No webhook ID in response. Full response:', JSON.stringify(result, null, 2));
         throw new Error('Webhook registered but no ID returned by Twitter API');
       }
 
       console.log('');
       console.log('✅ WEBHOOK REGISTERED SUCCESSFULLY');
       console.log('   Webhook ID:', webhookId);
-      console.log('   URL:', webhookUrl);
-      console.log('   Timestamp:', new Date().toISOString());
+      console.log('   URL:', result.url);
       console.log('================================================================================');
       console.log('');
 
-      return {
-        webhookId: webhookId,
-        url: webhookUrl,
-      };
+      return { webhookId, url: result.url };
     },
     {
       maxAttempts: 3,
       initialDelayMs: 2000,
       maxDelayMs: 8000,
       backoffMultiplier: 2,
-      onRetry: (error, attempt, delay) => {
-        console.log('');
-        console.log('⚠️  WEBHOOK REGISTRATION RETRY');
-        console.log('   Attempt:', attempt, '/ 3');
-        console.log('   Error:', error.message);
-        console.log('   Next retry in:', delay, 'ms');
-        console.log('');
+      onRetry: (error: Error, attempt: number, delay: number) => {
+        console.log(`⚠️  WEBHOOK REGISTRATION RETRY — attempt ${attempt}/3 — error: ${error.message} — next in ${delay}ms`);
       },
     }
   );
 }
 
 /**
- * Delete a webhook from Twitter's API v2
- * Uses Bearer Token (OAuth 2.0)
+ * Delete a webhook from Twitter Account Activity API v1.1
+ * Auth: App-level OAuth 1.0a
+ * DELETE /1.1/account_activity/all/{env}/webhooks/{webhookId}.json
  */
 export async function deleteWebhook(
   webhookId: string,
-  bearerToken: string
+  consumerKey: string,
+  consumerSecret: string,
+  webhookEnv: string
 ): Promise<void> {
-  console.log('🗑️  Deleting webhook from Twitter API v2...');
+  console.log('🗑️  Deleting webhook from Twitter API v1.1...');
   console.log('   Webhook ID:', webhookId);
+  console.log('   Env:', webhookEnv);
 
-  const response = await fetch(
-    `https://api.twitter.com/2/webhooks/${webhookId}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-      },
-    }
-  );
+  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks/${webhookId}.json`;
 
-  if (!response.ok) {
-    let error: any;
-    try {
-      error = await response.json();
-    } catch (jsonError) {
-      console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
-      throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
-    }
-    console.error('❌ Twitter API Error:', error);
-    throw new Error(
-      `Twitter API error: ${error.errors?.[0]?.message || error.detail || response.statusText}`
-    );
+  const authHeader = generateOAuthHeader('DELETE', url, consumerKey, consumerSecret);
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'Authorization': authHeader },
+  });
+
+  if (response.status === 204 || response.ok) {
+    console.log('✅ Webhook deleted successfully');
+    return;
   }
 
-  console.log('✅ Webhook deleted successfully');
+  let error: any;
+  try {
+    error = await response.json();
+  } catch {
+    throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
+  }
+  console.error('❌ Twitter API Error:', error);
+  throw new Error(
+    `Twitter API error: ${error.errors?.[0]?.message || error.detail || response.statusText}`
+  );
 }
 
 /**
- * Subscribe a bot account to the webhook (API v2)
- * Uses OAuth 1.0a with bot's access tokens
+ * Subscribe a bot account to the webhook (Account Activity API v1.1)
+ * Auth: User-level OAuth 1.0a (bot's access tokens)
+ * POST /1.1/account_activity/all/{env}/subscriptions.json
  *
- * This function includes automatic retries with exponential backoff
- * to handle transient network failures or rate limits.
- *
- * If subscription already exists, it will be deleted and recreated to ensure it's active.
- *
- * @throws Error if subscription fails after all retries
+ * Note: In v1.1, subscription is per-environment (not per-webhookId).
+ * The webhookId param is kept for interface compatibility but not used in the URL.
  */
 export async function subscribeWebhook(
   consumerKey: string,
@@ -250,19 +240,21 @@ export async function subscribeWebhook(
   accessSecret: string,
   webhookId: string,
   userId: string,
-  bearerToken: string
+  bearerToken: string,
+  webhookEnv: string
 ): Promise<void> {
   console.log('');
   console.log('================================================================================');
-  console.log('📌 SUBSCRIBING BOT TO WEBHOOK');
+  console.log('📌 SUBSCRIBING BOT TO WEBHOOK (v1.1)');
   console.log('================================================================================');
-  console.log('   Webhook ID:', webhookId);
+  console.log('   Env:', webhookEnv);
+  console.log('   User ID:', userId);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
   await retryWithBackoff(
     async () => {
-      const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/all`;
+      const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/subscriptions.json`;
 
       const authHeader = generateOAuthHeader(
         'POST',
@@ -277,204 +269,143 @@ export async function subscribeWebhook(
         method: 'POST',
         headers: {
           'Authorization': authHeader,
-          'Content-Type': 'application/json',
+          'Content-Length': '0',
         },
       });
 
       console.log('📡 Twitter API Response:', response.status, response.statusText);
 
+      // 204 No Content = success for subscription
+      if (response.status === 204) {
+        console.log('');
+        console.log('✅ BOT SUBSCRIBED SUCCESSFULLY');
+        console.log('   Env:', webhookEnv);
+        console.log('   User ID:', userId);
+        console.log('================================================================================');
+        console.log('');
+        return;
+      }
+
       if (!response.ok) {
         let error: any;
         try {
           error = await response.json();
-        } catch (jsonError) {
-          console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
-          const errorMsg = `Twitter API error: ${response.status} ${response.statusText}`;
-
-          // Log detailed error for debugging
-          console.error('   Request URL:', url);
-          console.error('   Request Method: POST');
-          console.error('   Response Status:', response.status);
-          console.error('   Response Status Text:', response.statusText);
-
-          throw new Error(errorMsg);
-        }
-
-        // Check if subscription already exists
-        const isDuplicateSubscription =
-          error.detail?.includes('Subscription already exists') ||
-          error.errors?.[0]?.message?.includes('Subscription already exists') ||
-          error.errors?.[0]?.message?.includes('DuplicateSubscriptionFailed') ||
-          response.status === 409;
-
-        if (isDuplicateSubscription) {
-          console.log('');
-          console.log('⚠️  SUBSCRIPTION ALREADY EXISTS - RECREATING');
-          console.log('   Webhook ID:', webhookId);
-          console.log('   User ID:', userId);
-          console.log('   Timestamp:', new Date().toISOString());
-          console.log('');
-
-          // Delete existing subscription
-          console.log('🗑️  Deleting existing subscription...');
-          try {
-            await unsubscribeWebhook(webhookId, userId, bearerToken);
-            console.log('   ✅ Existing subscription deleted successfully');
-          } catch (unsubscribeError: any) {
-            console.error('   ⚠️  Failed to delete existing subscription:', unsubscribeError.message);
-            console.error('   Continuing with subscription attempt...');
-          }
-
-          console.log('');
-          console.log('🔄 Retrying subscription after deletion...');
-          console.log('');
-
-          // Retry subscription (throw error to trigger retry mechanism)
-          throw new Error('Subscription existed and was deleted - retrying subscription');
+        } catch {
+          throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
         }
 
         console.error('❌ Twitter API Error Response:');
         console.error('   Status:', response.status);
         console.error('   Error:', JSON.stringify(error, null, 2));
 
+        // Duplicate subscription: Twitter error code 355 or similar message
+        const isDuplicateSubscription =
+          error.errors?.[0]?.code === 355 ||
+          error.errors?.[0]?.message?.includes('already') ||
+          error.detail?.includes('already');
+
+        if (isDuplicateSubscription) {
+          console.log('⚠️  SUBSCRIPTION ALREADY EXISTS - RECREATING...');
+          try {
+            await unsubscribeWebhook(webhookId, userId, bearerToken, webhookEnv);
+            console.log('   ✅ Existing subscription deleted');
+          } catch (unsubErr: any) {
+            console.error('   ⚠️  Failed to delete existing subscription:', unsubErr.message);
+          }
+          throw new Error('Subscription existed and was deleted - retrying subscription');
+        }
+
         const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
         throw new Error(`Twitter API error: ${errorMessage}`);
       }
-
-      const data = await response.json();
-      console.log('📦 Subscription Response:', JSON.stringify(data, null, 2));
-
-      console.log('');
-      console.log('✅ BOT SUBSCRIBED SUCCESSFULLY');
-      console.log('   Webhook ID:', webhookId);
-      console.log('   Subscription Status:', data.data?.subscribed ? 'Subscribed' : 'Completed');
-      console.log('   Timestamp:', new Date().toISOString());
-      console.log('================================================================================');
-      console.log('');
     },
     {
       maxAttempts: 3,
       initialDelayMs: 2000,
       maxDelayMs: 8000,
       backoffMultiplier: 2,
-      onRetry: (error, attempt, delay) => {
-        console.log('');
-        console.log('⚠️  WEBHOOK SUBSCRIPTION RETRY');
-        console.log('   Attempt:', attempt, '/ 3');
-        console.log('   Error:', error.message);
-        console.log('   Next retry in:', delay, 'ms');
-        console.log('');
+      onRetry: (error: Error, attempt: number, delay: number) => {
+        console.log(`⚠️  WEBHOOK SUBSCRIPTION RETRY — attempt ${attempt}/3 — error: ${error.message} — next in ${delay}ms`);
       },
     }
   );
 }
 
 /**
- * Unsubscribe a bot account from the webhook (API v2)
- * Uses Bearer Token (simpler and more reliable than OAuth 1.0a)
- *
- * Updated to use correct endpoint: /subscriptions/{user_id}/all
- * This prevents orphaned subscriptions when bots are disconnected or projects deleted.
- *
- * @param webhookId - Twitter webhook ID
- * @param userId - Twitter user ID of the bot to unsubscribe
- * @param bearerToken - Twitter API Bearer Token (app-level authentication)
+ * Unsubscribe a bot account from the webhook (Account Activity API v1.1)
+ * Auth: Bearer Token (app-level)
+ * DELETE /1.1/account_activity/all/{env}/subscriptions/{userId}/all.json
  */
 export async function unsubscribeWebhook(
   webhookId: string,
   userId: string,
-  bearerToken: string
+  bearerToken: string,
+  webhookEnv: string
 ): Promise<void> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔌 UNSUBSCRIBING BOT FROM WEBHOOK');
+  console.log('🔌 UNSUBSCRIBING BOT FROM WEBHOOK (v1.1)');
   console.log('================================================================================');
-  console.log('   Webhook ID:', webhookId);
   console.log('   User ID:', userId);
+  console.log('   Env:', webhookEnv);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
-  // Correct endpoint according to official Twitter API documentation
-  const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/${userId}/all`;
-
-  console.log('📡 Making DELETE request...');
-  console.log('   URL:', url);
-  console.log('   Auth: Bearer Token');
-  console.log('');
+  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/subscriptions/${userId}/all.json`;
 
   const response = await fetch(url, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${bearerToken}`,
-    },
+    headers: { 'Authorization': `Bearer ${bearerToken}` },
   });
 
   console.log('📡 Twitter API Response:', response.status, response.statusText);
 
-  if (!response.ok) {
-    let error: any;
-    try {
-      error = await response.json();
-    } catch (jsonError) {
-      console.error('');
-      console.error('❌ UNSUBSCRIBE FAILED (no JSON body)');
-      console.error('   Status:', response.status, response.statusText);
-      console.error('   URL:', url);
-      console.error('   User ID:', userId);
-      console.error('   Webhook ID:', webhookId);
-      console.error('');
-      throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
-    }
-
-    console.error('');
-    console.error('❌ UNSUBSCRIBE FAILED');
-    console.error('   Status:', response.status);
-    console.error('   Error:', JSON.stringify(error, null, 2));
-    console.error('   URL:', url);
-    console.error('   User ID:', userId);
-    console.error('   Webhook ID:', webhookId);
-    console.error('');
-
-    const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
-    throw new Error(`Twitter API error: ${errorMessage}`);
+  if (response.status === 204 || response.ok) {
+    console.log('✅ BOT UNSUBSCRIBED SUCCESSFULLY');
+    console.log('================================================================================');
+    console.log('');
+    return;
   }
 
-  console.log('');
-  console.log('✅ BOT UNSUBSCRIBED SUCCESSFULLY');
-  console.log('   User ID:', userId);
-  console.log('   Webhook ID:', webhookId);
-  console.log('   Timestamp:', new Date().toISOString());
-  console.log('================================================================================');
-  console.log('');
+  let error: any;
+  try {
+    error = await response.json();
+  } catch {
+    throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
+  }
+
+  console.error('❌ UNSUBSCRIBE FAILED:', JSON.stringify(error, null, 2));
+  const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
+  throw new Error(`Twitter API error: ${errorMessage}`);
 }
 
 /**
- * List all registered webhooks (API v2)
- * Uses Bearer Token (OAuth 2.0)
+ * List all registered webhooks for an environment (Account Activity API v1.1)
+ * Auth: Bearer Token
+ * GET /1.1/account_activity/all/{env}/webhooks.json
  */
-export async function listWebhooks(bearerToken: string): Promise<Array<{ id: string; url: string }>> {
-  const response = await fetch(
-    'https://api.twitter.com/2/webhooks',
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-      },
-    }
-  );
+export async function listWebhooks(
+  bearerToken: string,
+  webhookEnv: string
+): Promise<Array<{ id: string; url: string }>> {
+  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${bearerToken}` },
+  });
 
   if (!response.ok) {
     let error: any;
     try {
       error = await response.json();
-    } catch (jsonError) {
-      console.error('❌ Twitter API Error (no JSON body):', response.status, response.statusText);
+    } catch {
       throw new Error(`Failed to list webhooks: ${response.status} ${response.statusText}`);
     }
     throw new Error(`Failed to list webhooks: ${response.status} ${JSON.stringify(error)}`);
   }
 
   const data = await response.json();
-  // API v2 returns { data: [{ id, url, ... }] }
-  return data.data || [];
+  // v1.1 returns an array directly: [{id, url, valid, created_at}]
+  return Array.isArray(data) ? data : [];
 }

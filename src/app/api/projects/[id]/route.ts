@@ -87,32 +87,42 @@ export async function DELETE(
       if (subscribedWebhook && bot) {
         console.log('📍 Cleaning up webhooks...');
 
-        // Get bearer token from TwitterApp (DB) or fall back to env var
+        // Get credentials from TwitterApp (DB) or fall back to env vars
         let bearerToken: string | undefined;
+        let consumerKey: string | undefined;
+        let consumerSecret: string | undefined;
+        let webhookEnv: string = process.env.TWITTER_WEBHOOK_ENV || 'production';
         const twitterApp = await getTwitterAppByProjectId(id);
         if (twitterApp) {
           bearerToken = twitterApp.bearerToken;
-          console.log('🔑 Using bearer token from TwitterApp DB:', twitterApp.name);
+          consumerKey = twitterApp.consumerKey;
+          consumerSecret = twitterApp.consumerSecret;
+          webhookEnv = twitterApp.webhookEnv;
+          console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name, '| env:', webhookEnv);
         } else {
           bearerToken = process.env.X_API_BEARER_TOKEN;
-          console.log('🔑 Using bearer token from env vars (fallback)');
+          consumerKey = process.env.TWITTER_OAUTH_API_KEY;
+          consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+          webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+          console.log('🔑 Using credentials from env vars (fallback) | env:', webhookEnv);
         }
 
-        if (bearerToken) {
+        if (bearerToken && consumerKey && consumerSecret) {
           // Unsubscribe bot using Bearer Token
           await unsubscribeWebhook(
             subscribedWebhook.webhookId,
             bot.userId,
-            bearerToken
+            bearerToken,
+            webhookEnv
           );
           console.log('✅ Bot unsubscribed from webhook');
 
-          // Delete webhook from Twitter
-          await deleteWebhook(subscribedWebhook.webhookId, bearerToken);
+          // Delete webhook from Twitter (app-level OAuth 1.0a)
+          await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
           console.log('✅ Webhook deleted from Twitter');
         } else {
-          console.error('❌ Bearer token not found - cannot clean up webhook subscription');
-          throw new Error('Bearer token not configured. Associate a Twitter App with this project.');
+          console.error('❌ Credentials not found - cannot clean up webhook subscription');
+          throw new Error('Credentials not configured. Associate a Twitter App with this project.');
         }
 
         // Delete webhook registrations from database

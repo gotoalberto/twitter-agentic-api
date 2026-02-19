@@ -51,22 +51,26 @@ export async function POST(
       if (subscribedWebhook) {
         console.log('📍 Unsubscribing bot from webhook...');
 
-        // Get bearer token from TwitterApp (DB) or fall back to env var
+        // Get credentials from TwitterApp (DB) or fall back to env vars
         let bearerToken: string | undefined;
+        let webhookEnv: string = process.env.TWITTER_WEBHOOK_ENV || 'production';
         const twitterApp = await getTwitterAppByProjectId(projectId);
         if (twitterApp) {
           bearerToken = twitterApp.bearerToken;
-          console.log('🔑 Using bearer token from TwitterApp DB:', twitterApp.name);
+          webhookEnv = twitterApp.webhookEnv;
+          console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name, '| env:', webhookEnv);
         } else {
           bearerToken = process.env.X_API_BEARER_TOKEN;
-          console.log('🔑 Using bearer token from env vars (fallback)');
+          webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+          console.log('🔑 Using credentials from env vars (fallback) | env:', webhookEnv);
         }
 
         if (bearerToken) {
           await unsubscribeWebhook(
             subscribedWebhook.webhookId,
             bot.userId,
-            bearerToken
+            bearerToken,
+            webhookEnv
           );
 
           console.log('✅ Bot unsubscribed from webhook');
