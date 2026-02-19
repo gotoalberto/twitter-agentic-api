@@ -155,8 +155,11 @@ export default function AppsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -164,94 +167,152 @@ export default function AppsPage() {
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
             <button
               onClick={() => router.push('/dashboard')}
-              className="text-gray-400 hover:text-white text-sm mb-2 flex items-center gap-1"
+              className="text-sm text-gray-500 hover:text-gray-700 font-medium mb-1 flex items-center gap-1 cursor-pointer"
             >
-              ← Back to Dashboard
+              ← Back to Projects
             </button>
-            <h1 className="text-2xl font-bold text-white">Twitter Apps</h1>
-            <p className="text-gray-400 text-sm mt-1">
+            <h1 className="text-2xl font-bold text-gray-900">Twitter Apps</h1>
+            <p className="text-sm text-gray-500">X Forwarder</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">
+                @{(session?.user as any)?.twitterHandle}
+              </p>
+              <p className="text-xs text-gray-500">Administrator</p>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Message */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            <div className="flex justify-between items-center">
+              <p className="font-medium">{message.text}</p>
+              <button
+                onClick={() => setMessage(null)}
+                className="text-sm hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Header with Create Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Your Twitter Apps ({apps.length})
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
               Manage Twitter API credentials. Each app can be shared across multiple projects.
             </p>
           </div>
           <button
             onClick={openCreateModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer"
           >
-            + New App
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New App
           </button>
         </div>
 
-        {/* Message */}
-        {message && (
-          <div
-            className={`mb-6 px-4 py-3 rounded-lg text-sm ${
-              message.type === 'success'
-                ? 'bg-green-900/50 border border-green-700 text-green-300'
-                : 'bg-red-900/50 border border-red-700 text-red-300'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
         {/* Apps List */}
         {apps.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
-            <div className="text-4xl mb-4">🔑</div>
-            <h3 className="text-lg font-medium text-white mb-2">No Twitter Apps configured</h3>
-            <p className="text-gray-400 text-sm mb-6">
-              Create a Twitter App to store your API credentials and assign it to projects.
-            </p>
-            <button
-              onClick={openCreateModal}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-            >
-              Create First App
-            </button>
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Twitter Apps configured</h3>
+              <p className="text-gray-600 mb-6">
+                Create a Twitter App to store your API credentials and assign it to projects.
+              </p>
+              <button
+                onClick={openCreateModal}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 cursor-pointer"
+              >
+                Create First App
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {apps.map((app) => (
               <div
                 key={app.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex items-center justify-between"
+                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
               >
-                <div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-900/50 rounded-lg flex items-center justify-center text-blue-400 text-sm font-bold">
-                      {app.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">{app.name}</h3>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-xs text-gray-500">
-                          env: <span className="text-gray-400">{app.webhookEnv}</span>
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {app.projectCount} project{app.projectCount !== 1 ? 's' : ''}
-                        </span>
+                {/* Card Body */}
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-sm font-bold">
+                        {app.name.charAt(0).toUpperCase()}
                       </div>
+                      <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        {app.name}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Webhook Env */}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                      <span className="text-sm text-gray-600">
+                        env: <span className="font-medium">{app.webhookEnv}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Project count */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                      <span className="text-sm text-gray-600">
+                        {app.projectCount} project{app.projectCount !== 1 ? 's' : ''} assigned
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-4 text-xs text-gray-500 pt-3 border-t border-gray-100">
+                    <div>
+                      <span className="font-medium">Created:</span> {new Date(app.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                {/* Footer with Actions */}
+                <div className="bg-gray-50 px-6 py-3 flex justify-between items-center border-t border-gray-100">
                   <button
                     onClick={() => openEditModal(app.id)}
-                    className="text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
                   >
-                    Edit
+                    Edit →
                   </button>
                   <button
                     onClick={() => handleDelete(app.id, app.name)}
                     disabled={deletingId === app.id}
-                    className="text-sm text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-900/50 hover:border-red-700 transition-colors disabled:opacity-50"
+                    className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-50 cursor-pointer"
                   >
                     {deletingId === app.id ? 'Deleting...' : 'Delete'}
                   </button>
@@ -264,104 +325,102 @@ export default function AppsPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-white mb-6">
-                {editingApp ? 'Edit Twitter App' : 'New Twitter App'}
-              </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              {editingApp ? 'Edit Twitter App' : 'New Twitter App'}
+            </h2>
 
-              <form onSubmit={handleSave} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    App Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Bitso Onchain App"
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm"
-                  />
-                </div>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  App Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Bitso Onchain App"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    Consumer Key (API Key) <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.consumerKey}
-                    onChange={(e) => setFormData({ ...formData, consumerKey: e.target.value })}
-                    placeholder="OAuth 1.0a Consumer Key"
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Consumer Key (API Key) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.consumerKey}
+                  onChange={(e) => setFormData({ ...formData, consumerKey: e.target.value })}
+                  placeholder="OAuth 1.0a Consumer Key"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    Consumer Secret (API Secret) <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.consumerSecret}
-                    onChange={(e) => setFormData({ ...formData, consumerSecret: e.target.value })}
-                    placeholder="OAuth 1.0a Consumer Secret"
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Consumer Secret (API Secret) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.consumerSecret}
+                  onChange={(e) => setFormData({ ...formData, consumerSecret: e.target.value })}
+                  placeholder="OAuth 1.0a Consumer Secret"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    Bearer Token <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.bearerToken}
-                    onChange={(e) => setFormData({ ...formData, bearerToken: e.target.value })}
-                    placeholder="App-only Bearer Token"
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Bearer Token <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={formData.bearerToken}
+                  onChange={(e) => setFormData({ ...formData, bearerToken: e.target.value })}
+                  placeholder="App-only Bearer Token"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5">
-                    Webhook Environment
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.webhookEnv}
-                    onChange={(e) => setFormData({ ...formData, webhookEnv: e.target.value })}
-                    placeholder="production"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Twitter webhook environment name (usually "production")
-                  </p>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Webhook Environment
+                </label>
+                <input
+                  type="text"
+                  value={formData.webhookEnv}
+                  onChange={(e) => setFormData({ ...formData, webhookEnv: e.target.value })}
+                  placeholder="production"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Twitter webhook environment name (usually &quot;production&quot;)
+                </p>
+              </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-lg font-medium transition-colors text-sm"
-                  >
-                    {saving ? 'Saving...' : editingApp ? 'Save Changes' : 'Create App'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  {saving ? 'Saving...' : editingApp ? 'Save Changes' : 'Create App'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
