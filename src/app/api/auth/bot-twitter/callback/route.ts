@@ -238,35 +238,75 @@ export async function GET(request: NextRequest) {
 
             if (envApiKey && envApiSecret && envBearerToken) {
               console.log('✅ Env-var credentials available, subscribing bot...');
-              await subscribeWebhook(
-                envApiKey,
-                envApiSecret,
-                accessToken,
-                accessSecret,
-                'env-var-webhook',
-                user.data.id,
-                envBearerToken,
-                envWebhookEnv
-              );
-              console.log('   ✅ Bot subscribed to env-var webhook');
+              try {
+                await subscribeWebhook(
+                  envApiKey,
+                  envApiSecret,
+                  accessToken,
+                  accessSecret,
+                  'env-var-webhook',
+                  user.data.id,
+                  envBearerToken,
+                  envWebhookEnv
+                );
+                console.log('   ✅ Bot subscribed to env-var webhook');
 
-              await saveWebhookRegistration(project.id, {
-                webhookId: 'env-var-webhook',
-                url: envWebhookUrl,
-                subscribed: true,
-              });
+                await saveWebhookRegistration(project.id, {
+                  webhookId: 'env-var-webhook',
+                  url: envWebhookUrl,
+                  subscribed: true,
+                });
 
-              webhookId = 'env-var-webhook';
-              needsSubscription = false; // Already subscribed in fallback
-              console.log('');
-              console.log('================================================================================');
-              console.log('✅ WEBHOOK SETUP COMPLETE (env-var fallback)');
-              console.log('   Bot:', savedBot.username);
-              console.log('   Webhook URL:', envWebhookUrl);
-              console.log('   Note: TwitterApp has no TAAS management access; using env-var webhook.');
-              console.log('   Events will be routed by for_user_id to the correct project.');
-              console.log('================================================================================');
-              console.log('');
+                webhookId = 'env-var-webhook';
+                needsSubscription = false; // Already subscribed in fallback
+                console.log('');
+                console.log('================================================================================');
+                console.log('✅ WEBHOOK SETUP COMPLETE (env-var fallback)');
+                console.log('   Bot:', savedBot.username);
+                console.log('   Webhook URL:', envWebhookUrl);
+                console.log('   Note: TwitterApp has no TAAS management access; using env-var webhook.');
+                console.log('   Events will be routed by for_user_id to the correct project.');
+                console.log('================================================================================');
+                console.log('');
+              } catch (subError: any) {
+                // "Could not authenticate you" (error 32) means the bot's OAuth tokens
+                // were issued by the TwitterApp (pepesdog_-goodboy) and are app-bound —
+                // they cannot be used with env-var consumer key/secret.
+                // Solution: restart OAuth using env-var credentials so the resulting tokens
+                // are compatible with the env-var app's active webhook.
+                const isTokenMismatch = subError.message?.toLowerCase().includes('authenticate') ||
+                  subError.message?.toLowerCase().includes('could not authenticate') ||
+                  subError.message?.toLowerCase().includes('32');
+
+                if (isTokenMismatch && projectIdFromCookie) {
+                  console.log('');
+                  console.log('🔄 TOKEN MISMATCH: Bot tokens were issued by TwitterApp, not env-var app.');
+                  console.log('   Redirecting to authorize with force_env_var=true for retry...');
+
+                  // Delete the bot we just saved (rollback)
+                  try {
+                    const { deleteBotByProjectId } = await import('@/lib/db/bots');
+                    await deleteBotByProjectId(project.id);
+                    console.log('   ✅ Bot rolled back');
+                  } catch (deleteErr: any) {
+                    console.error('   ⚠️  Failed to rollback bot:', deleteErr.message);
+                  }
+
+                  // Redirect to authorize with force_env_var=true — this will restart
+                  // OAuth using env-var credentials so tokens match the env-var webhook.
+                  const retryUrl = `${new URL(request.url).origin}/api/projects/${projectIdFromCookie}/bot/authorize?force_env_var=true`;
+                  console.log('   Retry URL:', retryUrl);
+
+                  const retryResponse = NextResponse.redirect(retryUrl);
+                  retryResponse.cookies.delete('oauth_token');
+                  retryResponse.cookies.delete('oauth_token_secret');
+                  retryResponse.cookies.delete('oauth_project_id');
+                  retryResponse.cookies.delete('oauth_twitter_app_id');
+                  return retryResponse;
+                }
+
+                throw subError;
+              }
             } else {
               console.log('❌ No env-var credentials for fallback');
               throw registrationError;

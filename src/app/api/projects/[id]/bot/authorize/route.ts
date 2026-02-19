@@ -33,23 +33,36 @@ export async function GET(
       );
     }
 
-    // Get credentials from the project's TwitterApp (DB) or fall back to env vars
+    // Get credentials from the project's TwitterApp (DB) or fall back to env vars.
+    // If ?force_env_var=true is set (e.g. after a failed TwitterApp webhook attempt),
+    // skip the TwitterApp lookup and always use env vars so the resulting tokens are
+    // compatible with the env-var app's active webhook.
     let apiKey: string | undefined;
     let apiSecret: string | undefined;
     let twitterAppId: string | undefined;
 
-    const twitterApp = await getTwitterAppByProjectId(projectId);
+    const forceEnvVar = request.nextUrl.searchParams.get('force_env_var') === 'true';
 
-    if (twitterApp) {
-      apiKey = twitterApp.consumerKey;
-      apiSecret = twitterApp.consumerSecret;
-      twitterAppId = twitterApp.id;
-      console.log('🔐 Using credentials from TwitterApp DB:', twitterApp.name);
+    if (!forceEnvVar) {
+      const twitterApp = await getTwitterAppByProjectId(projectId);
+
+      if (twitterApp) {
+        apiKey = twitterApp.consumerKey;
+        apiSecret = twitterApp.consumerSecret;
+        twitterAppId = twitterApp.id;
+        console.log('🔐 Using credentials from TwitterApp DB:', twitterApp.name);
+      }
     } else {
-      // Fallback to env vars for projects without an associated app
+      console.log('🔐 force_env_var=true: bypassing TwitterApp, using env vars');
+    }
+
+    if (!apiKey || !apiSecret) {
+      // Fallback to env vars (no TwitterApp configured, or force_env_var=true)
       apiKey = process.env.TWITTER_OAUTH_API_KEY;
       apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-      console.log('🔐 Using credentials from env vars (no TwitterApp configured)');
+      if (!forceEnvVar) {
+        console.log('🔐 Using credentials from env vars (no TwitterApp configured)');
+      }
     }
 
     if (!apiKey || !apiSecret) {
