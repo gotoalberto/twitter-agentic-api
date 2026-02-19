@@ -212,14 +212,22 @@ export async function GET(request: NextRequest) {
           console.log('⚠️  Webhook registration failed:', regError.message);
         }
 
-        // If registration failed with 403 and we used a TwitterApp, fall back to env-var webhook
+        // If registration failed due to insufficient permissions and we used a TwitterApp,
+        // fall back to the env-var webhook (which is known to be active).
+        // Triggers on: 403 Forbidden, "Application cannot perform write actions" (code 261),
+        // "Forbidden", or any similar permission/access restriction from Twitter.
         if (registrationError) {
-          const is403 = registrationError.message?.toLowerCase().includes('403') ||
-            registrationError.message?.toLowerCase().includes('forbidden');
+          const msg = registrationError.message?.toLowerCase() || '';
+          const isPermissionError = msg.includes('403') ||
+            msg.includes('forbidden') ||
+            msg.includes('cannot perform write') ||
+            msg.includes('contact twitter platform') ||
+            msg.includes('application cannot');
 
-          if (is403 && resolvedTwitterAppId) {
+          if (isPermissionError && resolvedTwitterAppId) {
             console.log('');
-            console.log('🔄 FALLBACK: TwitterApp has no TAAS management access (403)');
+            console.log('🔄 FALLBACK: TwitterApp cannot register webhook (permission error)');
+            console.log('   Error was:', registrationError.message);
             console.log('   Attempting to subscribe bot to env-var webhook instead...');
 
             const envApiKey = process.env.TWITTER_OAUTH_API_KEY;
