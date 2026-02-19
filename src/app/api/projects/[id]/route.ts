@@ -118,8 +118,13 @@ export async function DELETE(
           console.log('✅ Bot unsubscribed from webhook');
 
           // Delete webhook from Twitter (app-level OAuth 1.0a)
-          await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
-          console.log('✅ Webhook deleted from Twitter');
+          // Skip if using the shared env-var webhook (placeholder ID)
+          if (subscribedWebhook.webhookId === 'env-var-webhook') {
+            console.log('⏭️  Skipping webhook deletion: using shared env-var webhook (only unsubscribed)');
+          } else {
+            await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
+            console.log('✅ Webhook deleted from Twitter');
+          }
         } else {
           console.error('❌ Credentials not found - cannot clean up webhook subscription');
           throw new Error('Credentials not configured. Associate a Twitter App with this project.');

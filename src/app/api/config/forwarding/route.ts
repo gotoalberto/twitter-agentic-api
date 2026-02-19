@@ -271,10 +271,12 @@ export async function DELETE() {
           console.log('✅ Bot unsubscribed');
         }
 
-        // Delete webhook
-        if (consumerKeyDel && consumerSecretDel) {
+        // Delete webhook (skip if using shared env-var webhook)
+        if (consumerKeyDel && consumerSecretDel && subscribedWebhook.webhookId !== 'env-var-webhook') {
           await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel);
           console.log('✅ Webhook deleted from Twitter');
+        } else if (subscribedWebhook.webhookId === 'env-var-webhook') {
+          console.log('⏭️  Skipping webhook deletion: using shared env-var webhook (only unsubscribed)');
         }
 
         // Delete from database

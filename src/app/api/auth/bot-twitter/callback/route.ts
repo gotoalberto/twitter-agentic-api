@@ -194,42 +194,107 @@ export async function GET(request: NextRequest) {
       }
 
       // Register new webhook if doesn't exist
+      let needsSubscription = true;
       if (!webhookId) {
         console.log('🔧 Registering new webhook with Twitter...');
-        const result = await registerWebhook(webhookUrl, apiKey!, apiSecret!, webhookEnv);
-        webhookId = result.webhookId;
-        console.log('✅ Webhook registered in Twitter:', webhookId);
-        await saveWebhookRegistration(project.id, {
-          webhookId: webhookId,
-          url: result.url,
-          subscribed: false,
-        });
+        let registrationError: any = null;
+        try {
+          const result = await registerWebhook(webhookUrl, apiKey!, apiSecret!, webhookEnv);
+          webhookId = result.webhookId;
+          console.log('✅ Webhook registered in Twitter:', webhookId);
+          await saveWebhookRegistration(project.id, {
+            webhookId: webhookId,
+            url: result.url,
+            subscribed: false,
+          });
+        } catch (regError: any) {
+          registrationError = regError;
+          console.log('⚠️  Webhook registration failed:', regError.message);
+        }
+
+        // If registration failed with 403 and we used a TwitterApp, fall back to env-var webhook
+        if (registrationError) {
+          const is403 = registrationError.message?.toLowerCase().includes('403') ||
+            registrationError.message?.toLowerCase().includes('forbidden');
+
+          if (is403 && resolvedTwitterAppId) {
+            console.log('');
+            console.log('🔄 FALLBACK: TwitterApp has no TAAS management access (403)');
+            console.log('   Attempting to subscribe bot to env-var webhook instead...');
+
+            const envApiKey = process.env.TWITTER_OAUTH_API_KEY;
+            const envApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+            const envBearerToken = process.env.X_API_BEARER_TOKEN;
+            const envWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+            const envWebhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
+
+            if (envApiKey && envApiSecret && envBearerToken) {
+              console.log('✅ Env-var credentials available, subscribing bot...');
+              await subscribeWebhook(
+                envApiKey,
+                envApiSecret,
+                accessToken,
+                accessSecret,
+                'env-var-webhook',
+                user.data.id,
+                envBearerToken,
+                envWebhookEnv
+              );
+              console.log('   ✅ Bot subscribed to env-var webhook');
+
+              await saveWebhookRegistration(project.id, {
+                webhookId: 'env-var-webhook',
+                url: envWebhookUrl,
+                subscribed: true,
+              });
+
+              webhookId = 'env-var-webhook';
+              needsSubscription = false; // Already subscribed in fallback
+              console.log('');
+              console.log('================================================================================');
+              console.log('✅ WEBHOOK SETUP COMPLETE (env-var fallback)');
+              console.log('   Bot:', savedBot.username);
+              console.log('   Webhook URL:', envWebhookUrl);
+              console.log('   Note: TwitterApp has no TAAS management access; using env-var webhook.');
+              console.log('   Events will be routed by for_user_id to the correct project.');
+              console.log('================================================================================');
+              console.log('');
+            } else {
+              console.log('❌ No env-var credentials for fallback');
+              throw registrationError;
+            }
+          } else {
+            throw registrationError;
+          }
+        }
       }
 
       if (!webhookId) {
         throw new Error('Failed to obtain webhook ID - cannot subscribe bot');
       }
 
-      // Subscribe bot to webhook
-      console.log('📌 Subscribing bot to webhook...');
-      await subscribeWebhook(
-        apiKey!,
-        apiSecret!,
-        accessToken,
-        accessSecret,
-        webhookId,
-        user.data.id,
-        bearerToken!,
-        webhookEnv
-      );
-      console.log('   ✅ Subscription successful');
+      // Subscribe bot to webhook (skipped if already done via fallback)
+      if (needsSubscription) {
+        console.log('📌 Subscribing bot to webhook...');
+        await subscribeWebhook(
+          apiKey!,
+          apiSecret!,
+          accessToken,
+          accessSecret,
+          webhookId,
+          user.data.id,
+          bearerToken!,
+          webhookEnv
+        );
+        console.log('   ✅ Subscription successful');
 
-      // Update subscription status
-      await saveWebhookRegistration(project.id, {
-        webhookId: webhookId,
-        url: webhookUrl,
-        subscribed: true,
-      });
+        // Update subscription status
+        await saveWebhookRegistration(project.id, {
+          webhookId: webhookId,
+          url: webhookUrl,
+          subscribed: true,
+        });
+      }
 
       webhookRegistrationSucceeded = true;
       console.log('');
