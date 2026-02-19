@@ -212,10 +212,15 @@ export async function GET(request: NextRequest) {
           console.log('⚠️  Webhook registration failed:', regError.message);
         }
 
-        // If registration failed due to insufficient permissions and we used a TwitterApp,
-        // fall back to the env-var webhook (which is known to be active).
+        // Registration failed. If it's a permission error, try subscribing directly
+        // to the env-var webhook (which is known to be active, since events flow through it).
+        //
+        // Two scenarios:
+        //  A) resolvedTwitterAppId is set  → was using TwitterApp creds → switch to env-var
+        //  B) resolvedTwitterAppId is null → already using env-var creds → subscribe directly
+        //
         // Triggers on: 403 Forbidden, "Application cannot perform write actions" (code 261),
-        // "Forbidden", or any similar permission/access restriction from Twitter.
+        // or any similar Twitter permission/access restriction.
         if (registrationError) {
           const msg = registrationError.message?.toLowerCase() || '';
           const isPermissionError = msg.includes('403') ||
@@ -224,66 +229,83 @@ export async function GET(request: NextRequest) {
             msg.includes('contact twitter platform') ||
             msg.includes('application cannot');
 
-          if (isPermissionError && resolvedTwitterAppId) {
-            console.log('');
-            console.log('🔄 FALLBACK: TwitterApp cannot register webhook (permission error)');
-            console.log('   Error was:', registrationError.message);
-            console.log('   Attempting to subscribe bot to env-var webhook instead...');
+          if (isPermissionError) {
+            // Determine which credentials to use for subscription
+            let subApiKey: string | undefined;
+            let subApiSecret: string | undefined;
+            let subBearerToken: string | undefined;
+            let subWebhookEnv: string;
+            let subWebhookUrl: string;
 
-            const envApiKey = process.env.TWITTER_OAUTH_API_KEY;
-            const envApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-            const envBearerToken = process.env.X_API_BEARER_TOKEN;
-            const envWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-            const envWebhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
+            if (resolvedTwitterAppId) {
+              // Scenario A: switch to env-var credentials
+              subApiKey = process.env.TWITTER_OAUTH_API_KEY;
+              subApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+              subBearerToken = process.env.X_API_BEARER_TOKEN;
+              subWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+              subWebhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
+              console.log('');
+              console.log('🔄 FALLBACK A: TwitterApp cannot register webhook (permission error)');
+              console.log('   Error was:', registrationError.message);
+              console.log('   Switching to env-var credentials for subscription...');
+            } else {
+              // Scenario B: already on env-var — subscribe directly (webhook exists)
+              subApiKey = apiKey!;
+              subApiSecret = apiSecret!;
+              subBearerToken = bearerToken!;
+              subWebhookEnv = webhookEnv;
+              subWebhookUrl = webhookUrl;
+              console.log('');
+              console.log('🔄 FALLBACK B: Registration failed (env-var), trying subscription directly');
+              console.log('   Error was:', registrationError.message);
+              console.log('   The env-var webhook is active — attempting direct subscription...');
+            }
 
-            if (envApiKey && envApiSecret && envBearerToken) {
-              console.log('✅ Env-var credentials available, subscribing bot...');
+            if (subApiKey && subApiSecret && subBearerToken) {
               try {
                 await subscribeWebhook(
-                  envApiKey,
-                  envApiSecret,
+                  subApiKey,
+                  subApiSecret,
                   accessToken,
                   accessSecret,
                   'env-var-webhook',
                   user.data.id,
-                  envBearerToken,
-                  envWebhookEnv
+                  subBearerToken,
+                  subWebhookEnv
                 );
                 console.log('   ✅ Bot subscribed to env-var webhook');
 
                 await saveWebhookRegistration(project.id, {
                   webhookId: 'env-var-webhook',
-                  url: envWebhookUrl,
+                  url: subWebhookUrl,
                   subscribed: true,
                 });
 
                 webhookId = 'env-var-webhook';
-                needsSubscription = false; // Already subscribed in fallback
+                needsSubscription = false;
                 console.log('');
                 console.log('================================================================================');
                 console.log('✅ WEBHOOK SETUP COMPLETE (env-var fallback)');
                 console.log('   Bot:', savedBot.username);
-                console.log('   Webhook URL:', envWebhookUrl);
-                console.log('   Note: TwitterApp has no TAAS management access; using env-var webhook.');
+                console.log('   Webhook URL:', subWebhookUrl);
                 console.log('   Events will be routed by for_user_id to the correct project.');
                 console.log('================================================================================');
                 console.log('');
               } catch (subError: any) {
-                // "Could not authenticate you" (error 32) means the bot's OAuth tokens
-                // were issued by the TwitterApp (pepesdog_-goodboy) and are app-bound —
-                // they cannot be used with env-var consumer key/secret.
-                // Solution: restart OAuth using env-var credentials so the resulting tokens
-                // are compatible with the env-var app's active webhook.
-                const isTokenMismatch = subError.message?.toLowerCase().includes('authenticate') ||
-                  subError.message?.toLowerCase().includes('could not authenticate') ||
-                  subError.message?.toLowerCase().includes('32');
+                // "Could not authenticate you" (error 32) means bot tokens are bound to
+                // the TwitterApp and cannot be used with env-var consumer credentials.
+                // Restart OAuth with force_env_var=true so tokens match env-var app.
+                const subMsg = subError.message?.toLowerCase() || '';
+                const isTokenMismatch = subMsg.includes('authenticate') ||
+                  subMsg.includes('could not authenticate') ||
+                  subMsg.includes(': 32') ||
+                  subMsg.includes('error 32');
 
-                if (isTokenMismatch && projectIdFromCookie) {
+                if (isTokenMismatch && resolvedTwitterAppId && projectIdFromCookie) {
                   console.log('');
-                  console.log('🔄 TOKEN MISMATCH: Bot tokens were issued by TwitterApp, not env-var app.');
-                  console.log('   Redirecting to authorize with force_env_var=true for retry...');
+                  console.log('🔄 TOKEN MISMATCH: Bot tokens are bound to TwitterApp, not env-var app.');
+                  console.log('   Restarting OAuth with force_env_var=true...');
 
-                  // Delete the bot we just saved (rollback)
                   try {
                     const { deleteBotByProjectId } = await import('@/lib/db/bots');
                     await deleteBotByProjectId(project.id);
@@ -292,8 +314,6 @@ export async function GET(request: NextRequest) {
                     console.error('   ⚠️  Failed to rollback bot:', deleteErr.message);
                   }
 
-                  // Redirect to authorize with force_env_var=true — this will restart
-                  // OAuth using env-var credentials so tokens match the env-var webhook.
                   const retryUrl = `${new URL(request.url).origin}/api/projects/${projectIdFromCookie}/bot/authorize?force_env_var=true`;
                   console.log('   Retry URL:', retryUrl);
 
@@ -305,13 +325,16 @@ export async function GET(request: NextRequest) {
                   return retryResponse;
                 }
 
+                // Other subscription errors — surface to the user
+                console.error('   ❌ Subscription also failed:', subError.message);
                 throw subError;
               }
             } else {
-              console.log('❌ No env-var credentials for fallback');
+              console.log('❌ No credentials available for subscription fallback');
               throw registrationError;
             }
           } else {
+            // Not a permission error — surface it directly
             throw registrationError;
           }
         }
