@@ -120,9 +120,30 @@ export async function GET(
     return response;
   } catch (error: any) {
     console.error('❌ OAuth authorization error:', error);
+
+    // Provide clearer error messages based on the error type
+    let userMessage = error.message || 'oauth_failed';
+
+    if (error.message?.includes('403') || error.code === 403 || error.status === 403) {
+      userMessage =
+        'Twitter OAuth 1.0a credentials are invalid (403). ' +
+        'Check that: 1) The Consumer Key/Secret in the Twitter App are correct OAuth 1.0a credentials, ' +
+        '2) The Twitter App has OAuth 1.0a enabled in the Developer Portal, ' +
+        '3) The app has Read and Write permissions.';
+      console.error('💡 403 hint: OAuth 1.0a may not be enabled in the Twitter Developer Portal, or Consumer Key/Secret are wrong');
+    }
+
+    // Log additional error details if available
+    if (error.data) {
+      console.error('   Twitter error data:', JSON.stringify(error.data));
+    }
+    if (error.errors) {
+      console.error('   Twitter errors:', JSON.stringify(error.errors));
+    }
+
     const { id: projectId } = await params;
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/dashboard/projects/${projectId}?error=${encodeURIComponent(error.message || 'oauth_failed')}`
+      `${process.env.NEXTAUTH_URL}/dashboard/projects/${projectId}?error=${encodeURIComponent(userMessage)}`
     );
   }
 }
