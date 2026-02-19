@@ -262,26 +262,42 @@ export async function GET(request: NextRequest) {
             }
 
             if (subApiKey && subApiSecret && subBearerToken) {
+              // Discover real webhook ID via v2 list (v2 list works for this app)
+              let realWebhookId: string = 'env-var-webhook'; // placeholder fallback
+              try {
+                const discoveredWebhooks = await listWebhooks(subBearerToken, subWebhookEnv);
+                const foundWebhook = discoveredWebhooks.find(w => w.url === subWebhookUrl);
+                if (foundWebhook) {
+                  realWebhookId = foundWebhook.id;
+                  console.log('   Found real webhook ID via v2 list:', realWebhookId);
+                } else {
+                  console.log('   ⚠️ Webhook not found in v2 list for URL:', subWebhookUrl);
+                  console.log('   Available webhooks:', discoveredWebhooks.map(w => w.url));
+                }
+              } catch (listErr: any) {
+                console.log('   ⚠️ Could not discover webhook ID:', listErr.message);
+              }
+
               try {
                 await subscribeWebhook(
                   subApiKey,
                   subApiSecret,
                   accessToken,
                   accessSecret,
-                  'env-var-webhook',
+                  realWebhookId,
                   user.data.id,
                   subBearerToken,
                   subWebhookEnv
                 );
-                console.log('   ✅ Bot subscribed to env-var webhook');
+                console.log('   ✅ Bot subscribed to webhook:', realWebhookId);
 
                 await saveWebhookRegistration(project.id, {
-                  webhookId: 'env-var-webhook',
+                  webhookId: realWebhookId,
                   url: subWebhookUrl,
                   subscribed: true,
                 });
 
-                webhookId = 'env-var-webhook';
+                webhookId = realWebhookId;
                 needsSubscription = false;
                 console.log('');
                 console.log('================================================================================');

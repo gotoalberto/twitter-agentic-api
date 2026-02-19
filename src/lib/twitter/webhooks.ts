@@ -4,16 +4,22 @@ import { retryWithBackoff } from '@/lib/utils/retry';
 /**
  * Twitter Webhooks Management Service
  *
- * Uses Twitter Account Activity API v1.1 endpoints.
- * v1.1 does NOT require the app to be inside a Project in the Developer Portal,
- * unlike the v2 endpoints which mandate this. This allows standalone apps to work.
+ * Uses a mix of Twitter API endpoints:
  *
- * v1.1 endpoint format:
- *   POST   /1.1/account_activity/all/{env}/webhooks.json?url={webhookUrl}
- *   GET    /1.1/account_activity/all/{env}/webhooks.json
- *   DELETE /1.1/account_activity/all/{env}/webhooks/{webhookId}.json
- *   POST   /1.1/account_activity/all/{env}/subscriptions.json
- *   DELETE /1.1/account_activity/all/{env}/subscriptions/{userId}/all.json
+ * - listWebhooks:      GET  /2/webhooks  (v2, Bearer Token) — works with this app
+ * - subscribeWebhook:  POST /2/account_activity/webhooks/{id}/subscriptions/all  (v2, User OAuth 1.0a)
+ * - unsubscribeWebhook: DELETE /2/account_activity/webhooks/{id}/subscriptions/{userId}/all (v2, Bearer)
+ * - registerWebhook:   POST /1.1/account_activity/all/{env}/webhooks.json  (v1.1, App OAuth 1.0a)
+ * - deleteWebhook:     DELETE /1.1/account_activity/all/{env}/webhooks/{id}.json  (v1.1, App OAuth 1.0a)
+ *
+ * WHY MIXED:
+ *   v1.1 management (list/register/delete) returns 403 for this app — no TAAS v1.1 management access.
+ *   v2 list + subscription endpoints WORK because the app originally registered the webhook via v2
+ *   and subscription/unsubscription via v2 does not require the same "Project attachment" that
+ *   v2 webhook REGISTRATION requires.
+ *
+ *   The main webhook (id=1999190094972911617) is already registered at Twitter.
+ *   v2 list finds it, and v2 subscription adds bots to it.
  */
 
 /**
@@ -98,6 +104,9 @@ function generateOAuthHeader(
  * Register a new webhook with Twitter Account Activity API v1.1
  * Auth: App-level OAuth 1.0a (consumer key/secret, no user tokens)
  * POST /1.1/account_activity/all/{env}/webhooks.json?url={webhookUrl}
+ *
+ * NOTE: This may fail with 403 if the app does not have TAAS v1.1 management access.
+ * In that case the caller should fall back to using the existing webhook discovered via listWebhooks.
  */
 export async function registerWebhook(
   webhookUrl: string,
@@ -188,6 +197,9 @@ export async function registerWebhook(
  * Delete a webhook from Twitter Account Activity API v1.1
  * Auth: App-level OAuth 1.0a
  * DELETE /1.1/account_activity/all/{env}/webhooks/{webhookId}.json
+ *
+ * NOTE: May fail with 403 if the app does not have TAAS v1.1 management access.
+ * This is non-fatal in most caller contexts (wrapped in try-catch).
  */
 export async function deleteWebhook(
   webhookId: string,
@@ -226,12 +238,14 @@ export async function deleteWebhook(
 }
 
 /**
- * Subscribe a bot account to the webhook (Account Activity API v1.1)
+ * Subscribe a bot account to the webhook (Account Activity API v2)
  * Auth: User-level OAuth 1.0a (bot's access tokens)
- * POST /1.1/account_activity/all/{env}/subscriptions.json
+ * POST /2/account_activity/webhooks/{webhookId}/subscriptions/all
  *
- * Note: In v1.1, subscription is per-environment (not per-webhookId).
- * The webhookId param is kept for interface compatibility but not used in the URL.
+ * Uses v2 endpoint because:
+ * - The app's webhook was registered via v2 originally
+ * - v2 subscription does NOT require Project attachment (only v2 webhook REGISTRATION does)
+ * - v1.1 subscription endpoint returns 403 for this app (no TAAS v1.1 management access)
  */
 export async function subscribeWebhook(
   consumerKey: string,
@@ -245,16 +259,16 @@ export async function subscribeWebhook(
 ): Promise<void> {
   console.log('');
   console.log('================================================================================');
-  console.log('📌 SUBSCRIBING BOT TO WEBHOOK (v1.1)');
+  console.log('📌 SUBSCRIBING BOT TO WEBHOOK (v2)');
   console.log('================================================================================');
-  console.log('   Env:', webhookEnv);
+  console.log('   Webhook ID:', webhookId);
   console.log('   User ID:', userId);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
   await retryWithBackoff(
     async () => {
-      const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/subscriptions.json`;
+      const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/all`;
 
       const authHeader = generateOAuthHeader(
         'POST',
@@ -269,55 +283,61 @@ export async function subscribeWebhook(
         method: 'POST',
         headers: {
           'Authorization': authHeader,
-          'Content-Length': '0',
+          'Content-Type': 'application/json',
         },
       });
 
       console.log('📡 Twitter API Response:', response.status, response.statusText);
 
-      // 204 No Content = success for subscription
-      if (response.status === 204) {
+      // v2 subscription returns 200 with JSON body on success (or 204 No Content)
+      if (response.ok || response.status === 204) {
+        let data: any = {};
+        if (response.status !== 204) {
+          try { data = await response.json(); } catch { /* ignore */ }
+        }
         console.log('');
         console.log('✅ BOT SUBSCRIBED SUCCESSFULLY');
-        console.log('   Env:', webhookEnv);
+        console.log('   Webhook ID:', webhookId);
         console.log('   User ID:', userId);
+        if (data?.data?.subscribed !== undefined) {
+          console.log('   Subscribed:', data.data.subscribed);
+        }
         console.log('================================================================================');
         console.log('');
         return;
       }
 
-      if (!response.ok) {
-        let error: any;
-        try {
-          error = await response.json();
-        } catch {
-          throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
-        }
-
-        console.error('❌ Twitter API Error Response:');
-        console.error('   Status:', response.status);
-        console.error('   Error:', JSON.stringify(error, null, 2));
-
-        // Duplicate subscription: Twitter error code 355 or similar message
-        const isDuplicateSubscription =
-          error.errors?.[0]?.code === 355 ||
-          error.errors?.[0]?.message?.includes('already') ||
-          error.detail?.includes('already');
-
-        if (isDuplicateSubscription) {
-          console.log('⚠️  SUBSCRIPTION ALREADY EXISTS - RECREATING...');
-          try {
-            await unsubscribeWebhook(webhookId, userId, bearerToken, webhookEnv);
-            console.log('   ✅ Existing subscription deleted');
-          } catch (unsubErr: any) {
-            console.error('   ⚠️  Failed to delete existing subscription:', unsubErr.message);
-          }
-          throw new Error('Subscription existed and was deleted - retrying subscription');
-        }
-
-        const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
-        throw new Error(`Twitter API error: ${errorMessage}`);
+      let error: any;
+      try {
+        error = await response.json();
+      } catch {
+        throw new Error(`Twitter API error: ${response.status} ${response.statusText}`);
       }
+
+      console.error('❌ Twitter API Error Response:');
+      console.error('   Status:', response.status);
+      console.error('   Error:', JSON.stringify(error, null, 2));
+
+      // Duplicate subscription: conflict (409) or "Subscription already exists" message
+      const isDuplicateSubscription =
+        response.status === 409 ||
+        error.detail?.includes('already') ||
+        error.errors?.[0]?.message?.includes('already') ||
+        error.errors?.[0]?.message?.includes('DuplicateSubscription');
+
+      if (isDuplicateSubscription) {
+        console.log('⚠️  SUBSCRIPTION ALREADY EXISTS - RECREATING...');
+        try {
+          await unsubscribeWebhook(webhookId, userId, bearerToken, webhookEnv);
+          console.log('   ✅ Existing subscription deleted');
+        } catch (unsubErr: any) {
+          console.error('   ⚠️  Failed to delete existing subscription:', unsubErr.message);
+        }
+        throw new Error('Subscription existed and was deleted - retrying subscription');
+      }
+
+      const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
+      throw new Error(`Twitter API error: ${errorMessage}`);
     },
     {
       maxAttempts: 3,
@@ -332,9 +352,11 @@ export async function subscribeWebhook(
 }
 
 /**
- * Unsubscribe a bot account from the webhook (Account Activity API v1.1)
+ * Unsubscribe a bot account from the webhook (Account Activity API v2)
  * Auth: Bearer Token (app-level)
- * DELETE /1.1/account_activity/all/{env}/subscriptions/{userId}/all.json
+ * DELETE /2/account_activity/webhooks/{webhookId}/subscriptions/{userId}/all
+ *
+ * Uses v2 endpoint to match how subscriptions were created.
  */
 export async function unsubscribeWebhook(
   webhookId: string,
@@ -344,14 +366,14 @@ export async function unsubscribeWebhook(
 ): Promise<void> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔌 UNSUBSCRIBING BOT FROM WEBHOOK (v1.1)');
+  console.log('🔌 UNSUBSCRIBING BOT FROM WEBHOOK (v2)');
   console.log('================================================================================');
+  console.log('   Webhook ID:', webhookId);
   console.log('   User ID:', userId);
-  console.log('   Env:', webhookEnv);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
-  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/subscriptions/${userId}/all.json`;
+  const url = `https://api.twitter.com/2/account_activity/webhooks/${webhookId}/subscriptions/${userId}/all`;
 
   const response = await fetch(url, {
     method: 'DELETE',
@@ -380,15 +402,18 @@ export async function unsubscribeWebhook(
 }
 
 /**
- * List all registered webhooks for an environment (Account Activity API v1.1)
+ * List all registered webhooks (Account Activity API v2)
  * Auth: Bearer Token
- * GET /1.1/account_activity/all/{env}/webhooks.json
+ * GET /2/webhooks
+ *
+ * Uses v2 because v1.1 list returns 403 for this app.
+ * v2 list returns the webhook registered for this app (id=1999190094972911617).
  */
 export async function listWebhooks(
   bearerToken: string,
-  webhookEnv: string
+  webhookEnv?: string
 ): Promise<Array<{ id: string; url: string }>> {
-  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
+  const url = 'https://api.twitter.com/2/webhooks';
 
   const response = await fetch(url, {
     method: 'GET',
@@ -406,6 +431,6 @@ export async function listWebhooks(
   }
 
   const data = await response.json();
-  // v1.1 returns an array directly: [{id, url, valid, created_at}]
-  return Array.isArray(data) ? data : [];
+  // v2 returns { data: [{ id, url, valid, created_at }], meta: { result_count } }
+  return data.data || [];
 }

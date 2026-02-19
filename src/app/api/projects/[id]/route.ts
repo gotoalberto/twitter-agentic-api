@@ -118,9 +118,11 @@ export async function DELETE(
           console.log('✅ Bot unsubscribed from webhook');
 
           // Delete webhook from Twitter (app-level OAuth 1.0a)
-          // Skip if using the shared env-var webhook (placeholder ID)
-          if (subscribedWebhook.webhookId === 'env-var-webhook') {
-            console.log('⏭️  Skipping webhook deletion: using shared env-var webhook (only unsubscribed)');
+          // Skip if using the shared main webhook (by ID placeholder or by URL pattern)
+          const isSharedWebhook = subscribedWebhook.webhookId === 'env-var-webhook'
+            || subscribedWebhook.url.endsWith('/api/webhooks/twitter');
+          if (isSharedWebhook) {
+            console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
           } else {
             await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
             console.log('✅ Webhook deleted from Twitter');
