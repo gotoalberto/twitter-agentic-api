@@ -13,15 +13,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is connected to Hivemind
-    const userId = session.user.id;
-    if (!userId) {
+    // Use the Twitter username from session to find the Hivemind user
+    const username = session.user.username;
+    if (!username) {
       return NextResponse.json({
         isConnected: false,
-        message: 'User ID not found'
+        message: 'Username not found in session'
       });
     }
 
-    const hivemindUser = await getHivemindUserById(userId);
+    // Import the function to get user by username
+    const { getHivemindUserByUsername } = await import('@/lib/db/hivemind');
+    const hivemindUser = await getHivemindUserByUsername(username);
 
     if (!hivemindUser) {
       return NextResponse.json({

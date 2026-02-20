@@ -7,9 +7,15 @@ import { TwitterApi } from 'twitter-api-v2';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('======== HIVEMIND CALLBACK START ========');
+    console.log('Time:', new Date().toISOString());
+
     const searchParams = request.nextUrl.searchParams;
     const oauthToken = searchParams.get('oauth_token');
     const oauthVerifier = searchParams.get('oauth_verifier');
+
+    console.log('OAuth Token received:', !!oauthToken);
+    console.log('OAuth Verifier received:', !!oauthVerifier);
 
     if (!oauthToken || !oauthVerifier) {
       console.error('Missing OAuth parameters');
@@ -111,6 +117,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Hivemind user authenticated:', screenName);
+    console.log('   Twitter User ID:', twitterUserId);
 
     // Get user details using Twitter API v2
     const twitterClient = new TwitterApi({
@@ -126,6 +133,12 @@ export async function GET(request: NextRequest) {
     });
 
     const twitterUser = userResponse.data;
+    console.log('Twitter user data:', {
+      id: twitterUser.id,
+      username: twitterUser.username,
+      name: twitterUser.name,
+      hasProfileImage: !!twitterUser.profile_image_url
+    });
 
     // Save user to database (no webhook registration for Hivemind)
     await createHivemindUser({
@@ -139,6 +152,7 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Hivemind user connected successfully:', screenName);
     console.log('📌 No webhooks registered for Hivemind users');
+    console.log('🔄 Redirecting to /hivemind?success=true');
 
     // Clear cookies
     const response = NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?success=true`);
