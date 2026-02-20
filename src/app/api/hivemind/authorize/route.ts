@@ -8,15 +8,26 @@ import { getTwitterAppById } from '@/lib/db/twitter-apps';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('======== HIVEMIND AUTHORIZATION START ========');
+    console.log('Time:', new Date().toISOString());
+
     // Get the current user session
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
+      console.log('No session found - user not authenticated');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log('User authenticated:', session.user.username || session.user.name);
+
     // Get Hivemind configuration to determine which TwitterApp to use
     const hivemindConfig = await getHivemindConfig();
+    console.log('Hivemind config loaded:', {
+      enabled: hivemindConfig?.enabled,
+      hasTwitterAppId: !!hivemindConfig?.twitterAppId,
+      hasApiKey: !!hivemindConfig?.apiKey
+    });
 
     if (!hivemindConfig || !hivemindConfig.enabled) {
       return NextResponse.json(
@@ -92,9 +103,29 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      console.error('Failed to get request token:', await tokenResponse.text());
+      const errorText = await tokenResponse.text();
+      console.error('======== HIVEMIND AUTHORIZATION ERROR ========');
+      console.error('Failed to get request token from Twitter');
+      console.error('Status:', tokenResponse.status);
+      console.error('Status Text:', tokenResponse.statusText);
+      console.error('Response:', errorText);
+      console.error('Callback URL:', callbackUrl);
+      console.error('Request URL:', requestTokenUrl);
+      console.error('Using TwitterApp:', hivemindConfig?.twitterAppId ? 'Yes' : 'No (env vars)');
+      console.error('Consumer Key exists:', !!consumerKey);
+      console.error('Consumer Secret exists:', !!consumerSecret);
+      console.error('==============================================');
+
+      // Return more detailed error to help debug
       return NextResponse.json(
-        { error: 'Failed to get request token from Twitter' },
+        {
+          error: 'Failed to get request token from Twitter',
+          details: {
+            status: tokenResponse.status,
+            statusText: tokenResponse.statusText,
+            response: errorText.substring(0, 200) // First 200 chars of error
+          }
+        },
         { status: 500 }
       );
     }
