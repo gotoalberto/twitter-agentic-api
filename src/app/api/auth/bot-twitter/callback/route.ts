@@ -366,15 +366,39 @@ export async function GET(request: NextRequest) {
       // Subscribe bot to webhook (skipped if already done via fallback)
       if (needsSubscription) {
         console.log('📌 Subscribing bot to webhook...');
+
+        // CRITICAL FIX: If using the shared webhook (1999190094972911617) but have TwitterApp credentials,
+        // we must use env-var credentials for subscription because the webhook belongs to the env-var app
+        const isSharedWebhook = webhookId === '1999190094972911617' ||
+                               webhookUrl === `${new URL(request.url).origin}/api/webhooks/twitter`;
+
+        let subApiKey: string | undefined = apiKey;
+        let subApiSecret: string | undefined = apiSecret;
+        let subBearerToken: string | undefined = bearerToken;
+        let subWebhookEnv: string = webhookEnv;
+
+        if (isSharedWebhook && resolvedTwitterAppId) {
+          console.log('⚠️  Detected shared webhook with TwitterApp credentials');
+          console.log('   Switching to env-var credentials for subscription...');
+          subApiKey = process.env.TWITTER_OAUTH_API_KEY;
+          subApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+          subBearerToken = process.env.X_API_BEARER_TOKEN;
+          subWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+
+          if (!subApiKey || !subApiSecret || !subBearerToken) {
+            throw new Error('Env-var credentials not configured but required for shared webhook subscription');
+          }
+        }
+
         await subscribeWebhook(
-          apiKey!,
-          apiSecret!,
+          subApiKey!,
+          subApiSecret!,
           accessToken,
           accessSecret,
           webhookId,
           user.data.id,
-          bearerToken!,
-          webhookEnv
+          subBearerToken!,
+          subWebhookEnv
         );
         console.log('   ✅ Subscription successful');
 

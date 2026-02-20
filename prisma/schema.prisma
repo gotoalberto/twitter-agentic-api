@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -14,24 +8,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================================
-// MODELS
-// ============================================================================
-
 /// TwitterApp stores the Twitter API credentials for a specific application
 /// Multiple projects can share the same Twitter App credentials
 model TwitterApp {
-  id             String   @id @default(cuid())
-  name           String   @unique // Display name (e.g. "Bitso Onchain App")
-  consumerKey    String   // OAuth 1.0a Consumer Key (encrypted)
-  consumerSecret String   // OAuth 1.0a Consumer Secret (encrypted)
-  bearerToken    String   // App-only Bearer Token (encrypted)
-  webhookEnv     String   @default("production") // Twitter webhook environment name
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  projects Project[]
+  id             String    @id @default(cuid())
+  name           String    @unique
+  consumerKey    String
+  consumerSecret String
+  bearerToken    String
+  webhookEnv     String    @default("production")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  projects       Project[]
 
   @@map("twitter_apps")
 }
@@ -39,26 +27,24 @@ model TwitterApp {
 /// Project represents an external application that uses the X Forwarder
 /// to publish tweets and receive webhooks
 model Project {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  apiKey       String?  // API key for authenticating tweet publishing requests
-  apiEnabled   Boolean  @default(true) // Enable/disable API access for this project
-  twitterAppId String?  // Associated Twitter App (optional for backward compat)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String                @id @default(cuid())
+  name                 String                @unique
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  apiKey               String?
+  apiEnabled           Boolean               @default(true)
+  twitterAppId         String?
+  bot                  Bot?
+  forwardingConfig     ForwardingConfig?
+  forwardingEndpoints  ForwardingEndpoint[]
+  idempotentTweets     IdempotentTweet[]
+  twitterApp           TwitterApp?           @relation(fields: [twitterAppId], references: [id])
+  webhookDeliveries    WebhookDelivery[]
+  webhookLogs          WebhookLog[]
+  webhookRegistrations WebhookRegistration[]
 
-  // Relations
-  twitterApp            TwitterApp?           @relation(fields: [twitterAppId], references: [id])
-  bot                   Bot?
-  forwardingConfig      ForwardingConfig?     // DEPRECATED: Will be removed after migration
-  forwardingEndpoints   ForwardingEndpoint[]  // NEW: Multiple endpoints support
-  webhookRegistrations  WebhookRegistration[]
-  webhookLogs           WebhookLog[]          // DEPRECATED: Will be removed after migration
-  webhookDeliveries     WebhookDelivery[]     // NEW: Endpoint-specific delivery tracking
-  idempotentTweets      IdempotentTweet[]
-
-  @@map("projects")
   @@index([twitterAppId])
+  @@map("projects")
 }
 
 /// Bot represents a Twitter/X bot account connected to a project
@@ -68,150 +54,136 @@ model Bot {
   projectId         String   @unique
   username          String   @unique
   userId            String   @unique
-  accessToken       String   // OAuth 1.0a access token
-  accessTokenSecret String   // OAuth 1.0a access token secret
+  accessToken       String
+  accessTokenSecret String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("bots")
   @@index([projectId])
   @@index([username])
+  @@map("bots")
 }
 
 /// ForwardingConfig defines where to forward webhook events for a project
 model ForwardingConfig {
   id        String   @id @default(cuid())
   projectId String   @unique
-  endpoint  String   // URL to forward webhooks to (e.g., https://goodboy.xyz/api/webhooks/twitter)
+  endpoint  String
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("forwarding_configs")
   @@index([projectId])
+  @@map("forwarding_configs")
 }
 
 /// WebhookRegistration tracks Twitter webhook subscriptions for each project
 model WebhookRegistration {
   id         String   @id @default(cuid())
   projectId  String
-  webhookId  String   @unique // Twitter webhook ID
-  url        String   // Twitter webhook URL (registered with Twitter)
+  webhookId  String   @unique
+  url        String
   subscribed Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("webhook_registrations")
   @@index([projectId])
   @@index([webhookId])
+  @@map("webhook_registrations")
 }
 
 /// WebhookLog stores ALL webhook events with a queue system for reliable delivery
 /// Implements infinite retries with FIFO ordering
 model WebhookLog {
-  id             String    @id @default(cuid())
-  projectId      String
-  eventType      String    // tweet_create_events, direct_message_events, etc.
-  forwardedTo    String    // URL where the webhook was forwarded
-  status         String    @default("pending") // "pending" | "processing" | "delivered" | "failed"
-  statusCode     Int?      // HTTP status code from forwarding response
-  payload        Json      // Full webhook payload from Twitter
-  attempts       Int       @default(0) // Number of delivery attempts
-  lastAttemptAt  DateTime? // Timestamp of last delivery attempt
-  nextRetryAt    DateTime? // Timestamp for next retry (null for pending, set after failure)
-  deliveredAt    DateTime? // Timestamp of successful delivery
-  errorMessage   String?   // Last error message if delivery failed
-  responseBody   Json?     // Response body from the forwarding endpoint
-  createdAt      DateTime  @default(now())
+  id            String    @id @default(cuid())
+  projectId     String
+  eventType     String
+  forwardedTo   String
+  status        String    @default("pending")
+  statusCode    Int?
+  payload       Json
+  createdAt     DateTime  @default(now())
+  attempts      Int       @default(0)
+  deliveredAt   DateTime?
+  errorMessage  String?
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  responseBody  Json?
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("webhook_logs")
   @@index([projectId, createdAt(sort: Desc)])
   @@index([projectId, status, nextRetryAt])
+  @@map("webhook_logs")
 }
 
 /// ForwardingEndpoint defines webhook forwarding endpoints for a project
 /// A project can have multiple endpoints (primary, backup, analytics, etc.)
 /// Replaces the 1:1 ForwardingConfig with 1:N relationship
 model ForwardingEndpoint {
-  id        String   @id @default(cuid())
-  projectId String
-  name      String   // "Endpoint Principal", "Backup", "Analytics"
-  url       String   // https://app.com/api/webhooks/twitter
-  enabled   Boolean  @default(true)
-  priority  Int      @default(0) // Lower number = higher priority
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
+  id         String            @id @default(cuid())
+  projectId  String
+  name       String
+  url        String
+  enabled    Boolean           @default(true)
+  priority   Int               @default(0)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
   project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   deliveries WebhookDelivery[]
 
-  @@map("forwarding_endpoints")
   @@index([projectId])
   @@index([projectId, enabled])
   @@index([projectId, priority])
+  @@map("forwarding_endpoints")
 }
 
 /// WebhookDelivery tracks delivery of webhooks to specific endpoints
 /// Replaces WebhookLog with endpoint-specific tracking
 /// Supports "paused" status for disabled endpoints
 model WebhookDelivery {
-  id            String    @id @default(cuid())
+  id            String             @id @default(cuid())
   projectId     String
-  endpointId    String    // Which endpoint this delivery is for
-  eventType     String    // tweet_create_events, follow_events, etc.
-  payload       Json      // Full webhook payload
-  status        String    @default("pending") // pending | processing | delivered | paused
-  statusCode    Int?      // HTTP status code from forwarding response
-  attempts      Int       @default(0) // Number of delivery attempts
-  lastAttemptAt DateTime? // Timestamp of last delivery attempt
-  nextRetryAt   DateTime? // Timestamp for next retry
-  deliveredAt   DateTime? // Timestamp of successful delivery
-  errorMessage  String?   // Last error message if delivery failed
-  responseBody  Json?     // Response body from the forwarding endpoint
-  createdAt     DateTime  @default(now())
+  endpointId    String
+  eventType     String
+  payload       Json
+  status        String             @default("pending")
+  statusCode    Int?
+  attempts      Int                @default(0)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  deliveredAt   DateTime?
+  errorMessage  String?
+  responseBody  Json?
+  createdAt     DateTime           @default(now())
+  endpoint      ForwardingEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Relations
-  project  Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  endpoint ForwardingEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
-
-  @@map("webhook_deliveries")
   @@index([projectId, createdAt(sort: Desc)])
   @@index([projectId, status, nextRetryAt])
   @@index([endpointId, status])
   @@index([endpointId, status, nextRetryAt])
+  @@map("webhook_deliveries")
 }
 
 /// IdempotentTweet stores tweet publishing requests with idempotency keys
 /// Prevents duplicate tweets from being published when clients retry requests
 /// Cache expires after 24 hours
 model IdempotentTweet {
-  id               String   @id @default(cuid())
-  projectId        String   @map("project_id") // Project that published the tweet
-  idempotencyKey   String   @map("idempotency_key") // Client-provided unique key (e.g., PendingReply.id)
-  tweetId          String   @map("tweet_id") // Twitter tweet ID from successful publish
-  tweetText        String   @map("tweet_text") // Tweet text (for debugging)
-  replyToTweetId   String?  @map("reply_to_tweet_id") // Original tweet ID if this is a reply
-  publishedAt      DateTime @default(now()) @map("published_at")
-  expiresAt        DateTime @map("expires_at") // Automatic cleanup after 24 hours
-
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  projectId      String   @map("project_id")
+  idempotencyKey String   @map("idempotency_key")
+  tweetId        String   @map("tweet_id")
+  tweetText      String   @map("tweet_text")
+  replyToTweetId String?  @map("reply_to_tweet_id")
+  publishedAt    DateTime @default(now()) @map("published_at")
+  expiresAt      DateTime @map("expires_at")
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, idempotencyKey])
-  @@map("idempotent_tweets")
   @@index([projectId, idempotencyKey])
-  @@index([expiresAt]) // For cleanup job
+  @@index([expiresAt])
+  @@map("idempotent_tweets")
 }
