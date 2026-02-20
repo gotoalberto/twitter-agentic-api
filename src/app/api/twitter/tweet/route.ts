@@ -37,8 +37,12 @@ interface TweetRequest {
   text: string;
   replyToTweetId?: string;
   idempotencyKey?: string; // Optional idempotency key to prevent duplicate tweets
-  imageUrl?: string; // Optional image URL to attach to tweet
-  videoUrl?: string; // Optional video URL to attach to tweet
+  imageUrl?: string; // Deprecated: Use imageData instead - URL of image to attach
+  videoUrl?: string; // Deprecated: Use videoData instead - URL of video to attach
+  imageData?: string; // Base64 encoded image data (preferred over imageUrl)
+  videoData?: string; // Base64 encoded video data (preferred over videoUrl)
+  imageMimeType?: string; // MIME type for image (default: image/jpeg)
+  videoMimeType?: string; // MIME type for video (default: video/mp4)
 }
 
 /**
@@ -50,8 +54,19 @@ interface TweetRequest {
  *   "text": "Tweet text",
  *   "replyToTweetId": "1234567890", // optional
  *   "idempotencyKey": "unique-key-123", // optional - prevents duplicate tweets on retry
- *   "imageUrl": "https://example.com/image.jpg", // optional - URL of image to attach
- *   "videoUrl": "https://example.com/video.mp4" // optional - URL of video to attach
+ *
+ *   // Media options (use EITHER base64 data OR URL, not both):
+ *
+ *   // Option 1: Base64 encoded media (PREFERRED)
+ *   "imageData": "base64_encoded_image_data", // Base64 encoded image
+ *   "imageMimeType": "image/jpeg", // Optional MIME type (default: image/jpeg)
+ *   // OR
+ *   "videoData": "base64_encoded_video_data", // Base64 encoded video
+ *   "videoMimeType": "video/mp4", // Optional MIME type (default: video/mp4)
+ *
+ *   // Option 2: Media URL (DEPRECATED - use base64 instead)
+ *   "imageUrl": "https://example.com/image.jpg", // URL of image to attach
+ *   "videoUrl": "https://example.com/video.mp4" // URL of video to attach
  * }
  *
  * Response:
@@ -72,10 +87,13 @@ interface TweetRequest {
  * - Use PendingReply.id or similar unique identifier as idempotency key
  *
  * Media Attachments:
- * - imageUrl and videoUrl are optional parameters
- * - If provided, media is downloaded and uploaded to Twitter
- * - Media is attached to the tweet (not as URL in text)
+ * - Use base64 encoded data (imageData/videoData) for inline media (PREFERRED)
+ * - Or use URL-based media (imageUrl/videoUrl) which requires external hosting (DEPRECATED)
+ * - Base64 data can be raw base64 string or data URL format (data:image/png;base64,...)
  * - Only one media type per tweet (image OR video, not both)
+ * - Cannot mix base64 and URL approaches in same request
+ * - Default MIME types: image/jpeg for images, video/mp4 for videos
+ * - Custom MIME types supported via imageMimeType/videoMimeType parameters
  * - Supported image formats: PNG, JPG, GIF, WEBP
  * - Supported video formats: MP4
  */
@@ -98,6 +116,10 @@ export async function POST(request: NextRequest) {
     console.log('   Idempotency key:', body.idempotencyKey || 'N/A');
     console.log('   Image URL:', body.imageUrl || 'N/A');
     console.log('   Video URL:', body.videoUrl || 'N/A');
+    console.log('   Image data:', body.imageData ? `${body.imageData.length} chars` : 'N/A');
+    console.log('   Video data:', body.videoData ? `${body.videoData.length} chars` : 'N/A');
+    console.log('   Image MIME type:', body.imageMimeType || 'N/A');
+    console.log('   Video MIME type:', body.videoMimeType || 'N/A');
     console.log('');
 
     // Validate request
@@ -132,12 +154,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate media parameters
-    if (body.imageUrl && body.videoUrl) {
+    const hasImage = body.imageUrl || body.imageData;
+    const hasVideo = body.videoUrl || body.videoData;
+
+    if (hasImage && hasVideo) {
       console.log('❌ Cannot include both image and video');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: 'Cannot include both imageUrl and videoUrl - choose one' },
+        { error: 'Cannot include both image and video - choose one' },
+        { status: 400 }
+      );
+    }
+
+    if (body.imageData && body.imageUrl) {
+      console.log('❌ Cannot include both imageData and imageUrl');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Cannot include both imageData and imageUrl - choose one' },
+        { status: 400 }
+      );
+    }
+
+    if (body.videoData && body.videoUrl) {
+      console.log('❌ Cannot include both videoData and videoUrl');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Cannot include both videoData and videoUrl - choose one' },
         { status: 400 }
       );
     }
@@ -297,23 +342,80 @@ export async function POST(request: NextRequest) {
 
     // Handle media upload if provided
     let mediaId: string | undefined;
+    let mediaBuffer: Buffer | undefined;
+    let mediaType: 'image' | 'video' | undefined;
+    let mimeType: string | undefined;
 
-    if (body.imageUrl || body.videoUrl) {
+    // Handle base64 data
+    if (body.imageData || body.videoData) {
+      const isImage = !!body.imageData;
+      mediaType = isImage ? 'image' : 'video';
+
+      console.log(`📸 Processing base64 ${mediaType} data...`);
+
+      try {
+        // Extract base64 data (handle data URL format if present)
+        let base64Data = isImage ? body.imageData! : body.videoData!;
+        if (base64Data.includes(',')) {
+          // Handle data URL format: "data:image/png;base64,..."
+          console.log('   Detected data URL format, extracting base64 portion');
+          base64Data = base64Data.split(',')[1];
+        }
+
+        // Convert base64 to Buffer
+        mediaBuffer = Buffer.from(base64Data, 'base64');
+        console.log(`   Decoded ${mediaBuffer.length} bytes from base64`);
+
+        // Determine MIME type
+        if (isImage) {
+          mimeType = body.imageMimeType || 'image/jpeg';
+        } else {
+          mimeType = body.videoMimeType || 'video/mp4';
+        }
+        console.log('   MIME type:', mimeType);
+      } catch (error: any) {
+        console.error(`❌ Failed to decode base64 ${mediaType}:`, error.message);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `Failed to decode base64 ${mediaType}: ${error.message}` },
+          { status: 400 }
+        );
+      }
+    }
+    // Handle URL-based media (deprecated but still supported)
+    else if (body.imageUrl || body.videoUrl) {
       const mediaUrl = body.imageUrl || body.videoUrl;
-      const mediaType = body.imageUrl ? 'image' : 'video';
+      mediaType = body.imageUrl ? 'image' : 'video';
 
-      console.log(`📸 Downloading ${mediaType} from URL...`);
+      console.log(`📸 Downloading ${mediaType} from URL (deprecated - use base64 instead)...`);
       console.log('   URL:', mediaUrl);
 
       try {
-        const mediaBuffer = await downloadMedia(mediaUrl!);
+        mediaBuffer = await downloadMedia(mediaUrl!);
         console.log(`   Downloaded ${mediaBuffer.length} bytes`);
 
-        console.log(`📤 Uploading ${mediaType} to Twitter...`);
-        const uploadStartTime = Date.now();
+        // Default MIME types for URL-based media
+        mimeType = mediaType === 'image' ? 'image/jpeg' : 'video/mp4';
+      } catch (error: any) {
+        console.error(`❌ Failed to download ${mediaType}:`, error.message);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `Failed to download ${mediaType}: ${error.message}` },
+          { status: 500 }
+        );
+      }
+    }
 
+    // Upload media to Twitter if we have a buffer
+    if (mediaBuffer && mediaType && mimeType) {
+      console.log(`📤 Uploading ${mediaType} to Twitter...`);
+      const uploadStartTime = Date.now();
+
+      try {
         mediaId = await client.v1.uploadMedia(mediaBuffer, {
-          mimeType: mediaType === 'image' ? 'image/jpeg' : 'video/mp4',
+          mimeType: mimeType,
         });
 
         const uploadDuration = Date.now() - uploadStartTime;
@@ -322,11 +424,11 @@ export async function POST(request: NextRequest) {
         console.log('   Duration:', `${uploadDuration}ms`);
         console.log('');
       } catch (error: any) {
-        console.error(`❌ Failed to upload ${mediaType}:`, error.message);
+        console.error(`❌ Failed to upload ${mediaType} to Twitter:`, error.message);
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
-          { error: `Failed to upload ${mediaType}: ${error.message}` },
+          { error: `Failed to upload ${mediaType} to Twitter: ${error.message}` },
           { status: 500 }
         );
       }
