@@ -15,6 +15,9 @@ export default function HivemindAdminPage() {
   const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -37,6 +40,14 @@ export default function HivemindAdminPage() {
         setHivemindConfig(config);
         setSelectedAppId(config?.twitterAppId || '');
         setIsEnabled(config?.enabled || false);
+      }
+
+      // Load API key
+      const keyRes = await fetch('/api/hivemind/api-key');
+      if (keyRes.ok) {
+        const keyData = await keyRes.json();
+        setApiKey(keyData.apiKey);
+        setShowApiKey(keyData.full === true);
       }
 
       // Load Hivemind users
@@ -63,6 +74,43 @@ export default function HivemindAdminPage() {
       console.error('Error loading Hivemind data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateApiKey = async () => {
+    if (!confirm('Are you sure you want to generate a new API key? The old key will be invalidated.')) {
+      return;
+    }
+
+    setIsGeneratingKey(true);
+    try {
+      const response = await fetch('/api/hivemind/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setApiKey(data.apiKey);
+        setShowApiKey(true);
+        alert('New API key generated! Make sure to copy it now - you won\'t be able to see it again in full.');
+      } else {
+        throw new Error('Failed to generate API key');
+      }
+    } catch (error) {
+      console.error('Error generating API key:', error);
+      alert('Failed to generate API key');
+    } finally {
+      setIsGeneratingKey(false);
+    }
+  };
+
+  const handleCopyApiKey = () => {
+    if (apiKey && showApiKey) {
+      navigator.clipboard.writeText(apiKey);
+      alert('API key copied to clipboard!');
     }
   };
 
@@ -139,6 +187,81 @@ export default function HivemindAdminPage() {
             </div>
           </div>
         )}
+
+        {/* API Key Management */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">API Key Management</h2>
+          </div>
+          <div className="p-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hivemind API Key
+                </label>
+                {apiKey ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={apiKey}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"
+                      />
+                      {showApiKey && (
+                        <button
+                          onClick={handleCopyApiKey}
+                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition duration-200"
+                        >
+                          Copy
+                        </button>
+                      )}
+                    </div>
+                    {showApiKey && (
+                      <p className="text-sm text-yellow-600">
+                        ⚠️ Save this key now! You won't be able to see it again in full.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No API key generated yet</p>
+                )}
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleGenerateApiKey}
+                  disabled={isGeneratingKey}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50"
+                >
+                  {isGeneratingKey ? 'Generating...' : apiKey ? 'Regenerate API Key' : 'Generate API Key'}
+                </button>
+              </div>
+
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">API Usage</h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  Use this API key to publish tweets through Hivemind users:
+                </p>
+                <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST /api/twitter/tweet/v2
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "username": "<hivemind-user-handle>",
+  "text": "Tweet text",
+  "replyToTweetId": "optional",
+  "imageUrl": "optional",
+  "videoUrl": "optional"
+}`}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Configuration */}
         <div className="bg-white rounded-lg shadow mb-8">

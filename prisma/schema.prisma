@@ -195,6 +195,7 @@ model HivemindConfig {
   id           String      @id @default(cuid())
   twitterAppId String?     @unique
   enabled      Boolean     @default(false)
+  apiKey       String?     @map("api_key") // API key for external apps to tweet via Hivemind users
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   twitterApp   TwitterApp? @relation(fields: [twitterAppId], references: [id])

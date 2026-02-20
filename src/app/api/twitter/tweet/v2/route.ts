@@ -1,0 +1,537 @@
+/**
+ * Twitter Tweet Publishing Endpoint V2
+ *
+ * Supports both:
+ * - Project bots (with project API keys)
+ * - Hivemind users (with Hivemind API key)
+ *
+ * POST: Publish a tweet on behalf of a connected account
+ *
+ * This endpoint allows external applications to publish tweets
+ * without managing Twitter credentials themselves.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { TwitterApi } from 'twitter-api-v2';
+import { getBotByUsername } from '@/lib/db/bots';
+import { getProjectById } from '@/lib/db/projects';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
+import { getHivemindUserByUsername, getHivemindConfig, updateHivemindUserActivity } from '@/lib/db/hivemind';
+import { prisma } from '@/lib/db/prisma';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+/**
+ * Download media from URL and return as Buffer
+ */
+async function downloadMedia(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Failed to download media: ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+interface TweetRequest {
+  username: string;  // REQUIRED: Twitter username (bot or Hivemind user)
+  text: string;
+  replyToTweetId?: string;
+  idempotencyKey?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+}
+
+/**
+ * POST: Publish a tweet
+ *
+ * Request body:
+ * {
+ *   "username": "twitter_handle",  // Required: can be project bot OR Hivemind user
+ *   "text": "Tweet text",
+ *   "replyToTweetId": "1234567890", // optional
+ *   "idempotencyKey": "unique-key-123", // optional - prevents duplicate tweets on retry
+ *   "imageUrl": "https://example.com/image.jpg", // optional - URL of image to attach
+ *   "videoUrl": "https://example.com/video.mp4" // optional - URL of video to attach
+ * }
+ *
+ * Headers:
+ * X-API-Key: <api_key> // Project API key OR Hivemind API key
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "tweet": {
+ *     "id": "1234567890",
+ *     "text": "Tweet text",
+ *     "url": "https://twitter.com/username/status/1234567890"
+ *   },
+ *   "idempotent": true // optional - present if this was a cached idempotent response
+ * }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    console.log('');
+    console.log('================================================================================');
+    console.log('🐦 TWEET PUBLISHING REQUEST V2');
+    console.log('================================================================================');
+    console.log('   Timestamp:', new Date().toISOString());
+    console.log('');
+
+    // Parse request body
+    const body: TweetRequest = await request.json();
+
+    console.log('📋 Request details:');
+    console.log('   Username:', body.username);
+    console.log('   Text length:', body.text?.length || 0);
+    console.log('   Reply to:', body.replyToTweetId || 'N/A');
+    console.log('   Idempotency key:', body.idempotencyKey || 'N/A');
+    console.log('   Image URL:', body.imageUrl || 'N/A');
+    console.log('   Video URL:', body.videoUrl || 'N/A');
+    console.log('');
+
+    // Validate request
+    if (!body.username) {
+      console.log('❌ Missing username');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'username is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!body.text) {
+      console.log('❌ Missing text');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'text is required' },
+        { status: 400 }
+      );
+    }
+
+    if (body.text.length > 280) {
+      console.log('❌ Text too long:', body.text.length, 'characters');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'text must be 280 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    // Validate media parameters
+    if (body.imageUrl && body.videoUrl) {
+      console.log('❌ Cannot include both image and video');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Cannot include both imageUrl and videoUrl - choose one' },
+        { status: 400 }
+      );
+    }
+
+    // Get API key from headers
+    const apiKey = request.headers.get('x-api-key');
+
+    if (!apiKey) {
+      console.log('❌ Missing API key - X-API-Key header required');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'API key required - include X-API-Key header' },
+        { status: 401 }
+      );
+    }
+
+    // Determine if this is a Hivemind or Project API request
+    let isHivemind = false;
+    let projectId: string | null = null;
+    let userCredentials: { accessToken: string; accessTokenSecret: string } | null = null;
+    let consumerKey: string | undefined;
+    let consumerSecret: string | undefined;
+
+    // Check if it's a Hivemind API key (starts with 'hm_')
+    if (apiKey.startsWith('hm_')) {
+      console.log('🌐 Hivemind API key detected');
+
+      // Validate Hivemind API key
+      const hivemindConfig = await getHivemindConfig();
+
+      if (!hivemindConfig || !hivemindConfig.enabled) {
+        console.log('❌ Hivemind is not enabled');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Hivemind is not enabled' },
+          { status: 403 }
+        );
+      }
+
+      if (hivemindConfig.apiKey !== apiKey) {
+        console.log('❌ Invalid Hivemind API key');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Invalid API key' },
+          { status: 401 }
+        );
+      }
+
+      // Get Hivemind user credentials
+      console.log('📦 Fetching Hivemind user credentials...');
+      const hivemindUser = await getHivemindUserByUsername(body.username);
+
+      if (!hivemindUser) {
+        console.log('❌ Hivemind user not found:', body.username);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `No Hivemind user found with username: ${body.username}` },
+          { status: 404 }
+        );
+      }
+
+      if (!hivemindUser.isActive) {
+        console.log('❌ Hivemind user is inactive:', body.username);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'User has disconnected from Hivemind' },
+          { status: 403 }
+        );
+      }
+
+      console.log('✅ Hivemind user found:', hivemindUser.username);
+      userCredentials = {
+        accessToken: hivemindUser.accessToken,
+        accessTokenSecret: hivemindUser.accessTokenSecret
+      };
+
+      // Update user activity
+      await updateHivemindUserActivity(hivemindUser.userId);
+
+      // Get Twitter API credentials from Hivemind config
+      if (hivemindConfig.twitterAppId && hivemindConfig.twitterApp) {
+        consumerKey = hivemindConfig.twitterApp.consumerKey;
+        consumerSecret = hivemindConfig.twitterApp.consumerSecret;
+        console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
+      } else {
+        consumerKey = process.env.TWITTER_OAUTH_API_KEY;
+        consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+        console.log('🔑 Using credentials from env vars (Hivemind fallback)');
+      }
+
+      isHivemind = true;
+    } else {
+      // It's a project API key
+      console.log('🏗️ Project API key detected');
+
+      // Get bot credentials from PostgreSQL
+      console.log('📦 Fetching bot credentials from database...');
+      const bot = await getBotByUsername(body.username);
+
+      if (!bot) {
+        console.log('❌ Bot not found for username:', body.username);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `No bot found with username: ${body.username}` },
+          { status: 404 }
+        );
+      }
+
+      console.log('✅ Bot found:', bot.username);
+      console.log('   Project ID:', bot.projectId);
+      console.log('');
+
+      projectId = bot.projectId;
+      userCredentials = {
+        accessToken: bot.accessToken,
+        accessTokenSecret: bot.accessTokenSecret
+      };
+
+      // Get project to check API key
+      const project = await getProjectById(bot.projectId);
+
+      if (!project) {
+        console.log('❌ Project not found');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Project not found' },
+          { status: 404 }
+        );
+      }
+
+      // Check if API key is required and validate it
+      if (project.apiKey) {
+        if (apiKey !== project.apiKey) {
+          console.log('❌ Invalid API key');
+          console.log('================================================================================');
+          console.log('');
+          return NextResponse.json(
+            { error: 'Invalid API key' },
+            { status: 401 }
+          );
+        }
+
+        console.log('✅ API key validated');
+      } else {
+        console.log('ℹ️  No API key configured for this project');
+      }
+
+      // Check if API is enabled for this project
+      if (!project.apiEnabled) {
+        console.log('❌ API disabled for this project');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'API access is disabled for this project. Please enable it in the project settings.' },
+          { status: 403 }
+        );
+      }
+
+      console.log('✅ API enabled for project');
+
+      // Get Twitter API credentials from the project's TwitterApp
+      const twitterApp = await getTwitterAppByProjectId(bot.projectId);
+      if (twitterApp) {
+        consumerKey = twitterApp.consumerKey;
+        consumerSecret = twitterApp.consumerSecret;
+        console.log('🔑 Using credentials from Project TwitterApp:', twitterApp.name);
+      } else {
+        consumerKey = process.env.TWITTER_OAUTH_API_KEY;
+        consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
+        console.log('🔑 Using credentials from env vars (Project fallback)');
+      }
+    }
+    console.log('');
+
+    // Ensure we have credentials
+    if (!consumerKey || !consumerSecret) {
+      console.log('❌ Missing Twitter API credentials');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'Twitter API credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    if (!userCredentials) {
+      console.log('❌ No user credentials found');
+      console.log('================================================================================');
+      console.log('');
+      return NextResponse.json(
+        { error: 'User credentials not found' },
+        { status: 500 }
+      );
+    }
+
+    // Check for existing tweet with this idempotency key (only for projects)
+    if (body.idempotencyKey && projectId) {
+      console.log('🔍 Checking idempotency key...');
+
+      const existingTweet = await prisma.idempotentTweet.findUnique({
+        where: {
+          projectId_idempotencyKey: {
+            projectId,
+            idempotencyKey: body.idempotencyKey,
+          },
+        },
+      });
+
+      if (existingTweet) {
+        console.log('✅ IDEMPOTENCY HIT - Tweet already published');
+        console.log('────────────────────────────────────────────────────────────────────────────────');
+        console.log('   Tweet ID:', existingTweet.tweetId);
+        console.log('   Published at:', existingTweet.publishedAt.toISOString());
+        console.log('   Time since publish:', `${Date.now() - existingTweet.publishedAt.getTime()}ms`);
+        console.log('   URL:', `https://twitter.com/${body.username}/status/${existingTweet.tweetId}`);
+        console.log('────────────────────────────────────────────────────────────────────────────────');
+        console.log('   Returning cached result - NO duplicate tweet published');
+        console.log('================================================================================');
+        console.log('');
+
+        return NextResponse.json({
+          success: true,
+          tweet: {
+            id: existingTweet.tweetId,
+            text: existingTweet.tweetText,
+            url: `https://twitter.com/${body.username}/status/${existingTweet.tweetId}`,
+          },
+          idempotent: true,
+        });
+      }
+
+      console.log('   No existing tweet found for this idempotency key');
+      console.log('   Proceeding with tweet publishing...');
+      console.log('');
+    }
+
+    // Create Twitter client with OAuth 1.0a
+    console.log('🔑 Initializing Twitter client...');
+    const client = new TwitterApi({
+      appKey: consumerKey,
+      appSecret: consumerSecret,
+      accessToken: userCredentials.accessToken,
+      accessSecret: userCredentials.accessTokenSecret,
+    });
+
+    // Handle media upload if provided
+    let mediaId: string | undefined;
+
+    if (body.imageUrl || body.videoUrl) {
+      const mediaUrl = body.imageUrl || body.videoUrl;
+      const mediaType = body.imageUrl ? 'image' : 'video';
+
+      console.log(`📸 Downloading ${mediaType} from URL...`);
+      console.log('   URL:', mediaUrl);
+
+      try {
+        const mediaBuffer = await downloadMedia(mediaUrl!);
+        console.log(`   Downloaded ${mediaBuffer.length} bytes`);
+
+        console.log(`📤 Uploading ${mediaType} to Twitter...`);
+        const uploadStartTime = Date.now();
+
+        mediaId = await client.v1.uploadMedia(mediaBuffer, {
+          mimeType: mediaType === 'image' ? 'image/jpeg' : 'video/mp4',
+        });
+
+        const uploadDuration = Date.now() - uploadStartTime;
+        console.log(`   ✅ ${mediaType} uploaded successfully`);
+        console.log('   Media ID:', mediaId);
+        console.log('   Duration:', `${uploadDuration}ms`);
+        console.log('');
+      } catch (error: any) {
+        console.error(`❌ Failed to upload ${mediaType}:`, error.message);
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `Failed to upload ${mediaType}: ${error.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Publish tweet
+    console.log('📤 Publishing tweet...');
+    console.log('   Account type:', isHivemind ? 'Hivemind User' : 'Project Bot');
+    console.log('   Tweet text preview:', body.text.substring(0, 100) + (body.text.length > 100 ? '...' : ''));
+    console.log('   Tweet text length:', body.text.length);
+    const startTime = Date.now();
+
+    const tweetData: any = {
+      text: body.text,
+    };
+
+    if (body.replyToTweetId) {
+      tweetData.reply = {
+        in_reply_to_tweet_id: body.replyToTweetId,
+      };
+    }
+
+    if (mediaId) {
+      tweetData.media = {
+        media_ids: [mediaId],
+      };
+    }
+
+    const response = await client.v2.tweet(tweetData);
+    const duration = Date.now() - startTime;
+
+    console.log('');
+    console.log('✅ TWEET PUBLISHED SUCCESSFULLY');
+    console.log('────────────────────────────────────────────────────────────────────────────────');
+    console.log('   Tweet ID:', response.data.id);
+    console.log('   Text:', response.data.text);
+    console.log('   Duration:', `${duration}ms`);
+    console.log('   URL:', `https://twitter.com/${body.username}/status/${response.data.id}`);
+    console.log('────────────────────────────────────────────────────────────────────────────────');
+    console.log('');
+
+    // Store idempotency key if provided (only for projects)
+    if (body.idempotencyKey && projectId) {
+      console.log('💾 Storing idempotency key...');
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      try {
+        await prisma.idempotentTweet.create({
+          data: {
+            projectId,
+            idempotencyKey: body.idempotencyKey,
+            tweetId: response.data.id,
+            tweetText: response.data.text,
+            replyToTweetId: body.replyToTweetId || null,
+            expiresAt,
+          },
+        });
+
+        console.log('   ✅ Idempotency key stored');
+        console.log('   Expires at:', expiresAt.toISOString());
+      } catch (error: any) {
+        console.warn('   ⚠️  Failed to store idempotency key:', error.message);
+        console.warn('   This may result in duplicate tweets if client retries');
+      }
+
+      console.log('');
+    }
+
+    console.log('================================================================================');
+    console.log('');
+
+    return NextResponse.json({
+      success: true,
+      tweet: {
+        id: response.data.id,
+        text: response.data.text,
+        url: `https://twitter.com/${body.username}/status/${response.data.id}`,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ TWEET PUBLISHING ERROR');
+    console.error('   Error message:', error.message);
+    console.error('   Error code:', error.code);
+    console.error('   Error type:', error.type);
+    console.error('   Stack:', error.stack);
+
+    if (error.data) {
+      console.error('   Twitter API Error Data:', JSON.stringify(error.data, null, 2));
+    }
+    if (error.errors) {
+      console.error('   Twitter API Errors:', JSON.stringify(error.errors, null, 2));
+    }
+    if (error.rateLimit) {
+      console.error('   Rate Limit Info:', JSON.stringify(error.rateLimit, null, 2));
+    }
+
+    // Check for specific Twitter API errors
+    if (error.code === 403) {
+      console.error('   Reason: Forbidden - check permissions');
+    } else if (error.code === 401) {
+      console.error('   Reason: Unauthorized - check credentials');
+    } else if (error.code === 429) {
+      console.error('   Reason: Rate limit exceeded');
+    }
+
+    console.log('================================================================================');
+    console.log('');
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to publish tweet',
+      },
+      { status: error.code || 500 }
+    );
+  }
+}
