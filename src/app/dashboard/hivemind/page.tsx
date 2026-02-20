@@ -56,8 +56,8 @@ export default function HivemindAdminPage() {
       // Load available Twitter apps
       const appsRes = await fetch('/api/twitter-apps');
       if (appsRes.ok) {
-        const apps = await appsRes.json();
-        setTwitterApps(apps);
+        const data = await appsRes.json();
+        setTwitterApps(data.apps || []);
       }
     } catch (error) {
       console.error('Error loading Hivemind data:', error);
