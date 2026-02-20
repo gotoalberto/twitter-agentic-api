@@ -368,37 +368,50 @@ export async function GET(request: NextRequest) {
         console.log('📌 Subscribing bot to webhook...');
 
         // CRITICAL FIX: If using the shared webhook (1999190094972911617) but have TwitterApp credentials,
-        // we must use env-var credentials for subscription because the webhook belongs to the env-var app
+        // the bot tokens are incompatible. We need to restart OAuth with env-var credentials.
         const isSharedWebhook = webhookId === '1999190094972911617' ||
                                webhookUrl === `${new URL(request.url).origin}/api/webhooks/twitter`;
 
-        let subApiKey: string | undefined = apiKey;
-        let subApiSecret: string | undefined = apiSecret;
-        let subBearerToken: string | undefined = bearerToken;
-        let subWebhookEnv: string = webhookEnv;
+        if (isSharedWebhook && resolvedTwitterAppId && projectIdFromCookie) {
+          console.log('');
+          console.log('⚠️  TOKEN MISMATCH DETECTED');
+          console.log('   Webhook ID:', webhookId, '(shared env-var webhook)');
+          console.log('   Bot tokens were generated with TwitterApp:', resolvedTwitterAppId);
+          console.log('   These tokens cannot be used with the shared webhook.');
+          console.log('   Restarting OAuth with force_env_var=true...');
+          console.log('');
 
-        if (isSharedWebhook && resolvedTwitterAppId) {
-          console.log('⚠️  Detected shared webhook with TwitterApp credentials');
-          console.log('   Switching to env-var credentials for subscription...');
-          subApiKey = process.env.TWITTER_OAUTH_API_KEY;
-          subApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-          subBearerToken = process.env.X_API_BEARER_TOKEN;
-          subWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-
-          if (!subApiKey || !subApiSecret || !subBearerToken) {
-            throw new Error('Env-var credentials not configured but required for shared webhook subscription');
+          // Rollback the bot since tokens are incompatible
+          try {
+            const { deleteBotByProjectId } = await import('@/lib/db/bots');
+            await deleteBotByProjectId(project.id);
+            console.log('   ✅ Bot rolled back');
+          } catch (deleteErr: any) {
+            console.error('   ⚠️  Failed to rollback bot:', deleteErr.message);
           }
+
+          // Restart OAuth with env-var credentials
+          const retryUrl = `${new URL(request.url).origin}/api/projects/${projectIdFromCookie}/bot/authorize?force_env_var=true`;
+          console.log('   Retry URL:', retryUrl);
+
+          const retryResponse = NextResponse.redirect(retryUrl);
+          retryResponse.cookies.delete('oauth_token');
+          retryResponse.cookies.delete('oauth_token_secret');
+          retryResponse.cookies.delete('oauth_project_id');
+          retryResponse.cookies.delete('oauth_twitter_app_id');
+          return retryResponse;
         }
 
+        // Normal subscription (tokens and credentials match)
         await subscribeWebhook(
-          subApiKey!,
-          subApiSecret!,
+          apiKey!,
+          apiSecret!,
           accessToken,
           accessSecret,
           webhookId,
           user.data.id,
-          subBearerToken!,
-          subWebhookEnv
+          bearerToken!,
+          webhookEnv
         );
         console.log('   ✅ Subscription successful');
 
