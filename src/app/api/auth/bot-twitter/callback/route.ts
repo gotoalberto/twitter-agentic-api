@@ -172,9 +172,15 @@ export async function GET(request: NextRequest) {
         webhookId = existingWebhook.webhookId;
       } else {
         // Check Twitter API for existing webhook
+        // CRITICAL: Always use env-var bearer token to list webhooks, because the shared
+        // webhook (id=1999190094972911617) is registered with the env-var app, not TwitterApp apps.
         console.log('🔍 Checking Twitter for existing webhook...');
         try {
-          const twitterWebhooks = await listWebhooks(bearerToken, webhookEnv);
+          const envVarBearerToken = process.env.X_API_BEARER_TOKEN;
+          if (!envVarBearerToken) {
+            throw new Error('X_API_BEARER_TOKEN not configured');
+          }
+          const twitterWebhooks = await listWebhooks(envVarBearerToken, webhookEnv);
           console.log(`   Found ${twitterWebhooks.length} webhook(s) in Twitter`);
 
           const matchingWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
