@@ -11,15 +11,16 @@ datasource db {
 /// TwitterApp stores the Twitter API credentials for a specific application
 /// Multiple projects can share the same Twitter App credentials
 model TwitterApp {
-  id             String    @id @default(cuid())
-  name           String    @unique
+  id             String          @id @default(cuid())
+  name           String          @unique
   consumerKey    String
   consumerSecret String
   bearerToken    String
-  webhookEnv     String    @default("production")
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  webhookEnv     String          @default("production")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   projects       Project[]
+  hivemindConfig HivemindConfig?
 
   @@map("twitter_apps")
 }
@@ -186,4 +187,38 @@ model IdempotentTweet {
   @@index([projectId, idempotencyKey])
   @@index([expiresAt])
   @@map("idempotent_tweets")
+}
+
+/// HivemindConfig stores the configuration for the Hivemind feature
+/// Defines which TwitterApp is offered to Hivemind users
+model HivemindConfig {
+  id           String      @id @default(cuid())
+  twitterAppId String?     @unique
+  enabled      Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  twitterApp   TwitterApp? @relation(fields: [twitterAppId], references: [id])
+
+  @@map("hivemind_config")
+}
+
+/// HivemindUser stores Twitter users who have connected to the Hivemind
+/// These are regular users (not bots) who authorize the app for tweet/DM access
+/// No webhooks are registered for these users
+model HivemindUser {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  username          String   @unique
+  displayName       String   @map("display_name")
+  profileImageUrl   String?  @map("profile_image_url")
+  accessToken       String   @map("access_token")
+  accessTokenSecret String   @map("access_token_secret")
+  connectedAt       DateTime @default(now()) @map("connected_at")
+  lastActiveAt      DateTime @default(now()) @map("last_active_at")
+  isActive          Boolean  @default(true) @map("is_active")
+
+  @@index([username])
+  @@index([isActive])
+  @@index([connectedAt])
+  @@map("hivemind_users")
 }
