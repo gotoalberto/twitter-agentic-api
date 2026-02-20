@@ -421,10 +421,12 @@ DATABASE_URL="postgresql://xforwarder:password@x-forwarder-db.cuayvp8dpvrg.us-ea
 
 ### 1. Admin Login
 
-1. Navigate to `/` (home page)
+1. Navigate to `/admin` (login page)
 2. Click "Sign in with Twitter"
 3. Authorize with your admin Twitter account (must be in `ALLOWED_ADMIN_USERS`)
 4. You'll be redirected to `/dashboard`
+
+**Note:** The home page `/` is a static landing page. Admin functionality is accessed through `/admin`.
 
 ### 2. Create a Project
 
@@ -752,6 +754,16 @@ These endpoints use the default "goodboy" project:
 }
 ```
 
+## Recent Updates
+
+### Version 2.1.0 - February 2026
+- **OAuth Token Mismatch Detection**: Automatically detects when OAuth tokens are incompatible with the shared webhook and restarts the OAuth flow with the correct credentials
+- **Route Restructuring**:
+  - `/` is now a static landing page
+  - `/admin` is the login page (previously at `/`)
+  - After login, users are redirected to `/dashboard`
+- **Improved Error Handling**: More descriptive error messages for webhook registration failures
+
 ## Project Structure
 
 ```
@@ -902,6 +914,7 @@ bitso-twitter-api/
 - **Enable cookies** in browser
 - **Check database connection** - credentials may fail to save
 - **Review logs** for OAuth errors
+- **Token mismatch detection** - If your project uses a custom TwitterApp but the webhook belongs to env-var credentials, the system will automatically restart OAuth with compatible credentials (you'll see "TOKEN MISMATCH DETECTED" in logs)
 
 ### Webhook registration fails
 
