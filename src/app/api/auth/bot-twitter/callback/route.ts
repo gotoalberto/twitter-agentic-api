@@ -149,13 +149,10 @@ export async function GET(request: NextRequest) {
         throw new Error('Missing required credentials for webhook setup');
       }
 
-      // Webhook URL: per-app if we have a twitterAppId, else legacy URL
-      let webhookUrl: string;
-      if (resolvedTwitterAppId) {
-        webhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter/${resolvedTwitterAppId}`;
-      } else {
-        webhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
-      }
+      // CRITICAL: Always use the shared webhook URL for looking up and subscribing.
+      // Individual TwitterApps don't have their own webhooks - they all share the main one.
+      // The webhook handler routes events by for_user_id, not by webhook URL.
+      const webhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
       console.log('📍 Webhook URL:', webhookUrl);
 
       // Check if webhook already exists in DB
