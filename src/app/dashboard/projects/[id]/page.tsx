@@ -11,6 +11,12 @@ interface BotStatus {
     username: string;
     connectedAt: string;
   } | null;
+  webhookStatus?: {
+    registered: boolean;
+    webhookId?: string;
+    url?: string;
+    subscribed?: boolean;
+  };
 }
 
 interface TwitterAppOption {
@@ -98,6 +104,9 @@ function ProjectDetailContent() {
   const [showAddEndpoint, setShowAddEndpoint] = useState(false);
   const [newEndpointName, setNewEndpointName] = useState('');
   const [newEndpointUrl, setNewEndpointUrl] = useState('');
+
+  // Webhook registration state
+  const [registeringWebhook, setRegisteringWebhook] = useState(false);
   const [savingEndpoint, setSavingEndpoint] = useState(false);
 
   // Ref for infinite scroll observer
@@ -510,6 +519,35 @@ function ProjectDetailContent() {
     }
   };
 
+  const registerWebhook = async () => {
+    setRegisteringWebhook(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/register-webhook`, {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text: data.message || 'Webhook registered successfully'
+        });
+        fetchBotStatus(); // Refresh bot status to show webhook
+      } else {
+        setMessage({
+          type: 'error',
+          text: data.error || data.message || 'Failed to register webhook'
+        });
+      }
+    } catch (error) {
+      console.error('Error registering webhook:', error);
+      setMessage({ type: 'error', text: 'Error registering webhook' });
+    } finally {
+      setRegisteringWebhook(false);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -700,6 +738,36 @@ function ProjectDetailContent() {
                   <p className="text-sm text-gray-900">{new Date(botStatus.bot.connectedAt).toLocaleString('en-US')}</p>
                 </div>
               </div>
+
+              {/* Webhook Status */}
+              {botStatus.webhookStatus && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-500 mb-2">Webhook Status</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {botStatus.webhookStatus.registered ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-600">✓ Webhook Registered</span>
+                          {botStatus.webhookStatus.subscribed && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Active</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-yellow-600">⚠️ No webhook registered</span>
+                      )}
+                    </div>
+                    {!botStatus.webhookStatus.registered && (
+                      <button
+                        onClick={registerWebhook}
+                        disabled={registeringWebhook}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1 rounded transition"
+                      >
+                        {registeringWebhook ? 'Registering...' : 'Register Webhook'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={disconnectBot}

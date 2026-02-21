@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { getProjectById } from '@/lib/db/projects';
-import { getBotByProjectId } from '@/lib/db/bots';
+import { prisma } from '@/lib/db/prisma';
 
 /**
  * GET: Get bot status for a specific project
@@ -24,8 +23,15 @@ export async function GET(
 
     const { id: projectId } = await params;
 
-    // Verify project exists
-    const project = await getProjectById(projectId);
+    // Get project with bot and webhook registrations
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        bot: true,
+        webhookRegistrations: true
+      }
+    });
+
     if (!project) {
       return NextResponse.json(
         { error: 'Project not found' },
@@ -33,8 +39,7 @@ export async function GET(
       );
     }
 
-    // Get bot for this project
-    const bot = await getBotByProjectId(projectId);
+    const bot = project.bot;
 
     if (!bot) {
       return NextResponse.json({
@@ -43,6 +48,17 @@ export async function GET(
       });
     }
 
+    // Check webhook status
+    const webhookReg = project.webhookRegistrations[0];
+    const webhookStatus = webhookReg ? {
+      registered: true,
+      webhookId: webhookReg.webhookId,
+      url: webhookReg.url,
+      subscribed: webhookReg.subscribed
+    } : {
+      registered: false
+    };
+
     return NextResponse.json({
       connected: true,
       bot: {
@@ -50,6 +66,7 @@ export async function GET(
         username: bot.username,
         connectedAt: bot.createdAt,
       },
+      webhookStatus
     });
   } catch (error: any) {
     console.error('Error getting bot status:', error);
