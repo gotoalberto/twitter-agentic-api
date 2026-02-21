@@ -922,6 +922,9 @@ bitso-twitter-api/
 
 Common causes and solutions:
 
+- **OAuth Version Mismatch** - Webhooks require OAuth 1.0a tokens, not OAuth 2.0:
+  - If your bot was connected with OAuth 2.0, webhooks won't work
+  - Solution: Reconnect bot using OAuth 1.0a (see below)
 - **Verify Bearer Token** is correct and has webhook permissions
 - **Check Twitter app** has Account Activity API access enabled
 - **Check webhook limit** - Twitter allows 1 webhook per app (delete old webhooks via Twitter Developer Portal)
@@ -937,6 +940,36 @@ Common causes and solutions:
 - The webhook registration likely failed and the bot was automatically removed
 - Try connecting the bot again - the system will retry the webhook registration
 - Check the error message for specific details about what went wrong
+
+#### OAuth 1.0a vs OAuth 2.0 for Webhooks
+
+**Important:** Twitter Account Activity API (webhooks) **requires OAuth 1.0a tokens**. If your bot is connected with OAuth 2.0, webhooks will not work.
+
+**How to check your bot's OAuth version:**
+```bash
+node scripts/check-project.js <project-id>
+```
+
+Look for:
+- `OAuth 1.0a tokens: ✅` - Webhooks will work
+- `OAuth 2.0 tokens: ✅` and `OAuth 1.0a tokens: ❌` - Webhooks won't work
+
+**How to force OAuth 1.0a connection:**
+
+Option 1: Use the force OAuth 1.0a endpoint:
+```bash
+# Visit this URL in your browser (replace project-id):
+https://bitso-twitter-api.vercel.app/api/projects/<project-id>/bot/authorize-oauth1
+```
+
+Option 2: Via dashboard:
+1. Disconnect the current bot
+2. If your TwitterApp has both OAuth 1.0a and 2.0 credentials, temporarily clear OAuth 2.0:
+   ```bash
+   node scripts/force-oauth1.js <twitter-app-name>
+   ```
+3. Reconnect the bot (it will now use OAuth 1.0a)
+4. Restore OAuth 2.0 credentials if needed later
 
 ### Events not forwarding
 
