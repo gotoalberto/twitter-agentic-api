@@ -2,43 +2,37 @@
  * Bot Management with Prisma
  *
  * Handles CRUD operations for bots in PostgreSQL
- * Maintains encryption for OAuth tokens
+ * OAuth tokens are stored in plain text
  */
 
 import { prisma } from './prisma';
-import { encrypt, decrypt } from '@/lib/utils/encryption';
 import type { Bot } from '@/generated/prisma';
 
 export interface BotData {
   username: string;
   userId: string;
-  accessToken: string;         // Unencrypted
-  accessTokenSecret: string;   // Unencrypted
-}
-
-export interface DecryptedBot extends Omit<Bot, 'accessToken' | 'accessTokenSecret'> {
-  accessToken: string;         // Decrypted
-  accessTokenSecret: string;   // Decrypted
+  accessToken: string;
+  accessTokenSecret: string;
 }
 
 /**
  * Save bot for a project (creates or updates)
  */
 export async function saveBot(projectId: string, botData: BotData): Promise<Bot> {
-  // Encrypt tokens before saving
-  const encryptedData = {
+  // Store tokens in plain text
+  const data = {
     username: botData.username,
     userId: botData.userId,
-    accessToken: encrypt(botData.accessToken),
-    accessTokenSecret: encrypt(botData.accessTokenSecret),
+    accessToken: botData.accessToken,
+    accessTokenSecret: botData.accessTokenSecret,
     projectId,
   };
 
   // Upsert: update if exists, create if not
   const bot = await prisma.bot.upsert({
     where: { projectId },
-    update: encryptedData,
-    create: encryptedData,
+    update: data,
+    create: data,
   });
 
   console.log('✅ Bot saved for project:', projectId, '- Username:', botData.username);
@@ -46,43 +40,25 @@ export async function saveBot(projectId: string, botData: BotData): Promise<Bot>
 }
 
 /**
- * Get bot by project ID with decrypted tokens
+ * Get bot by project ID (tokens in plain text)
  */
-export async function getBotByProjectId(projectId: string): Promise<DecryptedBot | null> {
+export async function getBotByProjectId(projectId: string): Promise<Bot | null> {
   const bot = await prisma.bot.findUnique({
     where: { projectId },
   });
 
-  if (!bot) {
-    return null;
-  }
-
-  // Decrypt tokens
-  return {
-    ...bot,
-    accessToken: decrypt(bot.accessToken),
-    accessTokenSecret: decrypt(bot.accessTokenSecret),
-  };
+  return bot;
 }
 
 /**
- * Get bot by username with decrypted tokens
+ * Get bot by username (tokens in plain text)
  */
-export async function getBotByUsername(username: string): Promise<DecryptedBot | null> {
+export async function getBotByUsername(username: string): Promise<Bot | null> {
   const bot = await prisma.bot.findUnique({
     where: { username },
   });
 
-  if (!bot) {
-    return null;
-  }
-
-  // Decrypt tokens
-  return {
-    ...bot,
-    accessToken: decrypt(bot.accessToken),
-    accessTokenSecret: decrypt(bot.accessTokenSecret),
-  };
+  return bot;
 }
 
 /**

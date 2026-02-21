@@ -2,37 +2,30 @@
  * Twitter App Management with Prisma
  *
  * Handles CRUD operations for Twitter Apps in PostgreSQL.
- * All sensitive credentials are stored encrypted.
+ * Credentials are stored in plain text.
  */
 
 import { prisma } from './prisma';
-import { encrypt, decrypt } from '@/lib/utils/encryption';
 import type { TwitterApp } from '@/generated/prisma';
 
 export interface TwitterAppInput {
   name: string;
-  consumerKey: string;      // Unencrypted
-  consumerSecret: string;   // Unencrypted
-  bearerToken: string;      // Unencrypted
+  consumerKey: string;
+  consumerSecret: string;
+  bearerToken: string;
   webhookEnv?: string;
 }
 
-export interface DecryptedTwitterApp extends Omit<TwitterApp, 'consumerKey' | 'consumerSecret' | 'bearerToken'> {
-  consumerKey: string;      // Decrypted
-  consumerSecret: string;   // Decrypted
-  bearerToken: string;      // Decrypted
-}
-
 /**
- * Create a new Twitter App with encrypted credentials
+ * Create a new Twitter App (credentials stored in plain text)
  */
 export async function createTwitterApp(data: TwitterAppInput): Promise<TwitterApp> {
   const app = await prisma.twitterApp.create({
     data: {
       name: data.name,
-      consumerKey: encrypt(data.consumerKey),
-      consumerSecret: encrypt(data.consumerSecret),
-      bearerToken: encrypt(data.bearerToken),
+      consumerKey: data.consumerKey,
+      consumerSecret: data.consumerSecret,
+      bearerToken: data.bearerToken,
       webhookEnv: data.webhookEnv || 'production',
     },
   });
@@ -42,7 +35,7 @@ export async function createTwitterApp(data: TwitterAppInput): Promise<TwitterAp
 }
 
 /**
- * Get all Twitter Apps (credentials remain encrypted)
+ * Get all Twitter Apps
  */
 export async function getAllTwitterApps(): Promise<(TwitterApp & { _count: { projects: number } })[]> {
   const apps = await prisma.twitterApp.findMany({
@@ -58,21 +51,14 @@ export async function getAllTwitterApps(): Promise<(TwitterApp & { _count: { pro
 }
 
 /**
- * Get a Twitter App by ID with decrypted credentials
+ * Get a Twitter App by ID (credentials in plain text)
  */
-export async function getTwitterAppById(id: string): Promise<DecryptedTwitterApp | null> {
+export async function getTwitterAppById(id: string): Promise<TwitterApp | null> {
   const app = await prisma.twitterApp.findUnique({
     where: { id },
   });
 
-  if (!app) return null;
-
-  return {
-    ...app,
-    consumerKey: decrypt(app.consumerKey),
-    consumerSecret: decrypt(app.consumerSecret),
-    bearerToken: decrypt(app.bearerToken),
-  };
+  return app;
 }
 
 /**
@@ -85,9 +71,9 @@ export async function getTwitterAppByIdRaw(id: string): Promise<TwitterApp | nul
 }
 
 /**
- * Get the TwitterApp associated with a project (with decrypted credentials)
+ * Get the TwitterApp associated with a project (credentials in plain text)
  */
-export async function getTwitterAppByProjectId(projectId: string): Promise<DecryptedTwitterApp | null> {
+export async function getTwitterAppByProjectId(projectId: string): Promise<TwitterApp | null> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { twitterApp: true },
@@ -95,17 +81,11 @@ export async function getTwitterAppByProjectId(projectId: string): Promise<Decry
 
   if (!project?.twitterApp) return null;
 
-  const app = project.twitterApp;
-  return {
-    ...app,
-    consumerKey: decrypt(app.consumerKey),
-    consumerSecret: decrypt(app.consumerSecret),
-    bearerToken: decrypt(app.bearerToken),
-  };
+  return project.twitterApp;
 }
 
 /**
- * Update a Twitter App
+ * Update a Twitter App (credentials stored in plain text)
  */
 export async function updateTwitterApp(
   id: string,
@@ -114,9 +94,9 @@ export async function updateTwitterApp(
   const updateData: Record<string, string> = {};
 
   if (data.name !== undefined) updateData.name = data.name;
-  if (data.consumerKey !== undefined) updateData.consumerKey = encrypt(data.consumerKey);
-  if (data.consumerSecret !== undefined) updateData.consumerSecret = encrypt(data.consumerSecret);
-  if (data.bearerToken !== undefined) updateData.bearerToken = encrypt(data.bearerToken);
+  if (data.consumerKey !== undefined) updateData.consumerKey = data.consumerKey;
+  if (data.consumerSecret !== undefined) updateData.consumerSecret = data.consumerSecret;
+  if (data.bearerToken !== undefined) updateData.bearerToken = data.bearerToken;
   if (data.webhookEnv !== undefined) updateData.webhookEnv = data.webhookEnv;
 
   const app = await prisma.twitterApp.update({

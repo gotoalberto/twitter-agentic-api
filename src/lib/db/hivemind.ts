@@ -1,5 +1,4 @@
 import prisma from '@/lib/db/prisma';
-import { encrypt, decrypt } from '@/lib/utils/encryption';
 import type { HivemindUser, HivemindConfig } from '@/generated/prisma';
 
 // ===== HIVEMIND CONFIG OPERATIONS =====
@@ -50,9 +49,7 @@ export async function createHivemindUser(data: {
   accessToken: string;
   accessTokenSecret: string;
 }) {
-  // Encrypt tokens before storing
-  const encryptedAccessToken = encrypt(data.accessToken);
-  const encryptedAccessTokenSecret = encrypt(data.accessTokenSecret);
+  // Store tokens in plain text
 
   // Check if user already exists
   const existing = await prisma.hivemindUser.findUnique({
@@ -67,8 +64,8 @@ export async function createHivemindUser(data: {
         username: data.username,
         displayName: data.displayName,
         profileImageUrl: data.profileImageUrl,
-        accessToken: encryptedAccessToken,
-        accessTokenSecret: encryptedAccessTokenSecret,
+        accessToken: data.accessToken,
+        accessTokenSecret: data.accessTokenSecret,
         lastActiveAt: new Date(),
         isActive: true
       }
@@ -82,8 +79,8 @@ export async function createHivemindUser(data: {
       username: data.username,
       displayName: data.displayName,
       profileImageUrl: data.profileImageUrl,
-      accessToken: encryptedAccessToken,
-      accessTokenSecret: encryptedAccessTokenSecret,
+      accessToken: data.accessToken,
+      accessTokenSecret: data.accessTokenSecret,
       connectedAt: new Date(),
       lastActiveAt: new Date(),
       isActive: true
@@ -96,16 +93,7 @@ export async function getHivemindUserByUsername(username: string) {
     where: { username }
   });
 
-  if (!user) {
-    return null;
-  }
-
-  // Decrypt tokens before returning
-  return {
-    ...user,
-    accessToken: decrypt(user.accessToken),
-    accessTokenSecret: decrypt(user.accessTokenSecret)
-  };
+  return user;
 }
 
 export async function getHivemindUserById(userId: string) {
@@ -113,16 +101,7 @@ export async function getHivemindUserById(userId: string) {
     where: { userId }
   });
 
-  if (!user) {
-    return null;
-  }
-
-  // Decrypt tokens before returning
-  return {
-    ...user,
-    accessToken: decrypt(user.accessToken),
-    accessTokenSecret: decrypt(user.accessTokenSecret)
-  };
+  return user;
 }
 
 export async function disconnectHivemindUser(userId: string) {

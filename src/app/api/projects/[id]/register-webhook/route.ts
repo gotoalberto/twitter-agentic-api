@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { listWebhooks, registerWebhook, subscribeWebhook } from '@/lib/twitter/webhooks';
 import { saveWebhookRegistration } from '@/lib/db/webhooks';
-import { decrypt } from '@/lib/utils/encryption';
 
 export async function POST(
   request: NextRequest,
@@ -37,10 +36,10 @@ export async function POST(
     const bot = project.bot;
     const twitterApp = project.twitterApp;
 
-    // Decrypt the TwitterApp credentials
-    const decryptedConsumerKey = decrypt(twitterApp.consumerKey);
-    const decryptedConsumerSecret = decrypt(twitterApp.consumerSecret);
-    const decryptedBearerToken = decrypt(twitterApp.bearerToken);
+    // Use TwitterApp credentials directly (no decryption needed)
+    const consumerKey = twitterApp.consumerKey;
+    const consumerSecret = twitterApp.consumerSecret;
+    const bearerToken = twitterApp.bearerToken;
 
     // Use the TwitterApp-specific webhook URL
     const webhookUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twitter/${twitterApp.id}`;
@@ -57,12 +56,9 @@ export async function POST(
       // Try to subscribe if not already subscribed
       if (!existing.subscribed && bot.accessToken && bot.accessTokenSecret) {
         try {
-          // Use decrypted bearer token from TwitterApp
-          const bearerToken = decryptedBearerToken;
-
           await subscribeWebhook(
-            decryptedConsumerKey,
-            decryptedConsumerSecret,
+            consumerKey,
+            consumerSecret,
             bot.accessToken,
             bot.accessTokenSecret,
             existing.webhookId,
@@ -102,9 +98,6 @@ export async function POST(
       });
     }
 
-    // Use decrypted bearer token from TwitterApp
-    const bearerToken = decryptedBearerToken;
-
     // Check if webhook already exists in Twitter
     const twitterWebhooks = await listWebhooks(bearerToken, webhookEnv);
     const sharedWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
@@ -120,8 +113,8 @@ export async function POST(
       try {
         const result = await registerWebhook(
           webhookUrl,
-          decryptedConsumerKey,
-          decryptedConsumerSecret,
+          consumerKey,
+          consumerSecret,
           webhookEnv
         );
         webhookId = result.webhookId;
@@ -145,8 +138,8 @@ export async function POST(
     if (bot.accessToken && bot.accessTokenSecret) {
       try {
         await subscribeWebhook(
-          decryptedConsumerKey,
-          decryptedConsumerSecret,
+          consumerKey,
+          consumerSecret,
           bot.accessToken,
           bot.accessTokenSecret,
           webhookId,
