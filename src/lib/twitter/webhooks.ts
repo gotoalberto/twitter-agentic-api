@@ -126,59 +126,57 @@ export async function registerWebhook(
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
-  // First, check if we have a bearer token to list webhooks
-  if (!bearerToken) {
-    console.error('❌ No Bearer Token provided - cannot list existing webhooks');
-    console.error('   Bearer Token is required to check for existing webhooks');
-    throw new Error('Bearer Token required for webhook operations');
-  }
+  // Step 1: Try to list existing webhooks if we have a bearer token
+  if (bearerToken) {
+    console.log('📋 Step 1: Checking for existing webhooks using v2 API...');
+    console.log('   Bearer Token:', `${bearerToken.substring(0, 20)}...`);
 
-  // Step 1: List existing webhooks using v2 API
-  console.log('📋 Step 1: Checking for existing webhooks using v2 API...');
-  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+    try {
+      const existingWebhooks = await listWebhooks(bearerToken, webhookEnv);
+      console.log(`   Found ${existingWebhooks.length} existing webhook(s)`);
 
-  try {
-    const existingWebhooks = await listWebhooks(bearerToken, webhookEnv);
-    console.log(`   Found ${existingWebhooks.length} existing webhook(s)`);
+      // Check if our webhook URL already exists
+      const matchingWebhook = existingWebhooks.find(w => w.url === webhookUrl);
 
-    // Check if our webhook URL already exists
-    const matchingWebhook = existingWebhooks.find(w => w.url === webhookUrl);
+      if (matchingWebhook) {
+        console.log('✅ Found existing webhook with matching URL!');
+        console.log('   Webhook ID:', matchingWebhook.id);
+        console.log('   URL:', matchingWebhook.url);
+        console.log('');
+        console.log('================================================================================');
+        console.log('✅ USING EXISTING WEBHOOK (no registration needed)');
+        console.log('================================================================================');
+        console.log('');
 
-    if (matchingWebhook) {
-      console.log('✅ Found existing webhook with matching URL!');
-      console.log('   Webhook ID:', matchingWebhook.id);
-      console.log('   URL:', matchingWebhook.url);
-      console.log('');
-      console.log('================================================================================');
-      console.log('✅ USING EXISTING WEBHOOK (no registration needed)');
-      console.log('================================================================================');
-      console.log('');
+        return {
+          webhookId: matchingWebhook.id,
+          url: matchingWebhook.url
+        };
+      }
 
-      return {
-        webhookId: matchingWebhook.id,
-        url: matchingWebhook.url
-      };
+      // If any webhook exists, use it (even if URL doesn't match exactly)
+      if (existingWebhooks.length > 0) {
+        const firstWebhook = existingWebhooks[0];
+        console.log('⚠️  No exact URL match, but found existing webhook:');
+        console.log('   Webhook ID:', firstWebhook.id);
+        console.log('   Existing URL:', firstWebhook.url);
+        console.log('   Requested URL:', webhookUrl);
+        console.log('');
+        console.log('   Using existing webhook (URL mismatch will be handled by routing)');
+        console.log('');
+
+        return {
+          webhookId: firstWebhook.id,
+          url: firstWebhook.url
+        };
+      }
+    } catch (listError: any) {
+      console.error('⚠️  Failed to list existing webhooks:', listError.message);
+      console.log('   Will attempt to register new webhook...');
     }
-
-    // If any webhook exists, use it (even if URL doesn't match exactly)
-    if (existingWebhooks.length > 0) {
-      const firstWebhook = existingWebhooks[0];
-      console.log('⚠️  No exact URL match, but found existing webhook:');
-      console.log('   Webhook ID:', firstWebhook.id);
-      console.log('   Existing URL:', firstWebhook.url);
-      console.log('   Requested URL:', webhookUrl);
-      console.log('');
-      console.log('   Using existing webhook (URL mismatch will be handled by routing)');
-      console.log('');
-
-      return {
-        webhookId: firstWebhook.id,
-        url: firstWebhook.url
-      };
-    }
-  } catch (listError: any) {
-    console.error('⚠️  Failed to list existing webhooks:', listError.message);
-    console.log('   Will attempt to register new webhook...');
+  } else {
+    console.log('⚠️  No Bearer Token provided - cannot check for existing webhooks');
+    console.log('   Will attempt to register new webhook directly...');
   }
 
   // Step 2: No existing webhook found - attempt registration (will likely fail without TAAS)
