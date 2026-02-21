@@ -102,13 +102,13 @@ function generateOAuthHeader(
 }
 
 /**
- * Register a new webhook with Twitter Account Activity API
- * Auth: OAuth 1.0a (app-level)
- * POST https://api.twitter.com/1.1/account_activity/all/:env_name/webhooks.json
+ * Register OR find existing webhook
  *
- * IMPORTANT: Webhooks use the Account Activity API v1.1
- * There is NO v2 webhooks endpoint in the X/Twitter API.
- * The /2/webhooks endpoint does not exist.
+ * IMPORTANT: Most apps don't have TAAS v1.1 access for webhook registration.
+ * This function will:
+ * 1. First try to find an existing webhook using v2 API (Bearer Token)
+ * 2. Only attempt registration if no webhook exists AND bearerToken is provided
+ * 3. Return error if registration fails (likely due to no TAAS access)
  */
 export async function registerWebhook(
   webhookUrl: string,
@@ -119,27 +119,104 @@ export async function registerWebhook(
 ): Promise<{ webhookId: string; url: string }> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔧 REGISTERING WEBHOOK WITH ACCOUNT ACTIVITY API');
+  console.log('🔍 FINDING OR REGISTERING WEBHOOK');
   console.log('================================================================================');
   console.log('   URL:', webhookUrl);
   console.log('   Env:', webhookEnv);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
+  // First, check if we have a bearer token to list webhooks
+  if (!bearerToken) {
+    console.error('❌ No Bearer Token provided - cannot list existing webhooks');
+    console.error('   Bearer Token is required to check for existing webhooks');
+    throw new Error('Bearer Token required for webhook operations');
+  }
+
+  // Step 1: List existing webhooks using v2 API
+  console.log('📋 Step 1: Checking for existing webhooks using v2 API...');
+  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+
+  try {
+    const existingWebhooks = await listWebhooks(bearerToken, webhookEnv);
+    console.log(`   Found ${existingWebhooks.length} existing webhook(s)`);
+
+    // Check if our webhook URL already exists
+    const matchingWebhook = existingWebhooks.find(w => w.url === webhookUrl);
+
+    if (matchingWebhook) {
+      console.log('✅ Found existing webhook with matching URL!');
+      console.log('   Webhook ID:', matchingWebhook.id);
+      console.log('   URL:', matchingWebhook.url);
+      console.log('');
+      console.log('================================================================================');
+      console.log('✅ USING EXISTING WEBHOOK (no registration needed)');
+      console.log('================================================================================');
+      console.log('');
+
+      return {
+        webhookId: matchingWebhook.id,
+        url: matchingWebhook.url
+      };
+    }
+
+    // If any webhook exists, use it (even if URL doesn't match exactly)
+    if (existingWebhooks.length > 0) {
+      const firstWebhook = existingWebhooks[0];
+      console.log('⚠️  No exact URL match, but found existing webhook:');
+      console.log('   Webhook ID:', firstWebhook.id);
+      console.log('   Existing URL:', firstWebhook.url);
+      console.log('   Requested URL:', webhookUrl);
+      console.log('');
+      console.log('   Using existing webhook (URL mismatch will be handled by routing)');
+      console.log('');
+
+      return {
+        webhookId: firstWebhook.id,
+        url: firstWebhook.url
+      };
+    }
+  } catch (listError: any) {
+    console.error('⚠️  Failed to list existing webhooks:', listError.message);
+    console.log('   Will attempt to register new webhook...');
+  }
+
+  // Step 2: No existing webhook found - attempt registration (will likely fail without TAAS)
+  console.log('');
+  console.log('📋 Step 2: No existing webhook found - attempting registration...');
+  console.log('   ⚠️  WARNING: Registration requires TAAS v1.1 access');
+  console.log('   ⚠️  Most new apps do NOT have this access');
+  console.log('');
+
   console.log('📋 Credentials check:');
   console.log('   Consumer Key:', consumerKey ? `${consumerKey.substring(0, 10)}...` : '❌ MISSING');
   console.log('   Consumer Secret:', consumerSecret ? '✅ Present' : '❌ MISSING');
-  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '⚠️ Not provided');
   console.log('');
 
-  // Webhooks use Account Activity API v1.1 with OAuth 1.0a
-  console.log('📡 Using Account Activity API v1.1 for webhook registration...');
+  // Try v1.1 registration (requires TAAS access)
+  console.log('📡 Attempting Account Activity API v1.1 registration...');
   console.log('   API: Account Activity API v1.1');
   console.log('   Auth: OAuth 1.0a');
-  console.log('   Note: There is NO /2/webhooks endpoint in X API v2');
+  console.log('   Note: This will fail with 403 if app lacks TAAS access');
   console.log('');
 
-  return await registerWebhookV1(webhookUrl, consumerKey, consumerSecret, webhookEnv);
+  try {
+    const result = await registerWebhookV1(webhookUrl, consumerKey, consumerSecret, webhookEnv);
+    console.log('✅ Webhook registered successfully!');
+    return result;
+  } catch (error: any) {
+    console.error('❌ Webhook registration failed:', error.message);
+
+    if (error.message?.includes('403')) {
+      console.error('');
+      console.error('   📌 This app does not have TAAS v1.1 access for webhook registration');
+      console.error('   📌 Solution: Use a pre-registered webhook or manual configuration');
+      console.error('');
+      throw new Error('No TAAS access for webhook registration. Please use existing webhook or configure manually.');
+    }
+
+    throw error;
+  }
 }
 
 /**
