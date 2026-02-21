@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { retryWithBackoff } from '@/lib/utils/retry';
+export { createBearerToken } from '@/lib/twitter/bearer-token';
 
 /**
  * Twitter Webhooks Management Service
