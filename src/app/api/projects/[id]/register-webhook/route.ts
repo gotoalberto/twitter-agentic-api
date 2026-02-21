@@ -109,13 +109,14 @@ export async function POST(
       webhookId = sharedWebhook.id;
       console.log('Using existing webhook:', webhookId);
     } else {
-      // Register new webhook with TwitterApp credentials
+      // Register new webhook with TwitterApp credentials (now includes bearer token for v2 API)
       try {
         const result = await registerWebhook(
           webhookUrl,
           consumerKey,
           consumerSecret,
-          webhookEnv
+          webhookEnv,
+          bearerToken
         );
         webhookId = result.webhookId;
         console.log('Registered new webhook:', webhookId);
