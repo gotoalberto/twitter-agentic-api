@@ -102,12 +102,13 @@ function generateOAuthHeader(
 }
 
 /**
- * Register a new webhook with Twitter API v2
- * Auth: Bearer Token (app-level)
- * POST https://api.x.com/2/webhooks
+ * Register a new webhook with Twitter Account Activity API
+ * Auth: OAuth 1.0a (app-level)
+ * POST https://api.twitter.com/1.1/account_activity/all/:env_name/webhooks.json
  *
- * This uses the new v2 API endpoint for webhook registration.
- * v1.1 API is deprecated and no longer available.
+ * IMPORTANT: Webhooks use the Account Activity API v1.1
+ * There is NO v2 webhooks endpoint in the X/Twitter API.
+ * The /2/webhooks endpoint does not exist.
  */
 export async function registerWebhook(
   webhookUrl: string,
@@ -118,7 +119,7 @@ export async function registerWebhook(
 ): Promise<{ webhookId: string; url: string }> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API v2');
+  console.log('🔧 REGISTERING WEBHOOK WITH ACCOUNT ACTIVITY API');
   console.log('================================================================================');
   console.log('   URL:', webhookUrl);
   console.log('   Env:', webhookEnv);
@@ -128,25 +129,157 @@ export async function registerWebhook(
   console.log('📋 Credentials check:');
   console.log('   Consumer Key:', consumerKey ? `${consumerKey.substring(0, 10)}...` : '❌ MISSING');
   console.log('   Consumer Secret:', consumerSecret ? '✅ Present' : '❌ MISSING');
-  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '⚠️ Not provided');
   console.log('');
 
-  // v2 API is required - v1.1 is no longer available
-  if (!bearerToken) {
-    console.error('❌ FATAL: Bearer token is missing!');
-    console.error('   v1.1 API is no longer available on X/Twitter');
-    console.error('   Bearer token is REQUIRED for v2 API webhook registration');
-    throw new Error('Bearer token is required for webhook registration. v1.1 API is no longer available.');
-  }
+  // Webhooks use Account Activity API v1.1 with OAuth 1.0a
+  console.log('📡 Using Account Activity API v1.1 for webhook registration...');
+  console.log('   API: Account Activity API v1.1');
+  console.log('   Auth: OAuth 1.0a');
+  console.log('   Note: There is NO /2/webhooks endpoint in X API v2');
+  console.log('');
 
-  console.log('📡 Calling registerWebhookV2 with X API v2...');
-  console.log('   API Version: v2 (only supported version)');
-  return await registerWebhookV2(webhookUrl, bearerToken);
+  return await registerWebhookV1(webhookUrl, consumerKey, consumerSecret, webhookEnv);
+}
+
+/**
+ * Register webhook using Twitter Account Activity API v1.1
+ * POST https://api.twitter.com/1.1/account_activity/all/:env_name/webhooks.json
+ */
+async function registerWebhookV1(
+  webhookUrl: string,
+  consumerKey: string,
+  consumerSecret: string,
+  webhookEnv: string
+): Promise<{ webhookId: string; url: string }> {
+  const apiUrl = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
+
+  console.log('📦 registerWebhookV1 called with Account Activity API:');
+  console.log('   API URL:', apiUrl);
+  console.log('   Webhook URL:', webhookUrl);
+  console.log('   Environment:', webhookEnv);
+  console.log('   Auth Method: OAuth 1.0a');
+  console.log('');
+
+  return await retryWithBackoff(
+    async () => {
+      // Create OAuth 1.0a signature for app-only auth (no user tokens)
+      const oauthParams = {
+        oauth_consumer_key: consumerKey,
+        oauth_nonce: generateNonce(),
+        oauth_signature_method: 'HMAC-SHA1',
+        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+        oauth_version: '1.0',
+      };
+
+      // Build signature base string
+      const params = { ...oauthParams, url: webhookUrl };
+      const sortedParams = Object.keys(params)
+        .sort()
+        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+        .join('&');
+
+      const signatureBase = [
+        'POST',
+        encodeURIComponent(apiUrl),
+        encodeURIComponent(sortedParams),
+      ].join('&');
+
+      // Generate signature using consumer secret only (no token secret for app-only)
+      const signingKey = `${encodeURIComponent(consumerSecret)}&`;
+      const signature = crypto
+        .createHmac('sha1', signingKey)
+        .update(signatureBase)
+        .digest('base64');
+
+      // Build OAuth header
+      const authHeader = 'OAuth ' + Object.keys(oauthParams)
+        .concat(['oauth_signature'])
+        .sort()
+        .map(key => {
+          const value = key === 'oauth_signature' ? signature : oauthParams[key];
+          return `${encodeURIComponent(key)}="${encodeURIComponent(value)}"`;
+        })
+        .join(', ');
+
+      console.log('🌐 Making HTTP request to Account Activity API v1.1:');
+      console.log('   Method: POST');
+      console.log('   URL:', apiUrl);
+      console.log('   Auth Header:', authHeader.substring(0, 50) + '...');
+      console.log('');
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `url=${encodeURIComponent(webhookUrl)}`,
+      });
+
+      console.log('📡 Twitter Account Activity API Response:', response.status, response.statusText);
+
+      if (!response.ok) {
+        let errorText: string = '';
+        try {
+          errorText = await response.text();
+          const error = JSON.parse(errorText);
+          console.error('❌ Account Activity API Error Response:');
+          console.error('   Status Code:', response.status);
+          console.error('   Error Body:', JSON.stringify(error, null, 2));
+
+          if (error.errors && Array.isArray(error.errors)) {
+            console.error('   Error Details:');
+            error.errors.forEach((e: any, i: number) => {
+              console.error(`     [${i}] Code: ${e.code || 'N/A'}`);
+              console.error(`     [${i}] Message: ${e.message || 'N/A'}`);
+            });
+          }
+
+          const errorMessage = error.errors?.[0]?.message || error.error || response.statusText;
+          throw new Error(`Account Activity API error: ${errorMessage}`);
+        } catch (parseError) {
+          console.error('❌ Failed to parse error response:');
+          console.error('   Raw response:', errorText || `${response.status} ${response.statusText}`);
+          throw new Error(`Account Activity API error: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const result = await response.json();
+      console.log('📦 Account Activity API Success Response:', JSON.stringify(result, null, 2));
+
+      const webhookId = result.id;
+      const url = result.url || webhookUrl;
+
+      if (!webhookId) {
+        console.error('❌ Webhook response missing ID!');
+        console.error('   Full response:', JSON.stringify(result, null, 2));
+        throw new Error('Webhook registered but no ID returned');
+      }
+
+      console.log('');
+      console.log('✅ WEBHOOK REGISTERED SUCCESSFULLY (Account Activity API v1.1)');
+      console.log('   Webhook ID:', webhookId);
+      console.log('   URL:', url);
+      console.log('================================================================================');
+      console.log('');
+
+      return { webhookId, url };
+    },
+    {
+      maxAttempts: 3,
+      initialDelayMs: 2000,
+      maxDelayMs: 8000,
+    }
+  );
 }
 
 /**
  * Register webhook using Twitter API v2
  * POST https://api.x.com/2/webhooks
+ *
+ * NOTE: This endpoint does not exist in the X/Twitter API.
+ * This function is kept for reference but should not be used.
  */
 async function registerWebhookV2(
   webhookUrl: string,
