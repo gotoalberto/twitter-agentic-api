@@ -107,7 +107,7 @@ function generateOAuthHeader(
  * POST https://api.x.com/2/webhooks
  *
  * This uses the new v2 API endpoint for webhook registration.
- * If v2 fails, we can fall back to trying v1.1 (which may have permission issues).
+ * v1.1 API is deprecated and no longer available.
  */
 export async function registerWebhook(
   webhookUrl: string,
@@ -118,27 +118,20 @@ export async function registerWebhook(
 ): Promise<{ webhookId: string; url: string }> {
   console.log('');
   console.log('================================================================================');
-  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API');
+  console.log('🔧 REGISTERING WEBHOOK WITH TWITTER API v2');
   console.log('================================================================================');
   console.log('   URL:', webhookUrl);
   console.log('   Env:', webhookEnv);
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
-  // Try v2 API first if bearer token is available
-  if (bearerToken) {
-    console.log('📡 Attempting webhook registration with v2 API...');
-    try {
-      return await registerWebhookV2(webhookUrl, bearerToken);
-    } catch (v2Error: any) {
-      console.log(`⚠️  V2 API failed: ${v2Error.message}`);
-      console.log('   Falling back to v1.1 API...');
-    }
+  // v2 API is required - v1.1 is no longer available
+  if (!bearerToken) {
+    throw new Error('Bearer token is required for webhook registration. v1.1 API is no longer available.');
   }
 
-  // Fall back to v1.1 API
-  console.log('📡 Attempting webhook registration with v1.1 API...');
-  return await registerWebhookV1(webhookUrl, consumerKey, consumerSecret, webhookEnv);
+  console.log('📡 Registering webhook with X API v2...');
+  return await registerWebhookV2(webhookUrl, bearerToken);
 }
 
 /**
@@ -207,111 +200,37 @@ async function registerWebhookV2(
   );
 }
 
-/**
- * Register webhook using Twitter API v1.1 (fallback)
- * POST /1.1/account_activity/all/{env}/webhooks.json?url={webhookUrl}
- */
-async function registerWebhookV1(
-  webhookUrl: string,
-  consumerKey: string,
-  consumerSecret: string,
-  webhookEnv: string
-): Promise<{ webhookId: string; url: string }> {
-  const apiUrl = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
-
-  return await retryWithBackoff(
-    async () => {
-      // The 'url' query param must be included in the OAuth signature
-      const authHeader = generateOAuthHeader(
-        'POST',
-        apiUrl,
-        consumerKey,
-        consumerSecret,
-        undefined,
-        undefined,
-        { url: webhookUrl }
-      );
-
-      const response = await fetch(
-        `${apiUrl}?url=${encodeURIComponent(webhookUrl)}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': authHeader,
-          },
-        }
-      );
-
-      console.log('📡 Twitter API v1.1 Response:', response.status, response.statusText);
-
-      if (!response.ok) {
-        let error: any;
-        try {
-          error = await response.json();
-        } catch {
-          throw new Error(`Twitter API v1.1 error: ${response.status} ${response.statusText}`);
-        }
-        console.error('❌ Twitter API v1.1 Error:', JSON.stringify(error, null, 2));
-        const errorMessage = error.errors?.[0]?.message || error.detail || response.statusText;
-        throw new Error(`Twitter API v1.1 error: ${errorMessage}`);
-      }
-
-      // v1.1 returns {id, url, valid, created_at} directly (no data wrapper)
-      const result = await response.json();
-      console.log('📦 Twitter API v1.1 Response Body:', JSON.stringify(result, null, 2));
-
-      const webhookId = result.id;
-
-      if (!webhookId) {
-        throw new Error('Webhook registered but no ID returned by Twitter API v1.1');
-      }
-
-      console.log('');
-      console.log('✅ WEBHOOK REGISTERED SUCCESSFULLY (v1.1)');
-      console.log('   Webhook ID:', webhookId);
-      console.log('   URL:', result.url);
-      console.log('================================================================================');
-      console.log('');
-
-      return { webhookId, url: result.url };
-    },
-    {
-      maxAttempts: 3,
-      initialDelayMs: 2000,
-      maxDelayMs: 8000,
-      backoffMultiplier: 2,
-      onRetry: (error: Error, attempt: number, delay: number) => {
-        console.log(`⚠️  WEBHOOK REGISTRATION V1.1 RETRY — attempt ${attempt}/3 — error: ${error.message} — next in ${delay}ms`);
-      },
-    }
-  );
-}
+// v1.1 API has been removed - X/Twitter no longer supports v1.1 endpoints
 
 /**
- * Delete a webhook from Twitter Account Activity API v1.1
- * Auth: App-level OAuth 1.0a
- * DELETE /1.1/account_activity/all/{env}/webhooks/{webhookId}.json
+ * Delete a webhook from Twitter API v2
+ * Auth: Bearer Token (app-level)
+ * DELETE https://api.x.com/2/webhooks/{webhookId}
  *
- * NOTE: May fail with 403 if the app does not have TAAS v1.1 management access.
- * This is non-fatal in most caller contexts (wrapped in try-catch).
+ * NOTE: v1.1 API is no longer available. Using v2 API.
  */
 export async function deleteWebhook(
   webhookId: string,
   consumerKey: string,
   consumerSecret: string,
-  webhookEnv: string
+  webhookEnv: string,
+  bearerToken?: string
 ): Promise<void> {
-  console.log('🗑️  Deleting webhook from Twitter API v1.1...');
+  console.log('🗑️  Deleting webhook from Twitter API v2...');
   console.log('   Webhook ID:', webhookId);
   console.log('   Env:', webhookEnv);
 
-  const url = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks/${webhookId}.json`;
+  if (!bearerToken) {
+    throw new Error('Bearer token is required for webhook deletion. v1.1 API is no longer available.');
+  }
 
-  const authHeader = generateOAuthHeader('DELETE', url, consumerKey, consumerSecret);
+  const url = `https://api.x.com/2/webhooks/${webhookId}`;
 
   const response = await fetch(url, {
     method: 'DELETE',
-    headers: { 'Authorization': authHeader },
+    headers: {
+      'Authorization': `Bearer ${bearerToken}`,
+    },
   });
 
   if (response.status === 204 || response.ok) {

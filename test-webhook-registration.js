@@ -199,7 +199,7 @@ async function testWebhookRegistration(project) {
 
     if (response.status === 403) {
       console.log('⚠️  403 Forbidden - Possible issues:');
-      console.log('   - App doesn't have Account Activity API v1.1 management access');
+      console.log('   - App does not have Account Activity API v1.1 management access');
       console.log('   - Incorrect consumer key/secret');
       console.log('   - OAuth signature calculation issue');
       console.log('');

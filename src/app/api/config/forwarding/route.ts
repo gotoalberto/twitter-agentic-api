@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           const wEnv = twitterApp.webhookEnv;
 
           if (existingWebhook.webhookId) {
-            await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv);
+            await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv, bearerToken);
             await deleteAllWebhookRegistrationsForProject(project.id);
             console.log('✅ Old webhook deleted');
           }
@@ -295,7 +295,7 @@ export async function DELETE() {
           const isSharedWebhookFwd = subscribedWebhook.webhookId === 'env-var-webhook'
             || subscribedWebhook.url.endsWith('/api/webhooks/twitter');
           if (!isSharedWebhookFwd) {
-            await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel);
+            await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel, bearerToken);
             console.log('✅ Webhook deleted from Twitter');
           } else {
             console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');

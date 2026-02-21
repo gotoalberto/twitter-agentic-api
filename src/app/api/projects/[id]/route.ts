@@ -116,7 +116,7 @@ export async function DELETE(
           if (isSharedWebhook) {
             console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
           } else {
-            await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
+            await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv, bearerToken);
             console.log('✅ Webhook deleted from Twitter');
           }
         }
