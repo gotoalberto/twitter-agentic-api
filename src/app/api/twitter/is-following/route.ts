@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
       appSecret: consumerSecret,
       accessToken: project.bot.accessToken,
       accessSecret: project.bot.accessTokenSecret,
-    });
+    } as any);
 
     // Get user IDs for both users
     console.log('🔍 Fetching user information...');

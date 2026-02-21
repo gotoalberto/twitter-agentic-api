@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
       appSecret: consumerSecret,
       accessToken: bot.accessToken,
       accessSecret: bot.accessTokenSecret,
-    });
+    } as any);
 
     // Handle media upload if provided
     let mediaId: string | undefined;

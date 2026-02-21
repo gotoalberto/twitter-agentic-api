@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         appSecret: apiSecret,
         accessToken: bot.accessToken,
         accessSecret: bot.accessTokenSecret,
-      });
+      } as any);
 
       result.tests.push({
         name: 'Twitter client initialization',

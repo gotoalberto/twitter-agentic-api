@@ -78,6 +78,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!firstTwitterApp.consumerSecret) {
+      console.error('❌ CRC validation failed: First TwitterApp missing consumer secret');
+      return NextResponse.json({ error: 'TwitterApp missing consumer secret' }, { status: 500 });
+    }
+
     const apiSecret = firstTwitterApp.consumerSecret;
     console.log('🔑 Using TwitterApp for CRC validation:', firstTwitterApp.name);
 

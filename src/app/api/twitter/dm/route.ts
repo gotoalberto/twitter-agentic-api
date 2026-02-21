@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
       appSecret: consumerSecret,
       accessToken: bot.accessToken,
       accessSecret: bot.accessTokenSecret,
-    });
+    } as any);
 
     // Send DM
     console.log('📤 Sending direct message...');

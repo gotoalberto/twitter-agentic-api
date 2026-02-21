@@ -264,6 +264,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!hivemindConfig.twitterApp.consumerKey || !hivemindConfig.twitterApp.consumerSecret) {
+        console.error('❌ Hivemind TwitterApp missing OAuth 1.0a credentials');
+        return NextResponse.json({
+          success: false,
+          error: 'Hivemind TwitterApp does not have OAuth 1.0a credentials configured'
+        }, { status: 500 });
+      }
+
       consumerKey = hivemindConfig.twitterApp.consumerKey;
       consumerSecret = hivemindConfig.twitterApp.consumerSecret;
       console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
@@ -352,6 +360,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!twitterApp.consumerKey || !twitterApp.consumerSecret) {
+        console.error('❌ Project TwitterApp missing OAuth 1.0a credentials');
+        return NextResponse.json({
+          success: false,
+          error: 'Project TwitterApp does not have OAuth 1.0a credentials configured'
+        }, { status: 500 });
+      }
+
       consumerKey = twitterApp.consumerKey;
       consumerSecret = twitterApp.consumerSecret;
       console.log('🔑 Using credentials from Project TwitterApp:', twitterApp.name);
@@ -427,7 +443,7 @@ export async function POST(request: NextRequest) {
       appSecret: consumerSecret,
       accessToken: userCredentials.accessToken,
       accessSecret: userCredentials.accessTokenSecret,
-    });
+    } as any);
 
     // Handle media upload if provided
     let mediaId: string | undefined;

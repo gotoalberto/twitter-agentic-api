@@ -126,14 +126,14 @@ export async function GET(request: NextRequest) {
 
     console.log('Token exchange successful');
     console.log('   Access token received');
-    console.log('   Refresh token:', tokenData.refresh_token ? 'received' : 'not received');
+    console.log('   Refresh token:', tokenData.refreshToken ? 'received' : 'not received');
     console.log('   Scope:', tokenData.scope);
 
     // Get user info using the access token
     console.log('Fetching user information...');
     const userInfoResponse = await fetch('https://api.x.com/2/users/me', {
       headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
+        'Authorization': `Bearer ${tokenData.accessToken}`,
       },
     });
 
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     console.log('   Name:', twitterUser.name);
 
     // Calculate token expiration
-    const expiresAt = calculateExpirationDate(tokenData.expires_in);
+    const expiresAt = calculateExpirationDate(tokenData.expiresIn);
 
     // Save Hivemind user to database
     console.log('Saving Hivemind user to database...');
@@ -168,8 +168,8 @@ export async function GET(request: NextRequest) {
       accessToken: '',  // Empty for OAuth 2.0
       accessTokenSecret: '',  // Empty for OAuth 2.0
       // OAuth 2.0 fields
-      oauth2AccessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || null,
+      oauth2AccessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken || undefined,
       expiresAt,
       scope: tokenData.scope,
     });

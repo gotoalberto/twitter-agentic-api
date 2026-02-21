@@ -275,7 +275,7 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
     appSecret: apiSecret,
     accessToken: oauthToken,
     accessSecret: oauthTokenSecret,
-  });
+  } as any);
 
   // Exchange temporary credentials for permanent tokens
   console.log('🔄 Exchanging temporary tokens...');

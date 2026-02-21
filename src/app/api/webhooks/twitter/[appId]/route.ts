@@ -52,6 +52,11 @@ export async function GET(
       return NextResponse.json({ error: 'Twitter App not found' }, { status: 404 });
     }
 
+    if (!app.consumerSecret) {
+      console.error('❌ CRC validation failed: Twitter App missing consumer secret');
+      return NextResponse.json({ error: 'Twitter App missing consumer secret' }, { status: 500 });
+    }
+
     const hmac = crypto
       .createHmac('sha256', app.consumerSecret)
       .update(crcToken)

@@ -141,11 +141,11 @@ export async function GET(
       const callbackUrl = `${process.env.NEXTAUTH_URL}/api/auth/bot-twitter/callback`;
       console.log('   Callback URL:', callbackUrl);
 
-      // Initialize Twitter client
+      // Initialize Twitter client (only with app credentials for OAuth flow)
       const client = new TwitterApi({
         appKey: apiKey,
         appSecret: apiSecret,
-      });
+      } as any);
 
       // Generate auth link
       const authLink = await client.generateAuthLink(callbackUrl, {

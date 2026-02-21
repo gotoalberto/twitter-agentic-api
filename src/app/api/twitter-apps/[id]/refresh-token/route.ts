@@ -54,6 +54,14 @@ export async function POST(
 
     // Generate new bearer token
     console.log('   🔑 Generating new bearer token...');
+
+    if (!twitterApp.consumerKey || !twitterApp.consumerSecret) {
+      return NextResponse.json({
+        success: false,
+        error: 'Twitter App does not have OAuth 1.0a credentials configured'
+      }, { status: 400 });
+    }
+
     try {
       const newBearerToken = await createBearerToken(
         twitterApp.consumerKey,

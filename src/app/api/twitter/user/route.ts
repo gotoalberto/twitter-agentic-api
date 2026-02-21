@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
       appSecret: consumerSecret,
       accessToken: project.bot.accessToken,
       accessSecret: project.bot.accessTokenSecret,
-    });
+    } as any);
 
     // Fetch user information from Twitter API
     console.log('🔍 Fetching user information from Twitter...');
