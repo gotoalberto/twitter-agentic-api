@@ -34,9 +34,9 @@ export async function createTwitterApp(data: TwitterAppInput): Promise<TwitterAp
   const app = await prisma.twitterApp.create({
     data: {
       name: data.name,
-      // OAuth 1.0a fields (required by schema but can be empty strings)
-      consumerKey: data.consumerKey || '',
-      consumerSecret: data.consumerSecret || '',
+      // OAuth 1.0a fields (now optional in schema)
+      consumerKey: data.consumerKey || null,
+      consumerSecret: data.consumerSecret || null,
       // OAuth 2.0 fields (optional)
       clientId: data.clientId || null,
       clientSecret: data.clientSecret || null,
@@ -113,9 +113,9 @@ export async function updateTwitterApp(
 
   if (data.name !== undefined) updateData.name = data.name;
 
-  // OAuth 1.0a fields - use empty string if explicitly set to empty
-  if (data.consumerKey !== undefined) updateData.consumerKey = data.consumerKey || '';
-  if (data.consumerSecret !== undefined) updateData.consumerSecret = data.consumerSecret || '';
+  // OAuth 1.0a fields - use null if empty (now optional in schema)
+  if (data.consumerKey !== undefined) updateData.consumerKey = data.consumerKey || null;
+  if (data.consumerSecret !== undefined) updateData.consumerSecret = data.consumerSecret || null;
 
   // OAuth 2.0 fields - use null if empty
   if (data.clientId !== undefined) updateData.clientId = data.clientId || null;

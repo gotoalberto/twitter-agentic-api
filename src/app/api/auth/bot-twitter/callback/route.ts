@@ -261,6 +261,14 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
   const resolvedTwitterAppId = twitterApp.id;
   console.log('🔑 Using credentials from TwitterApp:', twitterApp.name, '| env:', webhookEnv);
 
+  // OAuth 1.0a flow requires consumer key/secret
+  if (!apiKey || !apiSecret) {
+    console.error('❌ OAuth 1.0a credentials not configured for this TwitterApp');
+    return NextResponse.redirect(
+      `${origin}/dashboard/projects/${projectIdFromCookie}?error=oauth1_not_configured`
+    );
+  }
+
   // Initialize Twitter client with temporary credentials
   const client = new TwitterApi({
     appKey: apiKey,

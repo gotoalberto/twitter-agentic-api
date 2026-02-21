@@ -72,12 +72,21 @@ export async function POST(
     } else {
       // Register new webhook
       console.log('📝 Registering new webhook...');
+
+      // Webhook registration requires OAuth 1.0a credentials
+      if (!twitterApp.consumerKey || !twitterApp.consumerSecret) {
+        return NextResponse.json({
+          error: 'Cannot register webhook - OAuth 1.0a credentials not configured for this Twitter App'
+        }, { status: 400 });
+      }
+
       try {
         const result = await registerWebhook(
           webhookUrl,
           twitterApp.consumerKey,
           twitterApp.consumerSecret,
-          webhookEnv
+          webhookEnv,
+          bearerToken
         );
         webhookId = result.webhookId;
         console.log('✅ Webhook registered successfully:', webhookId);
@@ -107,6 +116,14 @@ export async function POST(
 
     // Subscribe bot to webhook
     console.log('📡 Subscribing bot to webhook...');
+
+    // Webhook subscription requires OAuth 1.0a credentials (same check as registration)
+    if (!twitterApp.consumerKey || !twitterApp.consumerSecret) {
+      return NextResponse.json({
+        error: 'Cannot subscribe to webhook - OAuth 1.0a credentials not configured'
+      }, { status: 400 });
+    }
+
     try {
       await subscribeWebhook(
         twitterApp.consumerKey,

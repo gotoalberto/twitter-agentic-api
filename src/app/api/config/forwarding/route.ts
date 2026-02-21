@@ -113,9 +113,15 @@ export async function POST(request: NextRequest) {
           const wEnv = twitterApp.webhookEnv;
 
           if (existingWebhook.webhookId) {
-            await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv, bearerToken);
-            await deleteAllWebhookRegistrationsForProject(project.id);
-            console.log('✅ Old webhook deleted');
+            // Only delete webhook if we have OAuth 1.0a credentials
+            if (ck && cs) {
+              await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv, bearerToken);
+              await deleteAllWebhookRegistrationsForProject(project.id);
+              console.log('✅ Old webhook deleted');
+            } else {
+              console.log('⚠️  Cannot delete webhook - OAuth 1.0a credentials not configured');
+              await deleteAllWebhookRegistrationsForProject(project.id);
+            }
           }
         }
       } catch (error: any) {
@@ -180,7 +186,11 @@ export async function POST(request: NextRequest) {
         // Register new webhook if doesn't exist
         if (!webhook) {
           console.log('🔧 Registering new webhook...');
-          const { webhookId, url } = await registerWebhook(webhookUrl, consumerKey, consumerSecret, webhookEnv);
+          // Webhook registration requires OAuth 1.0a credentials
+          if (!consumerKey || !consumerSecret) {
+            throw new Error('Cannot register webhook - OAuth 1.0a credentials not configured for this Twitter App');
+          }
+          const { webhookId, url } = await registerWebhook(webhookUrl, consumerKey, consumerSecret, webhookEnv, bearerToken);
 
           // Save to database
           await saveWebhookRegistration(project.id, {
@@ -197,6 +207,12 @@ export async function POST(request: NextRequest) {
         if (webhook) {
           // Subscribe bot to webhook
           console.log('📌 Subscribing bot to webhook...');
+
+          // Webhook subscription requires OAuth 1.0a credentials
+          if (!consumerKey || !consumerSecret) {
+            throw new Error('Cannot subscribe to webhook - OAuth 1.0a credentials not configured for this Twitter App');
+          }
+
           await subscribeWebhook(
             consumerKey,
             consumerSecret,
@@ -295,8 +311,13 @@ export async function DELETE() {
           const isSharedWebhookFwd = subscribedWebhook.webhookId === 'env-var-webhook'
             || subscribedWebhook.url.endsWith('/api/webhooks/twitter');
           if (!isSharedWebhookFwd) {
-            await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel, bearerToken);
-            console.log('✅ Webhook deleted from Twitter');
+            // Only delete webhook if we have OAuth 1.0a credentials
+            if (consumerKeyDel && consumerSecretDel) {
+              await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel, bearerToken);
+              console.log('✅ Webhook deleted from Twitter');
+            } else {
+              console.log('⚠️  Cannot delete webhook - OAuth 1.0a credentials not configured');
+            }
           } else {
             console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
           }

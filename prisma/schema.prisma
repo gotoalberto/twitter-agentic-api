@@ -14,11 +14,11 @@ model TwitterApp {
   id             String          @id @default(cuid())
   name           String          @unique
 
-  // OAuth 1.0a credentials (to be removed after migration)
-  consumerKey    String
-  consumerSecret String
+  // OAuth 1.0a credentials (optional - needed for webhook subscriptions with projects)
+  consumerKey    String?         // Now optional - only needed for projects/webhooks
+  consumerSecret String?         // Now optional - only needed for projects/webhooks
 
-  // OAuth 2.0 credentials (new)
+  // OAuth 2.0 credentials (optional - for user authentication)
   clientId       String?         // OAuth 2.0 Client ID
   clientSecret   String?         // OAuth 2.0 Client Secret
 

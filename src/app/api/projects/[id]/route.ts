@@ -116,8 +116,13 @@ export async function DELETE(
           if (isSharedWebhook) {
             console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
           } else {
-            await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv, bearerToken);
-            console.log('✅ Webhook deleted from Twitter');
+            // Only delete webhook if we have OAuth 1.0a credentials
+            if (consumerKey && consumerSecret) {
+              await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv, bearerToken);
+              console.log('✅ Webhook deleted from Twitter');
+            } else {
+              console.log('⚠️  Cannot delete webhook - OAuth 1.0a credentials not configured');
+            }
           }
         }
 

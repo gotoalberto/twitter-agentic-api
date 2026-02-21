@@ -55,6 +55,13 @@ export async function POST(
 
       // Try to subscribe if not already subscribed
       if (!existing.subscribed && bot.accessToken && bot.accessTokenSecret) {
+        // Webhook subscription requires OAuth 1.0a credentials
+        if (!consumerKey || !consumerSecret) {
+          return NextResponse.json({
+            error: 'Cannot subscribe to webhook - OAuth 1.0a credentials not configured for this Twitter App'
+          }, { status: 400 });
+        }
+
         try {
           await subscribeWebhook(
             consumerKey,
@@ -110,6 +117,13 @@ export async function POST(
       console.log('Using existing webhook:', webhookId);
     } else {
       // Register new webhook with TwitterApp credentials (now includes bearer token for v2 API)
+      // Webhook registration requires OAuth 1.0a credentials
+      if (!consumerKey || !consumerSecret) {
+        return NextResponse.json({
+          error: 'Cannot register webhook - OAuth 1.0a credentials not configured for this Twitter App'
+        }, { status: 400 });
+      }
+
       try {
         const result = await registerWebhook(
           webhookUrl,
@@ -137,6 +151,13 @@ export async function POST(
 
     // Subscribe bot to webhook
     if (bot.accessToken && bot.accessTokenSecret) {
+      // Webhook subscription requires OAuth 1.0a credentials (already checked above for registration)
+      if (!consumerKey || !consumerSecret) {
+        return NextResponse.json({
+          error: 'Cannot subscribe to webhook - OAuth 1.0a credentials not configured'
+        }, { status: 400 });
+      }
+
       try {
         await subscribeWebhook(
           consumerKey,
