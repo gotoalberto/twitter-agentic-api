@@ -34,6 +34,7 @@ export async function GET() {
 
 /**
  * POST: Create a new Twitter App
+ * Supports both OAuth 1.0a and OAuth 2.0 credentials
  */
 export async function POST(request: NextRequest) {
   try {
@@ -43,25 +44,31 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, consumerKey, consumerSecret, bearerToken, webhookEnv } = body;
+    const { name, consumerKey, consumerSecret, clientId, clientSecret, bearerToken, webhookEnv } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
-    }
-    if (!consumerKey?.trim()) {
-      return NextResponse.json({ error: 'consumerKey is required' }, { status: 400 });
-    }
-    if (!consumerSecret?.trim()) {
-      return NextResponse.json({ error: 'consumerSecret is required' }, { status: 400 });
     }
     if (!bearerToken?.trim()) {
       return NextResponse.json({ error: 'bearerToken is required' }, { status: 400 });
     }
 
+    // Validate that at least one OAuth method is provided
+    const hasOAuth1 = consumerKey?.trim() && consumerSecret?.trim();
+    const hasOAuth2 = clientId?.trim() && clientSecret?.trim();
+
+    if (!hasOAuth1 && !hasOAuth2) {
+      return NextResponse.json({
+        error: 'You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret)'
+      }, { status: 400 });
+    }
+
     const app = await createTwitterApp({
       name: name.trim(),
-      consumerKey: consumerKey.trim(),
-      consumerSecret: consumerSecret.trim(),
+      consumerKey: consumerKey?.trim() || undefined,
+      consumerSecret: consumerSecret?.trim() || undefined,
+      clientId: clientId?.trim() || undefined,
+      clientSecret: clientSecret?.trim() || undefined,
       bearerToken: bearerToken.trim(),
       webhookEnv: webhookEnv?.trim() || 'production',
     });

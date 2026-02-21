@@ -46,8 +46,14 @@ export async function createHivemindUser(data: {
   username: string;
   displayName: string;
   profileImageUrl?: string;
+  // OAuth 1.0a credentials (legacy)
   accessToken: string;
   accessTokenSecret: string;
+  // OAuth 2.0 credentials (new)
+  oauth2AccessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  scope?: string;
 }) {
   // Store tokens in plain text
 
@@ -64,8 +70,14 @@ export async function createHivemindUser(data: {
         username: data.username,
         displayName: data.displayName,
         profileImageUrl: data.profileImageUrl,
+        // OAuth 1.0a fields
         accessToken: data.accessToken,
         accessTokenSecret: data.accessTokenSecret,
+        // OAuth 2.0 fields
+        oauth2AccessToken: data.oauth2AccessToken,
+        refreshToken: data.refreshToken,
+        expiresAt: data.expiresAt,
+        scope: data.scope,
         lastActiveAt: new Date(),
         isActive: true
       }
@@ -79,8 +91,14 @@ export async function createHivemindUser(data: {
       username: data.username,
       displayName: data.displayName,
       profileImageUrl: data.profileImageUrl,
+      // OAuth 1.0a fields
       accessToken: data.accessToken,
       accessTokenSecret: data.accessTokenSecret,
+      // OAuth 2.0 fields
+      oauth2AccessToken: data.oauth2AccessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt,
+      scope: data.scope,
       connectedAt: new Date(),
       lastActiveAt: new Date(),
       isActive: true

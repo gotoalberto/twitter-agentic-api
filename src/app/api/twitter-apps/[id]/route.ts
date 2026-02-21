@@ -35,6 +35,8 @@ export async function GET(
         name: app.name,
         consumerKey: app.consumerKey,
         consumerSecret: app.consumerSecret,
+        clientId: app.clientId,
+        clientSecret: app.clientSecret,
         bearerToken: app.bearerToken,
         webhookEnv: app.webhookEnv,
         createdAt: app.createdAt,
@@ -49,6 +51,7 @@ export async function GET(
 
 /**
  * PUT: Update a Twitter App
+ * Supports both OAuth 1.0a and OAuth 2.0 credentials
  */
 export async function PUT(
   request: NextRequest,
@@ -63,11 +66,24 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    // Validate that at least one OAuth method will remain configured
+    const hasOAuth1 = (body.consumerKey?.trim() || undefined) && (body.consumerSecret?.trim() || undefined);
+    const hasOAuth2 = (body.clientId?.trim() || undefined) && (body.clientSecret?.trim() || undefined);
+
+    // If both are explicitly set to empty, reject
+    if (body.consumerKey === '' && body.consumerSecret === '' && body.clientId === '' && body.clientSecret === '') {
+      return NextResponse.json({
+        error: 'You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret)'
+      }, { status: 400 });
+    }
+
     // Only update provided fields
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, any> = {};
     if (body.name !== undefined) updateData.name = body.name.trim();
-    if (body.consumerKey !== undefined) updateData.consumerKey = body.consumerKey.trim();
-    if (body.consumerSecret !== undefined) updateData.consumerSecret = body.consumerSecret.trim();
+    if (body.consumerKey !== undefined) updateData.consumerKey = body.consumerKey.trim() || undefined;
+    if (body.consumerSecret !== undefined) updateData.consumerSecret = body.consumerSecret.trim() || undefined;
+    if (body.clientId !== undefined) updateData.clientId = body.clientId.trim() || undefined;
+    if (body.clientSecret !== undefined) updateData.clientSecret = body.clientSecret.trim() || undefined;
     if (body.bearerToken !== undefined) updateData.bearerToken = body.bearerToken.trim();
     if (body.webhookEnv !== undefined) updateData.webhookEnv = body.webhookEnv.trim();
 

@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import OAuth from 'oauth-1.0a';
-import crypto from 'crypto';
+import { TwitterApi } from 'twitter-api-v2';
 import { getHivemindConfig } from '@/lib/db/hivemind';
 import { getTwitterAppById } from '@/lib/db/twitter-apps';
+import {
+  generatePKCEChallenge,
+  generateState,
+  buildAuthorizationUrl,
+  DEFAULT_HIVEMIND_SCOPES,
+} from '@/lib/twitter/oauth2';
 
+/**
+ * GET: Start OAuth flow for Hivemind user connection
+ *
+ * This endpoint supports both OAuth 1.0a (legacy) and OAuth 2.0 (new).
+ * It will use OAuth 2.0 if the TwitterApp has clientId/clientSecret configured,
+ * otherwise falls back to OAuth 1.0a for backward compatibility.
+ */
 export async function GET(request: NextRequest) {
   try {
     console.log('======== HIVEMIND AUTHORIZATION START ========');
@@ -52,122 +64,183 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const consumerKey = twitterApp.consumerKey;
-    const consumerSecret = twitterApp.consumerSecret;
+    const twitterAppId = twitterApp.id;
+    console.log('Using credentials from TwitterApp:', twitterApp.name);
 
-    // Initialize OAuth 1.0a
-    const oauth = new OAuth({
-      consumer: {
-        key: consumerKey,
-        secret: consumerSecret
-      },
-      signature_method: 'HMAC-SHA1',
-      hash_function(base_string, key) {
-        return crypto
-          .createHmac('sha1', key)
-          .update(base_string)
-          .digest('base64');
-      }
-    });
+    // Check if OAuth 2.0 credentials are available
+    const useOAuth2 = twitterApp.clientId && twitterApp.clientSecret;
 
-    // Step 1: Get request token
-    const requestTokenUrl = 'https://api.twitter.com/oauth/request_token';
-    const callbackUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/hivemind/callback`;
+    if (useOAuth2) {
+      // ====================================
+      // OAuth 2.0 Authorization Code with PKCE
+      // ====================================
+      console.log('Initializing Twitter OAuth 2.0 flow with PKCE for Hivemind user');
 
-    const requestData = {
-      url: requestTokenUrl,
-      method: 'POST',
-      data: {
-        oauth_callback: callbackUrl
-      }
-    };
+      const clientId = twitterApp.clientId!;
+      const redirectUri = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/hivemind/callback`;
 
-    const headers = oauth.toHeader(oauth.authorize(requestData));
+      // Generate PKCE challenge
+      const { codeVerifier, codeChallenge } = generatePKCEChallenge();
+      const state = generateState();
 
-    const tokenResponse = await fetch(requestTokenUrl, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: `oauth_callback=${encodeURIComponent(callbackUrl)}`
-    });
+      // Build authorization URL
+      const authUrl = buildAuthorizationUrl({
+        clientId,
+        redirectUri,
+        state,
+        codeChallenge,
+        scopes: DEFAULT_HIVEMIND_SCOPES,
+      });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('======== HIVEMIND AUTHORIZATION ERROR ========');
-      console.error('Failed to get request token from Twitter');
-      console.error('Status:', tokenResponse.status);
-      console.error('Status Text:', tokenResponse.statusText);
-      console.error('Response:', errorText);
-      console.error('Callback URL:', callbackUrl);
-      console.error('Request URL:', requestTokenUrl);
-      console.error('Using TwitterApp:', hivemindConfig?.twitterAppId ? 'Yes' : 'No (env vars)');
-      console.error('Consumer Key exists:', !!consumerKey);
-      console.error('Consumer Secret exists:', !!consumerSecret);
-      console.error('==============================================');
+      console.log('OAuth 2.0 authorization URL generated');
+      console.log('   Scopes:', DEFAULT_HIVEMIND_SCOPES.join(', '));
 
-      // Return more detailed error to help debug
-      return NextResponse.json(
-        {
-          error: 'Failed to get request token from Twitter',
-          details: {
-            status: tokenResponse.status,
-            statusText: tokenResponse.statusText,
-            response: errorText.substring(0, 200) // First 200 chars of error
-          }
-        },
-        { status: 500 }
-      );
-    }
+      // Store state and PKCE verifier in secure cookies
+      const response = NextResponse.redirect(authUrl);
 
-    const tokenText = await tokenResponse.text();
-    const params = new URLSearchParams(tokenText);
-    const oauthToken = params.get('oauth_token');
-    const oauthTokenSecret = params.get('oauth_token_secret');
-
-    if (!oauthToken || !oauthTokenSecret) {
-      return NextResponse.json(
-        { error: 'Invalid response from Twitter' },
-        { status: 500 }
-      );
-    }
-
-    // Create response with redirect to Twitter authorization
-    const authUrl = `https://api.twitter.com/oauth/authorize?oauth_token=${oauthToken}`;
-    const response = NextResponse.redirect(authUrl);
-
-    // Store token secret and user ID in cookies for callback
-    response.cookies.set('hivemind_oauth_token_secret', oauthTokenSecret, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 10 // 10 minutes
-    });
-
-    response.cookies.set('hivemind_user_id', session.user.id || '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 10 // 10 minutes
-    });
-
-    // Store which app was used (for callback to use same credentials)
-    if (hivemindConfig.twitterAppId) {
-      response.cookies.set('hivemind_twitter_app_id', hivemindConfig.twitterAppId, {
+      response.cookies.set('hivemind_oauth2_state', state, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 10 // 10 minutes
+        maxAge: 600, // 10 minutes
+        path: '/',
       });
+
+      response.cookies.set('hivemind_oauth2_code_verifier', codeVerifier, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Store user ID and twitterAppId to use in callback
+      response.cookies.set('hivemind_user_id', session.user.id || '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      response.cookies.set('hivemind_twitter_app_id', twitterAppId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Set flag to indicate OAuth 2.0 flow
+      response.cookies.set('hivemind_oauth_version', '2.0', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      return response;
+    } else {
+      // ====================================
+      // OAuth 1.0a (Legacy fallback)
+      // ====================================
+      console.log('OAuth 2.0 credentials not found, falling back to OAuth 1.0a');
+      console.log('Initializing Twitter OAuth 1.0a flow for Hivemind user');
+
+      const apiKey = twitterApp.consumerKey;
+      const apiSecret = twitterApp.consumerSecret;
+
+      // Build callback URL
+      const callbackUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/hivemind/callback`;
+      console.log('   Callback URL:', callbackUrl);
+
+      // Initialize Twitter client
+      const client = new TwitterApi({
+        appKey: apiKey,
+        appSecret: apiSecret,
+      });
+
+      // Generate auth link
+      const authLink = await client.generateAuthLink(callbackUrl, {
+        linkMode: 'authorize',
+      });
+
+      console.log('OAuth 1.0a auth link generated');
+
+      // Store oauth_token_secret, oauth_token, user ID and twitterAppId in secure cookies
+      const response = NextResponse.redirect(authLink.url);
+
+      response.cookies.set('hivemind_oauth_token_secret', authLink.oauth_token_secret, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600, // 10 minutes
+        path: '/',
+      });
+
+      response.cookies.set('hivemind_oauth_token', authLink.oauth_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Store user ID
+      response.cookies.set('hivemind_user_id', session.user.id || '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Store twitterAppId so the callback knows which app to use
+      response.cookies.set('hivemind_twitter_app_id', twitterAppId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Set flag to indicate OAuth 1.0a flow
+      response.cookies.set('hivemind_oauth_version', '1.0a', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      return response;
+    }
+  } catch (error: any) {
+    console.error('Error in Hivemind authorize:', error);
+
+    // Provide clearer error messages based on the error type
+    let userMessage = error.message || 'oauth_failed';
+
+    if (error.message?.includes('403') || error.code === 403 || error.status === 403) {
+      userMessage =
+        'Twitter OAuth 1.0a credentials are invalid (403). ' +
+        'Check that: 1) The Consumer Key/Secret in the Twitter App are correct OAuth 1.0a credentials, ' +
+        '2) The Twitter App has OAuth 1.0a enabled in the Developer Portal, ' +
+        '3) The app has Read and Write permissions.';
+      console.error('403 hint: OAuth 1.0a may not be enabled in the Twitter Developer Portal, or Consumer Key/Secret are wrong');
     }
 
-    return response;
+    // Log additional error details if available
+    if (error.data) {
+      console.error('   Twitter error data:', JSON.stringify(error.data));
+    }
+    if (error.errors) {
+      console.error('   Twitter errors:', JSON.stringify(error.errors));
+    }
 
-  } catch (error) {
-    console.error('Error in Hivemind authorize:', error);
     return NextResponse.json(
-      { error: 'Failed to initiate OAuth flow' },
+      { error: userMessage },
       { status: 500 }
     );
   }

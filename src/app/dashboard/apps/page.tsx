@@ -17,6 +17,8 @@ interface AppFormData {
   name: string;
   consumerKey: string;
   consumerSecret: string;
+  clientId: string;
+  clientSecret: string;
   bearerToken: string;
   webhookEnv: string;
 }
@@ -25,6 +27,8 @@ const emptyForm: AppFormData = {
   name: '',
   consumerKey: '',
   consumerSecret: '',
+  clientId: '',
+  clientSecret: '',
   bearerToken: '',
   webhookEnv: 'production',
 };
@@ -85,6 +89,8 @@ export default function AppsPage() {
         name: app.name,
         consumerKey: app.consumerKey,
         consumerSecret: app.consumerSecret,
+        clientId: app.clientId || '',
+        clientSecret: app.clientSecret || '',
         bearerToken: app.bearerToken,
         webhookEnv: app.webhookEnv,
       });
@@ -346,32 +352,70 @@ export default function AppsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Consumer Key (API Key) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={formData.consumerKey}
-                  onChange={(e) => setFormData({ ...formData, consumerKey: e.target.value })}
-                  placeholder="OAuth 1.0a Consumer Key"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
-                />
+              {/* OAuth 1.0a Credentials */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="text-orange-600">⚠️</span> OAuth 1.0a Credentials (Legacy)
+                </h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Consumer Key (API Key)
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.consumerKey}
+                    onChange={(e) => setFormData({ ...formData, consumerKey: e.target.value })}
+                    placeholder="OAuth 1.0a Consumer Key (optional if using OAuth 2.0)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Consumer Secret (API Secret)
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.consumerSecret}
+                    onChange={(e) => setFormData({ ...formData, consumerSecret: e.target.value })}
+                    placeholder="OAuth 1.0a Consumer Secret (optional if using OAuth 2.0)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Consumer Secret (API Secret) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={formData.consumerSecret}
-                  onChange={(e) => setFormData({ ...formData, consumerSecret: e.target.value })}
-                  placeholder="OAuth 1.0a Consumer Secret"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
-                />
+              {/* OAuth 2.0 Credentials */}
+              <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <span className="text-green-600">✓</span> OAuth 2.0 Credentials (Recommended)
+                </h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Client ID
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.clientId}
+                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                    placeholder="OAuth 2.0 Client ID (for user authentication)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Client Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.clientSecret}
+                    onChange={(e) => setFormData({ ...formData, clientSecret: e.target.value })}
+                    placeholder="OAuth 2.0 Client Secret (for user authentication)"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
+                  />
+                </div>
               </div>
 
               <div>
@@ -382,10 +426,20 @@ export default function AppsPage() {
                   type="password"
                   value={formData.bearerToken}
                   onChange={(e) => setFormData({ ...formData, bearerToken: e.target.value })}
-                  placeholder="App-only Bearer Token"
+                  placeholder="App-only Bearer Token (for read-only operations)"
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Required for read-only API access. Generated from your app&apos;s keys and secrets.
+                </p>
+              </div>
+
+              {/* Help Text */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-gray-700">
+                  <strong>Note:</strong> You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret), or both. OAuth 2.0 is recommended for new apps.
+                </p>
               </div>
 
               <div>

@@ -4,12 +4,19 @@ import { authOptions } from '@/lib/auth/config';
 import { TwitterApi } from 'twitter-api-v2';
 import { getProjectById } from '@/lib/db/projects';
 import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
+import {
+  generatePKCEChallenge,
+  generateState,
+  buildAuthorizationUrl,
+  DEFAULT_BOT_SCOPES,
+} from '@/lib/twitter/oauth2';
 
 /**
- * GET: Start OAuth 1.0a flow for connecting a bot to a specific project
+ * GET: Start OAuth 2.0 flow with PKCE for connecting a bot to a specific project
  *
- * Credentials are loaded from the project's associated TwitterApp (stored in DB).
- * Falls back to env vars if no TwitterApp is configured (backward compat).
+ * This endpoint supports both OAuth 1.0a (legacy) and OAuth 2.0 (new).
+ * It will use OAuth 2.0 if the TwitterApp has clientId/clientSecret configured,
+ * otherwise falls back to OAuth 1.0a for backward compatibility.
  */
 export async function GET(
   request: NextRequest,
@@ -43,60 +50,65 @@ export async function GET(
       );
     }
 
-    const apiKey = twitterApp.consumerKey;
-    const apiSecret = twitterApp.consumerSecret;
     const twitterAppId = twitterApp.id;
     console.log('🔐 Using credentials from TwitterApp:', twitterApp.name);
 
-    console.log('🔐 Initializing Twitter OAuth 1.0a flow for project:', project.name);
+    // Check if OAuth 2.0 credentials are available
+    const useOAuth2 = twitterApp.clientId && twitterApp.clientSecret;
 
-    // Build callback URL
-    const callbackUrl = `${process.env.NEXTAUTH_URL}/api/auth/bot-twitter/callback`;
-    console.log('   Callback URL:', callbackUrl);
+    if (useOAuth2) {
+      // ====================================
+      // OAuth 2.0 Authorization Code with PKCE
+      // ====================================
+      console.log('🔐 Initializing Twitter OAuth 2.0 flow with PKCE for project:', project.name);
 
-    // Initialize Twitter client
-    const client = new TwitterApi({
-      appKey: apiKey,
-      appSecret: apiSecret,
-    });
+      const clientId = twitterApp.clientId!;
+      const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/bot-twitter/callback`;
 
-    // Generate auth link
-    const authLink = await client.generateAuthLink(callbackUrl, {
-      linkMode: 'authorize',
-    });
+      // Generate PKCE challenge
+      const { codeVerifier, codeChallenge } = generatePKCEChallenge();
+      const state = generateState();
 
-    console.log('✅ OAuth auth link generated');
+      // Build authorization URL
+      const authUrl = buildAuthorizationUrl({
+        clientId,
+        redirectUri,
+        state,
+        codeChallenge,
+        scopes: DEFAULT_BOT_SCOPES,
+      });
 
-    // Store oauth_token_secret, oauth_token, projectId and twitterAppId in secure cookies
-    const response = NextResponse.redirect(authLink.url);
+      console.log('✅ OAuth 2.0 authorization URL generated');
+      console.log('   Scopes:', DEFAULT_BOT_SCOPES.join(', '));
 
-    response.cookies.set('oauth_token_secret', authLink.oauth_token_secret, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 600, // 10 minutes
-      path: '/',
-    });
+      // Store state and PKCE verifier in secure cookies
+      const response = NextResponse.redirect(authUrl);
 
-    response.cookies.set('oauth_token', authLink.oauth_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 600,
-      path: '/',
-    });
+      response.cookies.set('oauth2_state', state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600, // 10 minutes
+        path: '/',
+      });
 
-    // Store projectId to use in callback
-    response.cookies.set('oauth_project_id', projectId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 600,
-      path: '/',
-    });
+      response.cookies.set('oauth2_code_verifier', codeVerifier, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
 
-    // Store twitterAppId so the callback knows which app to use
-    if (twitterAppId) {
+      // Store projectId and twitterAppId to use in callback
+      response.cookies.set('oauth_project_id', projectId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
       response.cookies.set('oauth_twitter_app_id', twitterAppId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -104,9 +116,94 @@ export async function GET(
         maxAge: 600,
         path: '/',
       });
-    }
 
-    return response;
+      // Set flag to indicate OAuth 2.0 flow
+      response.cookies.set('oauth_version', '2.0', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      return response;
+    } else {
+      // ====================================
+      // OAuth 1.0a (Legacy fallback)
+      // ====================================
+      console.log('⚠️  OAuth 2.0 credentials not found, falling back to OAuth 1.0a');
+      console.log('🔐 Initializing Twitter OAuth 1.0a flow for project:', project.name);
+
+      const apiKey = twitterApp.consumerKey;
+      const apiSecret = twitterApp.consumerSecret;
+
+      // Build callback URL
+      const callbackUrl = `${process.env.NEXTAUTH_URL}/api/auth/bot-twitter/callback`;
+      console.log('   Callback URL:', callbackUrl);
+
+      // Initialize Twitter client
+      const client = new TwitterApi({
+        appKey: apiKey,
+        appSecret: apiSecret,
+      });
+
+      // Generate auth link
+      const authLink = await client.generateAuthLink(callbackUrl, {
+        linkMode: 'authorize',
+      });
+
+      console.log('✅ OAuth 1.0a auth link generated');
+
+      // Store oauth_token_secret, oauth_token, projectId and twitterAppId in secure cookies
+      const response = NextResponse.redirect(authLink.url);
+
+      response.cookies.set('oauth_token_secret', authLink.oauth_token_secret, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600, // 10 minutes
+        path: '/',
+      });
+
+      response.cookies.set('oauth_token', authLink.oauth_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Store projectId to use in callback
+      response.cookies.set('oauth_project_id', projectId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Store twitterAppId so the callback knows which app to use
+      if (twitterAppId) {
+        response.cookies.set('oauth_twitter_app_id', twitterAppId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 600,
+          path: '/',
+        });
+      }
+
+      // Set flag to indicate OAuth 1.0a flow
+      response.cookies.set('oauth_version', '1.0a', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      return response;
+    }
   } catch (error: any) {
     console.error('❌ OAuth authorization error:', error);
 

@@ -13,9 +13,18 @@ datasource db {
 model TwitterApp {
   id             String          @id @default(cuid())
   name           String          @unique
+
+  // OAuth 1.0a credentials (to be removed after migration)
   consumerKey    String
   consumerSecret String
+
+  // OAuth 2.0 credentials (new)
+  clientId       String?         // OAuth 2.0 Client ID
+  clientSecret   String?         // OAuth 2.0 Client Secret
+
+  // Bearer Token for App-Only auth (OAuth 2.0)
   bearerToken    String
+
   webhookEnv     String          @default("production")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -49,14 +58,23 @@ model Project {
 }
 
 /// Bot represents a Twitter/X bot account connected to a project
-/// Uses OAuth 1.0a credentials for tweet publishing and webhook management
+/// Supports both OAuth 1.0a and OAuth 2.0 credentials during migration
 model Bot {
   id                String   @id @default(cuid())
   projectId         String   @unique
   username          String   @unique
   userId            String   @unique
+
+  // OAuth 1.0a credentials (to be removed after migration)
   accessToken       String
   accessTokenSecret String
+
+  // OAuth 2.0 credentials (new)
+  oauth2AccessToken String?  // OAuth 2.0 access token
+  refreshToken      String?  // OAuth 2.0 refresh token (with offline.access scope)
+  expiresAt         DateTime? // Token expiration timestamp
+  scope             String?  // OAuth 2.0 scopes granted
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -212,8 +230,17 @@ model HivemindUser {
   username          String   @unique
   displayName       String   @map("display_name")
   profileImageUrl   String?  @map("profile_image_url")
+
+  // OAuth 1.0a credentials (to be removed after migration)
   accessToken       String   @map("access_token")
   accessTokenSecret String   @map("access_token_secret")
+
+  // OAuth 2.0 credentials (new)
+  oauth2AccessToken String?  @map("oauth2_access_token") // OAuth 2.0 access token
+  refreshToken      String?  @map("refresh_token")       // OAuth 2.0 refresh token
+  expiresAt         DateTime? @map("expires_at")         // Token expiration timestamp
+  scope             String?  @map("scope")               // OAuth 2.0 scopes granted
+
   connectedAt       DateTime @default(now()) @map("connected_at")
   lastActiveAt      DateTime @default(now()) @map("last_active_at")
   isActive          Boolean  @default(true) @map("is_active")

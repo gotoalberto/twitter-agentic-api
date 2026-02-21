@@ -13,6 +13,11 @@ export interface BotData {
   userId: string;
   accessToken: string;
   accessTokenSecret: string;
+  // OAuth 2.0 fields (optional for backward compatibility)
+  oauth2AccessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  scope?: string;
 }
 
 /**
@@ -26,6 +31,11 @@ export async function saveBot(projectId: string, botData: BotData): Promise<Bot>
     accessToken: botData.accessToken,
     accessTokenSecret: botData.accessTokenSecret,
     projectId,
+    // OAuth 2.0 fields (optional)
+    ...(botData.oauth2AccessToken && { oauth2AccessToken: botData.oauth2AccessToken }),
+    ...(botData.refreshToken && { refreshToken: botData.refreshToken }),
+    ...(botData.expiresAt && { expiresAt: botData.expiresAt }),
+    ...(botData.scope && { scope: botData.scope }),
   };
 
   // Upsert: update if exists, create if not

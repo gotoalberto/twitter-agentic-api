@@ -10,27 +10,44 @@ import type { TwitterApp } from '@/generated/prisma';
 
 export interface TwitterAppInput {
   name: string;
-  consumerKey: string;
-  consumerSecret: string;
-  bearerToken: string;
+  consumerKey?: string;  // OAuth 1.0a - now optional
+  consumerSecret?: string;  // OAuth 1.0a - now optional
+  clientId?: string;  // OAuth 2.0 - optional
+  clientSecret?: string;  // OAuth 2.0 - optional
+  bearerToken: string;  // Always required for read-only operations
   webhookEnv?: string;
 }
 
 /**
  * Create a new Twitter App (credentials stored in plain text)
+ * Supports both OAuth 1.0a and OAuth 2.0 credentials
  */
 export async function createTwitterApp(data: TwitterAppInput): Promise<TwitterApp> {
+  // Validate that at least one OAuth method is provided
+  const hasOAuth1 = data.consumerKey && data.consumerSecret;
+  const hasOAuth2 = data.clientId && data.clientSecret;
+
+  if (!hasOAuth1 && !hasOAuth2) {
+    throw new Error('You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret)');
+  }
+
   const app = await prisma.twitterApp.create({
     data: {
       name: data.name,
-      consumerKey: data.consumerKey,
-      consumerSecret: data.consumerSecret,
+      // OAuth 1.0a fields (required by schema but can be empty strings)
+      consumerKey: data.consumerKey || '',
+      consumerSecret: data.consumerSecret || '',
+      // OAuth 2.0 fields (optional)
+      clientId: data.clientId || null,
+      clientSecret: data.clientSecret || null,
       bearerToken: data.bearerToken,
       webhookEnv: data.webhookEnv || 'production',
     },
   });
 
   console.log('✅ Twitter App created:', app.name, `(${app.id})`);
+  console.log('   OAuth 1.0a:', hasOAuth1 ? 'Configured' : 'Not configured');
+  console.log('   OAuth 2.0:', hasOAuth2 ? 'Configured' : 'Not configured');
   return app;
 }
 
@@ -86,18 +103,39 @@ export async function getTwitterAppByProjectId(projectId: string): Promise<Twitt
 
 /**
  * Update a Twitter App (credentials stored in plain text)
+ * Supports both OAuth 1.0a and OAuth 2.0 credentials
  */
 export async function updateTwitterApp(
   id: string,
   data: Partial<TwitterAppInput>
 ): Promise<TwitterApp> {
-  const updateData: Record<string, string> = {};
+  const updateData: Record<string, any> = {};
 
   if (data.name !== undefined) updateData.name = data.name;
-  if (data.consumerKey !== undefined) updateData.consumerKey = data.consumerKey;
-  if (data.consumerSecret !== undefined) updateData.consumerSecret = data.consumerSecret;
+
+  // OAuth 1.0a fields - use empty string if explicitly set to empty
+  if (data.consumerKey !== undefined) updateData.consumerKey = data.consumerKey || '';
+  if (data.consumerSecret !== undefined) updateData.consumerSecret = data.consumerSecret || '';
+
+  // OAuth 2.0 fields - use null if empty
+  if (data.clientId !== undefined) updateData.clientId = data.clientId || null;
+  if (data.clientSecret !== undefined) updateData.clientSecret = data.clientSecret || null;
+
   if (data.bearerToken !== undefined) updateData.bearerToken = data.bearerToken;
   if (data.webhookEnv !== undefined) updateData.webhookEnv = data.webhookEnv;
+
+  // Validate that at least one OAuth method remains configured
+  const existingApp = await prisma.twitterApp.findUnique({ where: { id } });
+  if (!existingApp) throw new Error('Twitter App not found');
+
+  const willHaveOAuth1 = (updateData.consumerKey ?? existingApp.consumerKey) &&
+                         (updateData.consumerSecret ?? existingApp.consumerSecret);
+  const willHaveOAuth2 = (updateData.clientId ?? existingApp.clientId) &&
+                         (updateData.clientSecret ?? existingApp.clientSecret);
+
+  if (!willHaveOAuth1 && !willHaveOAuth2) {
+    throw new Error('You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret)');
+  }
 
   const app = await prisma.twitterApp.update({
     where: { id },
@@ -105,6 +143,8 @@ export async function updateTwitterApp(
   });
 
   console.log('✅ Twitter App updated:', app.name);
+  console.log('   OAuth 1.0a:', app.consumerKey && app.consumerSecret ? 'Configured' : 'Not configured');
+  console.log('   OAuth 2.0:', app.clientId && app.clientSecret ? 'Configured' : 'Not configured');
   return app;
 }
 
