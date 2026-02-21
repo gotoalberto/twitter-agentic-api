@@ -132,8 +132,24 @@ export async function GET(request: NextRequest) {
       console.log('================================================================================');
       console.log('=== WEBHOOK REGISTRATION PROCESS ===');
       console.log('================================================================================');
+      console.log('   Project ID:', project.id);
+      console.log('   Project Name:', project.name);
+      console.log('   Bot Username:', savedBot.username);
+      console.log('   Bot User ID:', savedBot.userId);
+      console.log('');
+
+      console.log('📋 Credential validation:');
+      console.log('   API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : '❌ MISSING');
+      console.log('   API Secret:', apiSecret ? '✅ Present' : '❌ MISSING');
+      console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+      console.log('   Webhook Env:', webhookEnv);
+      console.log('');
 
       if (!bearerToken || !apiKey || !apiSecret) {
+        console.error('❌ FATAL: Missing required credentials for webhook setup');
+        console.error('   Bearer Token:', bearerToken ? 'Present' : 'MISSING');
+        console.error('   API Key:', apiKey ? 'Present' : 'MISSING');
+        console.error('   API Secret:', apiSecret ? 'Present' : 'MISSING');
         throw new Error('Missing required credentials for webhook setup');
       }
 
@@ -182,17 +198,30 @@ export async function GET(request: NextRequest) {
       let needsSubscription = true;
       if (!webhookId) {
         console.log('🔧 Registering new webhook with Twitter...');
+        console.log('   Calling registerWebhook() with:');
+        console.log('     URL:', webhookUrl);
+        console.log('     API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'MISSING');
+        console.log('     API Secret:', apiSecret ? 'Present' : 'MISSING');
+        console.log('     Webhook Env:', webhookEnv);
+        console.log('     Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : 'MISSING');
+        console.log('');
+
         try {
-          const result = await registerWebhook(webhookUrl, apiKey, apiSecret, webhookEnv);
+          const result = await registerWebhook(webhookUrl, apiKey, apiSecret, webhookEnv, bearerToken);
           webhookId = result.webhookId;
           console.log('✅ Webhook registered in Twitter:', webhookId);
+          console.log('   Returned URL:', result.url);
           await saveWebhookRegistration(project.id, {
             webhookId: webhookId,
             url: result.url,
             subscribed: false,
           });
+          console.log('   ✅ Webhook saved to database');
         } catch (regError: any) {
-          console.error('❌ Webhook registration failed:', regError.message);
+          console.error('❌ Webhook registration failed!');
+          console.error('   Error type:', regError.constructor.name);
+          console.error('   Error message:', regError.message);
+          console.error('   Stack trace:', regError.stack);
           throw regError;
         }
       }

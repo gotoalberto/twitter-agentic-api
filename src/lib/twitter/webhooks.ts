@@ -125,12 +125,22 @@ export async function registerWebhook(
   console.log('   Timestamp:', new Date().toISOString());
   console.log('');
 
+  console.log('📋 Credentials check:');
+  console.log('   Consumer Key:', consumerKey ? `${consumerKey.substring(0, 10)}...` : '❌ MISSING');
+  console.log('   Consumer Secret:', consumerSecret ? '✅ Present' : '❌ MISSING');
+  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+  console.log('');
+
   // v2 API is required - v1.1 is no longer available
   if (!bearerToken) {
+    console.error('❌ FATAL: Bearer token is missing!');
+    console.error('   v1.1 API is no longer available on X/Twitter');
+    console.error('   Bearer token is REQUIRED for v2 API webhook registration');
     throw new Error('Bearer token is required for webhook registration. v1.1 API is no longer available.');
   }
 
-  console.log('📡 Registering webhook with X API v2...');
+  console.log('📡 Calling registerWebhookV2 with X API v2...');
+  console.log('   API Version: v2 (only supported version)');
   return await registerWebhookV2(webhookUrl, bearerToken);
 }
 
@@ -144,38 +154,83 @@ async function registerWebhookV2(
 ): Promise<{ webhookId: string; url: string }> {
   const apiUrl = 'https://api.x.com/2/webhooks';
 
+  console.log('📦 registerWebhookV2 called with:');
+  console.log('   API URL:', apiUrl);
+  console.log('   Webhook URL:', webhookUrl);
+  console.log('   Bearer Token:', bearerToken ? `${bearerToken.substring(0, 20)}...` : '❌ MISSING');
+  console.log('');
+
   return await retryWithBackoff(
     async () => {
+      const requestBody = JSON.stringify({ url: webhookUrl });
+      const requestHeaders = {
+        'Authorization': `Bearer ${bearerToken}`,
+        'Content-Type': 'application/json',
+      };
+
+      console.log('🌐 Making HTTP request to X API v2:');
+      console.log('   Method: POST');
+      console.log('   URL:', apiUrl);
+      console.log('   Headers:');
+      console.log('     Authorization:', requestHeaders.Authorization.substring(0, 30) + '...');
+      console.log('     Content-Type:', requestHeaders['Content-Type']);
+      console.log('   Body:', requestBody);
+      console.log('');
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${bearerToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: webhookUrl }),
+        headers: requestHeaders,
+        body: requestBody,
       });
 
       console.log('📡 Twitter API v2 Response:', response.status, response.statusText);
+      console.log('   Response Headers:');
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase().includes('rate') || key.toLowerCase().includes('limit')) {
+          console.log(`     ${key}: ${value}`);
+        }
+      });
+      console.log('');
 
       if (!response.ok) {
         let error: any;
+        let errorText: string = '';
         try {
-          error = await response.json();
+          errorText = await response.text();
+          error = JSON.parse(errorText);
         } catch {
-          throw new Error(`Twitter API v2 error: ${response.status} ${response.statusText}`);
+          console.error('❌ Failed to parse error response as JSON:');
+          console.error('   Raw response:', errorText || `${response.status} ${response.statusText}`);
+          throw new Error(`Twitter API v2 error: ${response.status} ${response.statusText} - ${errorText}`);
         }
-        console.error('❌ Twitter API v2 Error:', JSON.stringify(error, null, 2));
+        console.error('❌ Twitter API v2 Error Response:');
+        console.error('   Status Code:', response.status);
+        console.error('   Status Text:', response.statusText);
+        console.error('   Error Body:', JSON.stringify(error, null, 2));
+
+        // Log specific error details
+        if (error.errors && Array.isArray(error.errors)) {
+          console.error('   Error Details:');
+          error.errors.forEach((e: any, i: number) => {
+            console.error(`     [${i}] Message: ${e.message || 'N/A'}`);
+            console.error(`     [${i}] Type: ${e.type || 'N/A'}`);
+            console.error(`     [${i}] Parameter: ${e.parameter || 'N/A'}`);
+          });
+        }
+
         const errorMessage = error.errors?.[0]?.message || error.detail || error.title || response.statusText;
         throw new Error(`Twitter API v2 error: ${errorMessage}`);
       }
 
       const result = await response.json();
-      console.log('📦 Twitter API v2 Response Body:', JSON.stringify(result, null, 2));
+      console.log('📦 Twitter API v2 Success Response:', JSON.stringify(result, null, 2));
 
       const webhookId = result.id || result.data?.id;
       const url = result.url || result.data?.url || webhookUrl;
 
       if (!webhookId) {
+        console.error('❌ Webhook response missing ID!');
+        console.error('   Full response:', JSON.stringify(result, null, 2));
         throw new Error('Webhook registered but no ID returned by Twitter API v2');
       }
 

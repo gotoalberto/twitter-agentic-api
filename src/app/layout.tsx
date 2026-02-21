@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Bitso Twitter API',
-  description: 'Twitter API integration for Bitso',
+  title: 'Pepesdog Hivemind',
+  description: 'Twitter/X webhook integration platform',
 };
 
 export default function RootLayout({
