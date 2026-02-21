@@ -31,12 +31,14 @@ export async function GET(request: NextRequest) {
     let webhookError: string | null = null;
 
     try {
-      // Try with env var bearer token first (as per callback logic)
-      const envBearerToken = process.env.X_API_BEARER_TOKEN;
-      const webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+      // Get credentials from project's TwitterApp
+      const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
+      const twitterApp = await getTwitterAppByProjectId(projectId);
 
-      if (envBearerToken) {
-        twitterWebhooks = await listWebhooks(envBearerToken, webhookEnv);
+      if (twitterApp) {
+        twitterWebhooks = await listWebhooks(twitterApp.bearerToken, twitterApp.webhookEnv);
+      } else {
+        webhookError = 'No TwitterApp configured for this project';
       }
     } catch (error: any) {
       webhookError = error.message;

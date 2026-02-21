@@ -62,15 +62,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Respond directly with CRC validation
-    const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-    if (!apiSecret) {
-      console.error('❌ CRC validation failed: TWITTER_OAUTH_API_SECRET not configured');
+    // Get the first TwitterApp to use for CRC validation
+    // NOTE: This webhook endpoint is shared across all TwitterApps, so we need to find
+    // which TwitterApp registered this webhook. For now, we'll use the first one.
+    // TODO: In the future, support multiple webhook URLs per TwitterApp (/api/webhooks/twitter/{twitterAppId})
+    const firstTwitterApp = await prisma.twitterApp.findFirst({
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (!firstTwitterApp) {
+      console.error('❌ CRC validation failed: No TwitterApp configured');
       return NextResponse.json(
-        { error: 'Webhook not configured' },
+        { error: 'No TwitterApp configured. Please create a TwitterApp first.' },
         { status: 500 }
       );
     }
+
+    const apiSecret = firstTwitterApp.consumerSecret;
+    console.log('🔑 Using TwitterApp for CRC validation:', firstTwitterApp.name);
 
     const hmac = crypto
       .createHmac('sha256', apiSecret)

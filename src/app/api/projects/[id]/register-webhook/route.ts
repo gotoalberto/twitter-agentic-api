@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { listWebhooks, registerWebhook, subscribeWebhook } from '@/lib/twitter/webhooks';
-import { getTwitterAppById } from '@/lib/db/twitter-apps';
 import { saveWebhookRegistration } from '@/lib/db/webhooks';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 )
- {
+{
   try {
     const { id: projectId } = await params;
 
-    // Get project with bot
+    // Get project with bot and TwitterApp
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -30,9 +29,20 @@ export async function POST(
       return NextResponse.json({ error: 'No bot connected to this project' }, { status: 400 });
     }
 
+    if (!project.twitterApp) {
+      return NextResponse.json({ error: 'No Twitter App configured for this project. Each project must have a Twitter App assigned.' }, { status: 400 });
+    }
+
     const bot = project.bot;
-    const webhookUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twitter`;
+    const twitterApp = project.twitterApp;
+
+    // Use the TwitterApp-specific webhook URL
+    const webhookUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twitter/${twitterApp.id}`;
     const webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+
+    console.log('📝 Register webhook for project:', projectId);
+    console.log('   TwitterApp:', twitterApp.name, '(', twitterApp.id, ')');
+    console.log('   Webhook URL:', webhookUrl);
 
     // Check if webhook already registered
     if (project.webhookRegistrations.length > 0) {
@@ -41,18 +51,12 @@ export async function POST(
       // Try to subscribe if not already subscribed
       if (!existing.subscribed && bot.accessToken && bot.accessTokenSecret) {
         try {
-          // Use env var credentials for subscription (shared webhook)
-          const apiKey = process.env.TWITTER_OAUTH_API_KEY;
-          const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
+          // Use bearer token from TwitterApp
+          const bearerToken = twitterApp.bearerToken;
 
-          if (!apiKey || !apiSecret) {
-            throw new Error('Environment credentials not configured');
-          }
-
-          const bearerToken = process.env.X_API_BEARER_TOKEN!;
           await subscribeWebhook(
-            apiKey,
-            apiSecret,
+            twitterApp.consumerKey,
+            twitterApp.consumerSecret,
             bot.accessToken,
             bot.accessTokenSecret,
             existing.webhookId,
@@ -92,33 +96,28 @@ export async function POST(
       });
     }
 
-    // Register new webhook using shared webhook approach
-    const envBearerToken = process.env.X_API_BEARER_TOKEN;
-    if (!envBearerToken) {
-      return NextResponse.json({ error: 'Bearer token not configured' }, { status: 500 });
-    }
+    // Use bearer token from TwitterApp
+    const bearerToken = twitterApp.bearerToken;
 
-    // Check if shared webhook exists
-    const twitterWebhooks = await listWebhooks(envBearerToken, webhookEnv);
+    // Check if webhook already exists in Twitter
+    const twitterWebhooks = await listWebhooks(bearerToken, webhookEnv);
     const sharedWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
 
     let webhookId: string;
 
     if (sharedWebhook) {
-      // Use existing shared webhook
+      // Use existing webhook
       webhookId = sharedWebhook.id;
-      console.log('Using existing shared webhook:', webhookId);
+      console.log('Using existing webhook:', webhookId);
     } else {
-      // Register new webhook
-      const apiKey = process.env.TWITTER_OAUTH_API_KEY;
-      const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-
-      if (!apiKey || !apiSecret) {
-        return NextResponse.json({ error: 'OAuth credentials not configured' }, { status: 500 });
-      }
-
+      // Register new webhook with TwitterApp credentials
       try {
-        const result = await registerWebhook(webhookUrl, apiKey, apiSecret, webhookEnv);
+        const result = await registerWebhook(
+          webhookUrl,
+          twitterApp.consumerKey,
+          twitterApp.consumerSecret,
+          webhookEnv
+        );
         webhookId = result.webhookId;
         console.log('Registered new webhook:', webhookId);
       } catch (regError: any) {
@@ -139,21 +138,14 @@ export async function POST(
     // Subscribe bot to webhook
     if (bot.accessToken && bot.accessTokenSecret) {
       try {
-        const apiKey = process.env.TWITTER_OAUTH_API_KEY;
-        const apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-
-        if (!apiKey || !apiSecret) {
-          throw new Error('OAuth credentials not configured');
-        }
-
         await subscribeWebhook(
-          apiKey,
-          apiSecret,
+          twitterApp.consumerKey,
+          twitterApp.consumerSecret,
           bot.accessToken,
           bot.accessTokenSecret,
           webhookId,
           bot.userId,
-          envBearerToken,
+          bearerToken,
           webhookEnv
         );
 

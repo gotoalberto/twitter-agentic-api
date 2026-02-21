@@ -254,15 +254,19 @@ export async function POST(request: NextRequest) {
       await updateHivemindUserActivity(hivemindUser.userId);
 
       // Get Twitter API credentials from Hivemind config
-      if (hivemindConfig.twitterAppId && hivemindConfig.twitterApp) {
-        consumerKey = hivemindConfig.twitterApp.consumerKey;
-        consumerSecret = hivemindConfig.twitterApp.consumerSecret;
-        console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
-      } else {
-        consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-        console.log('🔑 Using credentials from env vars (Hivemind fallback)');
+      if (!hivemindConfig.twitterAppId || !hivemindConfig.twitterApp) {
+        console.log('❌ Hivemind has no TwitterApp configured');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Hivemind TwitterApp not configured' },
+          { status: 500 }
+        );
       }
+
+      consumerKey = hivemindConfig.twitterApp.consumerKey;
+      consumerSecret = hivemindConfig.twitterApp.consumerSecret;
+      console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
 
       isHivemind = true;
     } else {
@@ -338,15 +342,19 @@ export async function POST(request: NextRequest) {
 
       // Get Twitter API credentials from the project's TwitterApp
       const twitterApp = await getTwitterAppByProjectId(bot.projectId);
-      if (twitterApp) {
-        consumerKey = twitterApp.consumerKey;
-        consumerSecret = twitterApp.consumerSecret;
-        console.log('🔑 Using credentials from Project TwitterApp:', twitterApp.name);
-      } else {
-        consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-        console.log('🔑 Using credentials from env vars (Project fallback)');
+      if (!twitterApp) {
+        console.log('❌ Project has no TwitterApp configured');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: 'Project TwitterApp not configured. Please assign a Twitter App to this project.' },
+          { status: 500 }
+        );
       }
+
+      consumerKey = twitterApp.consumerKey;
+      consumerSecret = twitterApp.consumerSecret;
+      console.log('🔑 Using credentials from Project TwitterApp:', twitterApp.name);
     }
     console.log('');
 

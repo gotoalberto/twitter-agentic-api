@@ -31,44 +31,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get project ID and optionally the twitterAppId from cookies
+    // Get project ID and twitterAppId from cookies
     const projectIdFromCookie = request.cookies.get('oauth_project_id')?.value;
     const twitterAppIdFromCookie = request.cookies.get('oauth_twitter_app_id')?.value;
 
-    // Resolve credentials: from DB TwitterApp or env vars fallback
-    let apiKey: string | undefined;
-    let apiSecret: string | undefined;
-    let bearerToken: string | undefined;
-    let webhookEnv: string = process.env.TWITTER_WEBHOOK_ENV || 'production';
-    let resolvedTwitterAppId: string | undefined;
-
-    if (twitterAppIdFromCookie) {
-      const twitterApp = await getTwitterAppById(twitterAppIdFromCookie);
-      if (twitterApp) {
-        apiKey = twitterApp.consumerKey;
-        apiSecret = twitterApp.consumerSecret;
-        bearerToken = twitterApp.bearerToken;
-        webhookEnv = twitterApp.webhookEnv;
-        resolvedTwitterAppId = twitterApp.id;
-        console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name, '| env:', webhookEnv);
-      }
-    }
-
-    // Fall back to env vars if no TwitterApp configured
-    if (!apiKey || !apiSecret || !bearerToken) {
-      apiKey = process.env.TWITTER_OAUTH_API_KEY;
-      apiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-      bearerToken = process.env.X_API_BEARER_TOKEN;
-      webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-      console.log('🔑 Using credentials from env vars (fallback) | env:', webhookEnv);
-    }
-
-    if (!apiKey || !apiSecret) {
-      console.error('❌ Twitter OAuth 1.0a credentials not configured');
+    // Get credentials from TwitterApp
+    if (!twitterAppIdFromCookie) {
+      console.error('❌ No TwitterApp ID in cookie');
       return NextResponse.redirect(
-        new URL('/dashboard?error=twitter_not_configured', request.url)
+        new URL('/dashboard?error=no_twitter_app', request.url)
       );
     }
+
+    const twitterApp = await getTwitterAppById(twitterAppIdFromCookie);
+    if (!twitterApp) {
+      console.error('❌ TwitterApp not found:', twitterAppIdFromCookie);
+      return NextResponse.redirect(
+        new URL('/dashboard?error=twitter_app_not_found', request.url)
+      );
+    }
+
+    const apiKey = twitterApp.consumerKey;
+    const apiSecret = twitterApp.consumerSecret;
+    const bearerToken = twitterApp.bearerToken;
+    const webhookEnv = twitterApp.webhookEnv;
+    const resolvedTwitterAppId = twitterApp.id;
+    console.log('🔑 Using credentials from TwitterApp:', twitterApp.name, '| env:', webhookEnv);
 
     // Initialize Twitter client with temporary credentials
     const client = new TwitterApi({
@@ -169,15 +157,9 @@ export async function GET(request: NextRequest) {
         webhookId = existingWebhook.webhookId;
       } else {
         // Check Twitter API for existing webhook
-        // CRITICAL: Always use env-var bearer token to list webhooks, because the shared
-        // webhook (id=1999190094972911617) is registered with the env-var app, not TwitterApp apps.
         console.log('🔍 Checking Twitter for existing webhook...');
         try {
-          const envVarBearerToken = process.env.X_API_BEARER_TOKEN;
-          if (!envVarBearerToken) {
-            throw new Error('X_API_BEARER_TOKEN not configured');
-          }
-          const twitterWebhooks = await listWebhooks(envVarBearerToken, webhookEnv);
+          const twitterWebhooks = await listWebhooks(bearerToken, webhookEnv);
           console.log(`   Found ${twitterWebhooks.length} webhook(s) in Twitter`);
 
           const matchingWebhook = twitterWebhooks.find(w => w.url === webhookUrl);
@@ -200,9 +182,8 @@ export async function GET(request: NextRequest) {
       let needsSubscription = true;
       if (!webhookId) {
         console.log('🔧 Registering new webhook with Twitter...');
-        let registrationError: any = null;
         try {
-          const result = await registerWebhook(webhookUrl, apiKey!, apiSecret!, webhookEnv);
+          const result = await registerWebhook(webhookUrl, apiKey, apiSecret, webhookEnv);
           webhookId = result.webhookId;
           console.log('✅ Webhook registered in Twitter:', webhookId);
           await saveWebhookRegistration(project.id, {
@@ -211,151 +192,8 @@ export async function GET(request: NextRequest) {
             subscribed: false,
           });
         } catch (regError: any) {
-          registrationError = regError;
-          console.log('⚠️  Webhook registration failed:', regError.message);
-        }
-
-        // Registration failed. If it's a permission error, try subscribing directly
-        // to the env-var webhook (which is known to be active, since events flow through it).
-        //
-        // Two scenarios:
-        //  A) resolvedTwitterAppId is set  → was using TwitterApp creds → switch to env-var
-        //  B) resolvedTwitterAppId is null → already using env-var creds → subscribe directly
-        //
-        // Triggers on: 403 Forbidden, "Application cannot perform write actions" (code 261),
-        // or any similar Twitter permission/access restriction.
-        if (registrationError) {
-          const msg = registrationError.message?.toLowerCase() || '';
-          const isPermissionError = msg.includes('403') ||
-            msg.includes('forbidden') ||
-            msg.includes('cannot perform write') ||
-            msg.includes('contact twitter platform') ||
-            msg.includes('application cannot');
-
-          if (isPermissionError) {
-            // Determine which credentials to use for subscription
-            let subApiKey: string | undefined;
-            let subApiSecret: string | undefined;
-            let subBearerToken: string | undefined;
-            let subWebhookEnv: string;
-            let subWebhookUrl: string;
-
-            if (resolvedTwitterAppId) {
-              // Scenario A: switch to env-var credentials
-              subApiKey = process.env.TWITTER_OAUTH_API_KEY;
-              subApiSecret = process.env.TWITTER_OAUTH_API_SECRET;
-              subBearerToken = process.env.X_API_BEARER_TOKEN;
-              subWebhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-              subWebhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
-              console.log('');
-              console.log('🔄 FALLBACK A: TwitterApp cannot register webhook (permission error)');
-              console.log('   Error was:', registrationError.message);
-              console.log('   Switching to env-var credentials for subscription...');
-            } else {
-              // Scenario B: already on env-var — subscribe directly (webhook exists)
-              subApiKey = apiKey!;
-              subApiSecret = apiSecret!;
-              subBearerToken = bearerToken!;
-              subWebhookEnv = webhookEnv;
-              subWebhookUrl = webhookUrl;
-              console.log('');
-              console.log('🔄 FALLBACK B: Registration failed (env-var), trying subscription directly');
-              console.log('   Error was:', registrationError.message);
-              console.log('   The env-var webhook is active — attempting direct subscription...');
-            }
-
-            if (subApiKey && subApiSecret && subBearerToken) {
-              // Discover real webhook ID via v2 list (v2 list works for this app)
-              let realWebhookId: string = 'env-var-webhook'; // placeholder fallback
-              try {
-                const discoveredWebhooks = await listWebhooks(subBearerToken, subWebhookEnv);
-                const foundWebhook = discoveredWebhooks.find(w => w.url === subWebhookUrl);
-                if (foundWebhook) {
-                  realWebhookId = foundWebhook.id;
-                  console.log('   Found real webhook ID via v2 list:', realWebhookId);
-                } else {
-                  console.log('   ⚠️ Webhook not found in v2 list for URL:', subWebhookUrl);
-                  console.log('   Available webhooks:', discoveredWebhooks.map(w => w.url));
-                }
-              } catch (listErr: any) {
-                console.log('   ⚠️ Could not discover webhook ID:', listErr.message);
-              }
-
-              try {
-                await subscribeWebhook(
-                  subApiKey,
-                  subApiSecret,
-                  accessToken,
-                  accessSecret,
-                  realWebhookId,
-                  user.data.id,
-                  subBearerToken,
-                  subWebhookEnv
-                );
-                console.log('   ✅ Bot subscribed to webhook:', realWebhookId);
-
-                await saveWebhookRegistration(project.id, {
-                  webhookId: realWebhookId,
-                  url: subWebhookUrl,
-                  subscribed: true,
-                });
-
-                webhookId = realWebhookId;
-                needsSubscription = false;
-                console.log('');
-                console.log('================================================================================');
-                console.log('✅ WEBHOOK SETUP COMPLETE (env-var fallback)');
-                console.log('   Bot:', savedBot.username);
-                console.log('   Webhook URL:', subWebhookUrl);
-                console.log('   Events will be routed by for_user_id to the correct project.');
-                console.log('================================================================================');
-                console.log('');
-              } catch (subError: any) {
-                // "Could not authenticate you" (error 32) means bot tokens are bound to
-                // the TwitterApp and cannot be used with env-var consumer credentials.
-                // Restart OAuth with force_env_var=true so tokens match env-var app.
-                const subMsg = subError.message?.toLowerCase() || '';
-                const isTokenMismatch = subMsg.includes('authenticate') ||
-                  subMsg.includes('could not authenticate') ||
-                  subMsg.includes(': 32') ||
-                  subMsg.includes('error 32');
-
-                if (isTokenMismatch && resolvedTwitterAppId && projectIdFromCookie) {
-                  console.log('');
-                  console.log('🔄 TOKEN MISMATCH: Bot tokens are bound to TwitterApp, not env-var app.');
-                  console.log('   Restarting OAuth with force_env_var=true...');
-
-                  try {
-                    const { deleteBotByProjectId } = await import('@/lib/db/bots');
-                    await deleteBotByProjectId(project.id);
-                    console.log('   ✅ Bot rolled back');
-                  } catch (deleteErr: any) {
-                    console.error('   ⚠️  Failed to rollback bot:', deleteErr.message);
-                  }
-
-                  const retryUrl = `${new URL(request.url).origin}/api/projects/${projectIdFromCookie}/bot/authorize?force_env_var=true`;
-                  console.log('   Retry URL:', retryUrl);
-
-                  const retryResponse = NextResponse.redirect(retryUrl);
-                  retryResponse.cookies.delete('oauth_token');
-                  retryResponse.cookies.delete('oauth_token_secret');
-                  retryResponse.cookies.delete('oauth_project_id');
-                  retryResponse.cookies.delete('oauth_twitter_app_id');
-                  return retryResponse;
-                }
-
-                // Other subscription errors — surface to the user
-                console.error('   ❌ Subscription also failed:', subError.message);
-                throw subError;
-              }
-            } else {
-              console.log('❌ No credentials available for subscription fallback');
-              throw registrationError;
-            }
-          } else {
-            // Not a permission error — surface it directly
-            throw registrationError;
-          }
+          console.error('❌ Webhook registration failed:', regError.message);
+          throw regError;
         }
       }
 
@@ -363,54 +201,18 @@ export async function GET(request: NextRequest) {
         throw new Error('Failed to obtain webhook ID - cannot subscribe bot');
       }
 
-      // Subscribe bot to webhook (skipped if already done via fallback)
+      // Subscribe bot to webhook
       if (needsSubscription) {
         console.log('📌 Subscribing bot to webhook...');
 
-        // CRITICAL FIX: If using the shared webhook (1999190094972911617) but have TwitterApp credentials,
-        // the bot tokens are incompatible. We need to restart OAuth with env-var credentials.
-        const isSharedWebhook = webhookId === '1999190094972911617' ||
-                               webhookUrl === `${new URL(request.url).origin}/api/webhooks/twitter`;
-
-        if (isSharedWebhook && resolvedTwitterAppId && projectIdFromCookie) {
-          console.log('');
-          console.log('⚠️  TOKEN MISMATCH DETECTED');
-          console.log('   Webhook ID:', webhookId, '(shared env-var webhook)');
-          console.log('   Bot tokens were generated with TwitterApp:', resolvedTwitterAppId);
-          console.log('   These tokens cannot be used with the shared webhook.');
-          console.log('   Restarting OAuth with force_env_var=true...');
-          console.log('');
-
-          // Rollback the bot since tokens are incompatible
-          try {
-            const { deleteBotByProjectId } = await import('@/lib/db/bots');
-            await deleteBotByProjectId(project.id);
-            console.log('   ✅ Bot rolled back');
-          } catch (deleteErr: any) {
-            console.error('   ⚠️  Failed to rollback bot:', deleteErr.message);
-          }
-
-          // Restart OAuth with env-var credentials
-          const retryUrl = `${new URL(request.url).origin}/api/projects/${projectIdFromCookie}/bot/authorize?force_env_var=true`;
-          console.log('   Retry URL:', retryUrl);
-
-          const retryResponse = NextResponse.redirect(retryUrl);
-          retryResponse.cookies.delete('oauth_token');
-          retryResponse.cookies.delete('oauth_token_secret');
-          retryResponse.cookies.delete('oauth_project_id');
-          retryResponse.cookies.delete('oauth_twitter_app_id');
-          return retryResponse;
-        }
-
-        // Normal subscription (tokens and credentials match)
         await subscribeWebhook(
-          apiKey!,
-          apiSecret!,
+          apiKey,
+          apiSecret,
           accessToken,
           accessSecret,
           webhookId,
           user.data.id,
-          bearerToken!,
+          bearerToken,
           webhookEnv
         );
         console.log('   ✅ Subscription successful');

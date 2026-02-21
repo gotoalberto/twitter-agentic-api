@@ -32,29 +32,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?error=missing_session`);
     }
 
-    // Determine which credentials to use
-    let consumerKey: string;
-    let consumerSecret: string;
-
-    if (twitterAppId) {
-      // Use the configured TwitterApp
-      const twitterApp = await getTwitterAppById(twitterAppId);
-      if (!twitterApp) {
-        console.error('Twitter app not found:', twitterAppId);
-        return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?error=app_not_found`);
-      }
-      consumerKey = twitterApp.consumerKey;
-      consumerSecret = twitterApp.consumerSecret;
-    } else {
-      // Fallback to environment variables
-      consumerKey = process.env.TWITTER_OAUTH_API_KEY!;
-      consumerSecret = process.env.TWITTER_OAUTH_API_SECRET!;
-
-      if (!consumerKey || !consumerSecret) {
-        console.error('OAuth credentials not configured');
-        return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?error=config_error`);
-      }
+    // Get credentials from TwitterApp
+    if (!twitterAppId) {
+      console.error('No Twitter app ID in session');
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?error=missing_app_id`);
     }
+
+    const twitterApp = await getTwitterAppById(twitterAppId);
+    if (!twitterApp) {
+      console.error('Twitter app not found:', twitterAppId);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/hivemind?error=app_not_found`);
+    }
+
+    const consumerKey = twitterApp.consumerKey;
+    const consumerSecret = twitterApp.consumerSecret;
 
     // Initialize OAuth 1.0a
     const oauth = new OAuth({

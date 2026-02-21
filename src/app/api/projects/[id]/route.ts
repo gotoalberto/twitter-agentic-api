@@ -87,27 +87,19 @@ export async function DELETE(
       if (subscribedWebhook && bot) {
         console.log('📍 Cleaning up webhooks...');
 
-        // Get credentials from TwitterApp (DB) or fall back to env vars
-        let bearerToken: string | undefined;
-        let consumerKey: string | undefined;
-        let consumerSecret: string | undefined;
-        let webhookEnv: string = process.env.TWITTER_WEBHOOK_ENV || 'production';
+        // Get credentials from TwitterApp
         const twitterApp = await getTwitterAppByProjectId(id);
-        if (twitterApp) {
-          bearerToken = twitterApp.bearerToken;
-          consumerKey = twitterApp.consumerKey;
-          consumerSecret = twitterApp.consumerSecret;
-          webhookEnv = twitterApp.webhookEnv;
-          console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name, '| env:', webhookEnv);
+        if (!twitterApp) {
+          console.error('❌ Project has no TwitterApp - cannot clean up webhook subscription');
+          console.error('   Webhook may remain orphaned in Twitter');
+          console.error('   Manual cleanup required');
         } else {
-          bearerToken = process.env.X_API_BEARER_TOKEN;
-          consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-          consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-          webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-          console.log('🔑 Using credentials from env vars (fallback) | env:', webhookEnv);
-        }
+          const bearerToken = twitterApp.bearerToken;
+          const consumerKey = twitterApp.consumerKey;
+          const consumerSecret = twitterApp.consumerSecret;
+          const webhookEnv = twitterApp.webhookEnv;
+          console.log('🔑 Using credentials from TwitterApp:', twitterApp.name, '| env:', webhookEnv);
 
-        if (bearerToken && consumerKey && consumerSecret) {
           // Unsubscribe bot using Bearer Token
           await unsubscribeWebhook(
             subscribedWebhook.webhookId,
@@ -127,9 +119,6 @@ export async function DELETE(
             await deleteWebhook(subscribedWebhook.webhookId, consumerKey, consumerSecret, webhookEnv);
             console.log('✅ Webhook deleted from Twitter');
           }
-        } else {
-          console.error('❌ Credentials not found - cannot clean up webhook subscription');
-          throw new Error('Credentials not configured. Associate a Twitter App with this project.');
         }
 
         // Delete webhook registrations from database

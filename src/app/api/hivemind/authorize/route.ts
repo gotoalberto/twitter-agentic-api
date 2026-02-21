@@ -36,33 +36,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Determine which credentials to use
-    let consumerKey: string;
-    let consumerSecret: string;
-
-    if (hivemindConfig.twitterAppId) {
-      // Use the configured TwitterApp
-      const twitterApp = await getTwitterAppById(hivemindConfig.twitterAppId);
-      if (!twitterApp) {
-        return NextResponse.json(
-          { error: 'Configured Twitter app not found' },
-          { status: 500 }
-        );
-      }
-      consumerKey = twitterApp.consumerKey;
-      consumerSecret = twitterApp.consumerSecret;
-    } else {
-      // Fallback to environment variables
-      consumerKey = process.env.TWITTER_OAUTH_API_KEY!;
-      consumerSecret = process.env.TWITTER_OAUTH_API_SECRET!;
-
-      if (!consumerKey || !consumerSecret) {
-        return NextResponse.json(
-          { error: 'OAuth credentials not configured' },
-          { status: 500 }
-        );
-      }
+    // Get credentials from TwitterApp
+    if (!hivemindConfig.twitterAppId) {
+      return NextResponse.json(
+        { error: 'Hivemind has no TwitterApp configured. Please assign a Twitter App to Hivemind.' },
+        { status: 500 }
+      );
     }
+
+    const twitterApp = await getTwitterAppById(hivemindConfig.twitterAppId);
+    if (!twitterApp) {
+      return NextResponse.json(
+        { error: 'Configured Twitter app not found' },
+        { status: 500 }
+      );
+    }
+
+    const consumerKey = twitterApp.consumerKey;
+    const consumerSecret = twitterApp.consumerSecret;
 
     // Initialize OAuth 1.0a
     const oauth = new OAuth({

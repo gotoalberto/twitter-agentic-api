@@ -100,14 +100,23 @@ export async function POST(request: NextRequest) {
       console.log('   New endpoint:', endpoint);
 
       try {
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
-        const ck = process.env.TWITTER_OAUTH_API_KEY;
-        const cs = process.env.TWITTER_OAUTH_API_SECRET;
-        const wEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
-        if (bearerToken && ck && cs && existingWebhook.webhookId) {
-          await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv);
-          await deleteAllWebhookRegistrationsForProject(project.id);
-          console.log('✅ Old webhook deleted');
+        // Get credentials from project's TwitterApp
+        const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
+        const twitterApp = await getTwitterAppByProjectId(project.id);
+
+        if (!twitterApp) {
+          console.error('⚠️  No TwitterApp configured for project - cannot delete old webhook');
+        } else {
+          const bearerToken = twitterApp.bearerToken;
+          const ck = twitterApp.consumerKey;
+          const cs = twitterApp.consumerSecret;
+          const wEnv = twitterApp.webhookEnv;
+
+          if (existingWebhook.webhookId) {
+            await deleteWebhook(existingWebhook.webhookId, ck, cs, wEnv);
+            await deleteAllWebhookRegistrationsForProject(project.id);
+            console.log('✅ Old webhook deleted');
+          }
         }
       } catch (error: any) {
         console.error('⚠️  Failed to delete old webhook:', error.message);
@@ -128,14 +137,18 @@ export async function POST(request: NextRequest) {
       console.log('=== REGISTERING WEBHOOK ===');
 
       try {
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
-        const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-        const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-        const webhookEnv = process.env.TWITTER_WEBHOOK_ENV || 'production';
+        // Get credentials from project's TwitterApp
+        const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
+        const twitterApp = await getTwitterAppByProjectId(project.id);
 
-        if (!bearerToken || !consumerKey || !consumerSecret) {
-          throw new Error('Missing required environment variables for webhook setup');
+        if (!twitterApp) {
+          throw new Error('Project has no TwitterApp configured. Please assign a Twitter App to this project.');
         }
+
+        const bearerToken = twitterApp.bearerToken;
+        const consumerKey = twitterApp.consumerKey;
+        const consumerSecret = twitterApp.consumerSecret;
+        const webhookEnv = twitterApp.webhookEnv;
 
         // Construct webhook URL
         const webhookUrl = `${new URL(request.url).origin}/api/webhooks/twitter`;
@@ -258,32 +271,40 @@ export async function DELETE() {
       console.log('   Webhook ID:', subscribedWebhook.webhookId);
 
       try {
-        const bearerToken = process.env.X_API_BEARER_TOKEN;
-        const consumerKeyDel = process.env.TWITTER_OAUTH_API_KEY;
-        const consumerSecretDel = process.env.TWITTER_OAUTH_API_SECRET;
-        const webhookEnvDel = process.env.TWITTER_WEBHOOK_ENV || 'production';
-        const bot = await getBotByProjectId(project.id);
+        // Get credentials from project's TwitterApp
+        const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
+        const twitterApp = await getTwitterAppByProjectId(project.id);
 
-        // Unsubscribe bot if subscribed
-        if (bot && bearerToken) {
-          console.log('📍 Unsubscribing bot from webhook...');
-          await unsubscribeWebhook(subscribedWebhook.webhookId, bot.userId, bearerToken, webhookEnvDel);
-          console.log('✅ Bot unsubscribed');
+        if (!twitterApp) {
+          console.error('⚠️  No TwitterApp configured for project - cannot delete webhook');
+        } else {
+          const bearerToken = twitterApp.bearerToken;
+          const consumerKeyDel = twitterApp.consumerKey;
+          const consumerSecretDel = twitterApp.consumerSecret;
+          const webhookEnvDel = twitterApp.webhookEnv;
+          const bot = await getBotByProjectId(project.id);
+
+          // Unsubscribe bot if subscribed
+          if (bot) {
+            console.log('📍 Unsubscribing bot from webhook...');
+            await unsubscribeWebhook(subscribedWebhook.webhookId, bot.userId, bearerToken, webhookEnvDel);
+            console.log('✅ Bot unsubscribed');
+          }
+
+          // Delete webhook (skip if using shared main webhook, by ID or URL pattern)
+          const isSharedWebhookFwd = subscribedWebhook.webhookId === 'env-var-webhook'
+            || subscribedWebhook.url.endsWith('/api/webhooks/twitter');
+          if (!isSharedWebhookFwd) {
+            await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel);
+            console.log('✅ Webhook deleted from Twitter');
+          } else {
+            console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
+          }
+
+          // Delete from database
+          await deleteAllWebhookRegistrationsForProject(project.id);
+          console.log('✅ Webhook registrations deleted from database');
         }
-
-        // Delete webhook (skip if using shared main webhook, by ID or URL pattern)
-        const isSharedWebhookFwd = subscribedWebhook.webhookId === 'env-var-webhook'
-          || subscribedWebhook.url.endsWith('/api/webhooks/twitter');
-        if (consumerKeyDel && consumerSecretDel && !isSharedWebhookFwd) {
-          await deleteWebhook(subscribedWebhook.webhookId, consumerKeyDel, consumerSecretDel, webhookEnvDel);
-          console.log('✅ Webhook deleted from Twitter');
-        } else if (isSharedWebhookFwd) {
-          console.log('⏭️  Skipping webhook deletion: shared main webhook (only unsubscribed)');
-        }
-
-        // Delete from database
-        await deleteAllWebhookRegistrationsForProject(project.id);
-        console.log('✅ Webhook registrations deleted from database');
       } catch (error: any) {
         console.error('⚠️  Failed to delete webhook:', error.message);
         // Continue anyway to delete config

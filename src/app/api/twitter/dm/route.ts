@@ -179,30 +179,21 @@ export async function POST(request: NextRequest) {
     console.log('✅ API enabled for project');
     console.log('');
 
-    // Get Twitter API credentials from the project's TwitterApp (DB) or fall back to env vars
-    let consumerKey: string | undefined;
-    let consumerSecret: string | undefined;
-
+    // Get Twitter API credentials from the project's TwitterApp
     const twitterApp = await getTwitterAppByProjectId(bot.projectId);
-    if (twitterApp) {
-      consumerKey = twitterApp.consumerKey;
-      consumerSecret = twitterApp.consumerSecret;
-      console.log('🔑 Using credentials from TwitterApp DB:', twitterApp.name);
-    } else {
-      consumerKey = process.env.TWITTER_OAUTH_API_KEY;
-      consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-      console.log('🔑 Using credentials from env vars (fallback)');
-    }
-
-    if (!consumerKey || !consumerSecret) {
-      console.log('❌ Missing Twitter API credentials');
+    if (!twitterApp) {
+      console.log('❌ Project has no TwitterApp configured');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
-        { error: 'Twitter API credentials not configured. Please associate a Twitter App with this project.' },
+        { error: 'Project TwitterApp not configured. Please assign a Twitter App to this project.' },
         { status: 500 }
       );
     }
+
+    const consumerKey = twitterApp.consumerKey;
+    const consumerSecret = twitterApp.consumerSecret;
+    console.log('🔑 Using credentials from TwitterApp:', twitterApp.name);
 
     // Create Twitter client with OAuth 1.0a
     console.log('🔑 Initializing Twitter client...');
