@@ -24,6 +24,13 @@ export { createBearerToken } from '@/lib/twitter/bearer-token';
  */
 
 /**
+ * Generate a random nonce for OAuth requests
+ */
+function generateNonce(): string {
+  return crypto.randomBytes(32).toString('base64');
+}
+
+/**
  * Generate OAuth 1.0a signature for Twitter API requests
  */
 function generateOAuthSignature(
@@ -238,44 +245,17 @@ async function registerWebhookV1(
 
   return await retryWithBackoff(
     async () => {
-      // Create OAuth 1.0a signature for app-only auth (no user tokens)
-      const oauthParams = {
-        oauth_consumer_key: consumerKey,
-        oauth_nonce: generateNonce(),
-        oauth_signature_method: 'HMAC-SHA1',
-        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-        oauth_version: '1.0',
-      };
-
-      // Build signature base string
-      const params = { ...oauthParams, url: webhookUrl };
-      const sortedParams = Object.keys(params)
-        .sort()
-        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-        .join('&');
-
-      const signatureBase = [
+      // Use the generateOAuthHeader function for OAuth 1.0a app-only auth
+      // The 'url' parameter needs to be included in the signature for webhook registration
+      const authHeader = generateOAuthHeader(
         'POST',
-        encodeURIComponent(apiUrl),
-        encodeURIComponent(sortedParams),
-      ].join('&');
-
-      // Generate signature using consumer secret only (no token secret for app-only)
-      const signingKey = `${encodeURIComponent(consumerSecret)}&`;
-      const signature = crypto
-        .createHmac('sha1', signingKey)
-        .update(signatureBase)
-        .digest('base64');
-
-      // Build OAuth header
-      const authHeader = 'OAuth ' + Object.keys(oauthParams)
-        .concat(['oauth_signature'])
-        .sort()
-        .map(key => {
-          const value = key === 'oauth_signature' ? signature : oauthParams[key];
-          return `${encodeURIComponent(key)}="${encodeURIComponent(value)}"`;
-        })
-        .join(', ');
+        apiUrl,
+        consumerKey,
+        consumerSecret,
+        undefined, // no access token for app-only auth
+        undefined, // no access secret for app-only auth
+        { url: webhookUrl } // additional params for signature
+      );
 
       console.log('🌐 Making HTTP request to Account Activity API v1.1:');
       console.log('   Method: POST');
