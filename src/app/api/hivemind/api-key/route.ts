@@ -65,16 +65,25 @@ export async function POST(request: NextRequest) {
     // Generate new API key with prefix
     const apiKey = 'hm_' + nanoid(32);
 
-    // Update or create Hivemind config with new API key
-    const config = await prisma.hivemindConfig.upsert({
-      where: { id: 'hivemind-config-singleton' },
-      update: { apiKey },
-      create: {
-        id: 'hivemind-config-singleton',
-        apiKey,
-        enabled: false
-      }
-    });
+    // Find existing config or create new one
+    let config = await prisma.hivemindConfig.findFirst();
+
+    if (config) {
+      // Update existing config
+      config = await prisma.hivemindConfig.update({
+        where: { id: config.id },
+        data: { apiKey }
+      });
+    } else {
+      // Create new config
+      config = await prisma.hivemindConfig.create({
+        data: {
+          id: 'hivemind-config-singleton',
+          apiKey,
+          enabled: false
+        }
+      });
+    }
 
     console.log('✅ Hivemind API key generated');
 
