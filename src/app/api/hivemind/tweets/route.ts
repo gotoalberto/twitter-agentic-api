@@ -8,22 +8,38 @@ import { prisma } from '@/lib/db/prisma';
 
 export async function GET(req: NextRequest) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
+    // Check for API key first
+    const apiKey = req.headers.get('x-api-key');
+    let isAuthorized = false;
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (apiKey && apiKey.startsWith('hm_')) {
+      // Check Hivemind API key
+      const hivemindConfig = await prisma.hivemindConfig.findFirst();
+      if (hivemindConfig && hivemindConfig.apiKey === apiKey) {
+        isAuthorized = true;
+      }
     }
 
-    const username = (session.user as any).username || (session.user as any).twitterHandle;
-    if (!isAdmin(username)) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+    // If no valid API key, check session
+    if (!isAuthorized) {
+      const session = await getServerSession(authOptions);
+
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: 'Unauthorized - API key or session required' },
+          { status: 401 }
+        );
+      }
+
+      const username = (session.user as any).username || (session.user as any).twitterHandle;
+      if (!isAdmin(username)) {
+        return NextResponse.json(
+          { error: 'Admin access required' },
+          { status: 403 }
+        );
+      }
+
+      isAuthorized = true;
     }
 
     // Get query parameters
@@ -153,22 +169,38 @@ export async function GET(req: NextRequest) {
 // New endpoint to get all Zeus Army members' recent activity
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions);
+    // Check for API key first
+    const apiKey = req.headers.get('x-api-key');
+    let isAuthorized = false;
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (apiKey && apiKey.startsWith('hm_')) {
+      // Check Hivemind API key
+      const hivemindConfig = await prisma.hivemindConfig.findFirst();
+      if (hivemindConfig && hivemindConfig.apiKey === apiKey) {
+        isAuthorized = true;
+      }
     }
 
-    const username = (session.user as any).username || (session.user as any).twitterHandle;
-    if (!isAdmin(username)) {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+    // If no valid API key, check session
+    if (!isAuthorized) {
+      const session = await getServerSession(authOptions);
+
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: 'Unauthorized - API key or session required' },
+          { status: 401 }
+        );
+      }
+
+      const username = (session.user as any).username || (session.user as any).twitterHandle;
+      if (!isAdmin(username)) {
+        return NextResponse.json(
+          { error: 'Admin access required' },
+          { status: 403 }
+        );
+      }
+
+      isAuthorized = true;
     }
 
     // Get request body

@@ -273,7 +273,7 @@ Body:
                     <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
 {`GET https://hive.pepes.dog/api/hivemind/tweets?username=user_handle&count=20
 Headers:
-  Authorization: Bearer <session-token>
+  X-API-Key: ${apiKey || '<your-api-key>'}
 
 Response:
 {
@@ -348,16 +348,51 @@ Body:
                     </pre>
                   </div>
 
-                  {/* Get All Members Activity */}
+                  {/* Get All Members */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">4. Get Zeus Army Members List</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">4. Get Zeus Army Members</h4>
                     <p className="text-sm text-gray-600 mb-2">
-                      Get a summary of all Zeus Army members:
+                      Get all connected Zeus Army members:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`GET https://hive.pepes.dog/api/hivemind/users
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+
+Response:
+[
+  {
+    "userId": "123456789",
+    "username": "zeuscoineth_",
+    "displayName": "Zeus Coin",
+    "isActive": true,
+    "connectedAt": "2024-01-01T00:00:00Z",
+    "hasOAuth2": true,
+    "scope": "tweet.read tweet.write users.read like.write"
+  },
+  {
+    "userId": "987654321",
+    "username": "pepesarmy",
+    "displayName": "Pepe's Army",
+    "isActive": true,
+    "connectedAt": "2024-01-02T00:00:00Z",
+    "hasOAuth2": false,
+    "scope": null
+  }
+]`}
+                    </pre>
+                  </div>
+
+                  {/* Get Members Summary */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">5. Get Zeus Army Activity Summary</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Get a summary of Zeus Army activity:
                     </p>
                     <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
 {`POST https://hive.pepes.dog/api/hivemind/tweets
 Headers:
-  Authorization: Bearer <session-token>
+  X-API-Key: ${apiKey || '<your-api-key>'}
   Content-Type: application/json
 
 Body:
@@ -384,7 +419,7 @@ Response:
 
                   {/* Post with Video Example */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">5. Post Tweet with Video</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">6. Post Tweet with Video</h4>
                     <p className="text-sm text-gray-600 mb-2">
                       Share videos through Zeus Army members:
                     </p>
@@ -405,7 +440,7 @@ Body:
 
                   {/* Retweet Example */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">6. Retweet a Tweet</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">7. Retweet a Tweet</h4>
                     <p className="text-sm text-gray-600 mb-2">
                       Retweet any tweet using Zeus Army members:
                     </p>
@@ -435,7 +470,7 @@ Response:
 
                   {/* Like Example */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">7. Like a Tweet</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">8. Like a Tweet</h4>
                     <p className="text-sm text-gray-600 mb-2">
                       Like any tweet using Zeus Army members:
                     </p>
@@ -480,8 +515,9 @@ Response:
                   <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 className="text-sm font-semibold text-blue-800 mb-1">Important Notes</h4>
                     <ul className="text-xs text-blue-700 space-y-1">
-                      <li>• Only admin accounts can access the GET endpoints</li>
-                      <li>• GET /api/hivemind/tweets now returns both tweets and replies with type indicators</li>
+                      <li>• All endpoints now accept X-API-Key header for authentication</li>
+                      <li>• GET /api/hivemind/tweets returns both tweets and replies with type indicators</li>
+                      <li>• GET /api/hivemind/users returns all connected Zeus Army members</li>
                       <li>• Retweet and Like endpoints work with OAuth 2.0 and OAuth 1.0a</li>
                       <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
                       <li>• Images/videos must be sent as base64-encoded data (data:mime/type;base64,... format)</li>

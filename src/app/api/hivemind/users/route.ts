@@ -3,19 +3,36 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { isAdmin } from '@/lib/utils/admin';
 import { getAllHivemindUsers } from '@/lib/db/hivemind';
+import { prisma } from '@/lib/db/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user session
-    const session = await getServerSession(authOptions);
+    // Check for API key first
+    const apiKey = request.headers.get('x-api-key');
+    let isAuthorized = false;
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (apiKey && apiKey.startsWith('hm_')) {
+      // Check Hivemind API key
+      const hivemindConfig = await prisma.hivemindConfig.findFirst();
+      if (hivemindConfig && hivemindConfig.apiKey === apiKey) {
+        isAuthorized = true;
+      }
     }
 
-    // Check if user is admin
-    if (!session.user.username || !isAdmin(session.user.username)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // If no valid API key, check session
+    if (!isAuthorized) {
+      const session = await getServerSession(authOptions);
+
+      if (!session || !session.user) {
+        return NextResponse.json({ error: 'Unauthorized - API key or session required' }, { status: 401 });
+      }
+
+      // Check if user is admin
+      if (!session.user.username || !isAdmin(session.user.username)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      isAuthorized = true;
     }
 
     const users = await getAllHivemindUsers();
