@@ -6,13 +6,9 @@
   left: 0;
   right: 0;
   z-index: 10000;
-  background: rgba(13, 14, 35, 0.95);
+  background: rgba(13, 14, 35, 0.98);
   backdrop-filter: blur(20px);
-  border-bottom: 2px solid transparent;
-  background-image: linear-gradient(rgba(13, 14, 35, 0.95), rgba(13, 14, 35, 0.95)),
-                    linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+  border-bottom: 3px solid #FFD700;
   box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -305,13 +301,4 @@
   }
 }
 
-/* Adjust main content to account for fixed navbar */
-body {
-  padding-top: 80px;
-}
-
-@media (max-width: 768px) {
-  body {
-    padding-top: 65px;
-  }
-}
+/* Note: padding-top is already handled in zeus-army.css for .zeus-bg */

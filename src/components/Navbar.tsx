@@ -12,7 +12,7 @@ const Navbar: React.FC = () => {
     <nav className="zeus-navbar">
       <div className="zeus-navbar-container">
         <a href="https://pepes.dog" className="zeus-navbar-logo">
-          <img src="https://pepes.dog/assets/images/zeus.jpg" alt="Zeus" />
+          <img src="https://pepes.dog/zeus.jpg" alt="Zeus" />
           <span className="zeus-navbar-logo-text">
             Pepe's Dog <span className="zeus-navbar-logo-army">Army</span>
           </span>
