@@ -756,6 +756,11 @@ These endpoints use the default "goodboy" project:
 
 ## Recent Updates
 
+### Version 2.1.1 - February 22, 2026
+- **Fixed HivemindConfig Update Issue**: Resolved unique constraint error when updating Hivemind configuration with the same TwitterApp ID
+  - The update function now only modifies the `twitterAppId` field when it actually changes
+  - Prevents Prisma P2002 unique constraint violations on updates
+
 ### Version 2.1.0 - February 2026
 - **OAuth Token Mismatch Detection**: Automatically detects when OAuth tokens are incompatible with the shared webhook and restarts the OAuth flow with the correct credentials
 - **Route Restructuring**:

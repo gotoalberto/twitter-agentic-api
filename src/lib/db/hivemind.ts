@@ -15,13 +15,20 @@ export async function createOrUpdateHivemindConfig(twitterAppId: string | null, 
   const existing = await prisma.hivemindConfig.findFirst();
 
   if (existing) {
+    // Only update fields that have changed to avoid unique constraint issues
+    const updateData: any = {
+      enabled,
+      updatedAt: new Date()
+    };
+
+    // Only update twitterAppId if it's different from the current value
+    if (twitterAppId !== existing.twitterAppId) {
+      updateData.twitterAppId = twitterAppId;
+    }
+
     return prisma.hivemindConfig.update({
       where: { id: existing.id },
-      data: {
-        twitterAppId,
-        enabled,
-        updatedAt: new Date()
-      },
+      data: updateData,
       include: {
         twitterApp: true
       }
