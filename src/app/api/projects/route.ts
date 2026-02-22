@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { getAllProjects, createProject } from '@/lib/db/projects';
+import { isAdmin } from '@/lib/utils/admin';
 
 /**
  * GET: List all projects with their bot and forwarding config
@@ -15,6 +16,15 @@ export async function GET() {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Check if user is admin
+    const username = (session.user as any).username || (session.user as any).twitterHandle;
+    if (!isAdmin(username)) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 
@@ -43,6 +53,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Check if user is admin
+    const username = (session.user as any).username || (session.user as any).twitterHandle;
+    if (!isAdmin(username)) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 

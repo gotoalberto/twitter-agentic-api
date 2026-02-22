@@ -38,46 +38,27 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({ user, account, profile }) {
-      // DEBUG: Log completo de los datos recibidos
-      console.log('🔍 === SIGNIN CALLBACK DEBUG ===');
-      console.log('📦 Full profile object:', JSON.stringify(profile, null, 2));
-      console.log('👤 User object:', JSON.stringify(user, null, 2));
-      console.log('🔑 Account object:', JSON.stringify(account, null, 2));
+      // Allow ALL users to sign in
+      // Admin restrictions are enforced at the page level, not at login
+      console.log('🔍 === SIGNIN CALLBACK ===');
 
-      // Intentar extraer el username de múltiples formas
+      // Extract the username for logging purposes
       const handle1 = (profile as any)?.data?.username;
       const handle2 = (profile as any)?.username;
-      const handle3 = user?.name;
       const handle4 = (user as any)?.username;
-
-      console.log('🔍 Extraction attempts:');
-      console.log('  handle1 (profile.data.username):', handle1);
-      console.log('  handle2 (profile.username):', handle2);
-      console.log('  handle3 (user.name):', handle3);
-      console.log('  handle4 (user.username):', handle4);
-
-      // Validar que el usuario está en la whitelist
       const twitterHandle = handle1 || handle2 || handle4;
 
-      console.log('📝 Selected twitterHandle:', twitterHandle);
-      console.log('📝 ALLOWED_ADMIN_USERS env var:', process.env.ALLOWED_ADMIN_USERS);
+      console.log(`✅ User login: @${twitterHandle || 'unknown'} (ID: ${account?.providerAccountId})`);
 
-      if (!twitterHandle) {
-        console.error('❌ No Twitter handle found in profile');
-        console.error('❌ Tried all extraction methods, all returned undefined/null');
-        return false;
+      // Check if user is admin (for logging only, not for blocking)
+      if (twitterHandle) {
+        const isAdminUser = isAdmin(twitterHandle);
+        console.log(`👤 User type: ${isAdminUser ? 'Admin' : 'Regular User'}`);
       }
 
-      const isAdminResult = isAdmin(twitterHandle);
-      console.log(`🔐 isAdmin("${twitterHandle}") returned:`, isAdminResult);
-
-      if (!isAdminResult) {
-        console.error(`❌ User @${twitterHandle} is not an admin`);
-        return false;
-      }
-
-      console.log(`✅ Admin login successful: @${twitterHandle}`);
-      console.log('🔍 === END SIGNIN CALLBACK DEBUG ===');
+      // Allow ALL users to sign in
+      // Hivemind users need to be able to connect their accounts
+      // Admin checks should be done at the page/API level
       return true;
     },
   },
