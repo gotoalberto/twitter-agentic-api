@@ -546,6 +546,9 @@ export async function POST(request: NextRequest) {
       client = new TwitterApi(oauth2Token);
     } else {
       console.log('   Using OAuth 1.0a credentials');
+      if (!userCredentials) {
+        throw new Error('OAuth 1.0a credentials are required but not available');
+      }
       client = new TwitterApi({
         appKey: consumerKey,
         appSecret: consumerSecret,
