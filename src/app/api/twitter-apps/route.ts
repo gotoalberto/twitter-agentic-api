@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, consumerKey, consumerSecret, clientId, clientSecret, bearerToken, webhookEnv } = body;
+    const { name, consumerKey, consumerSecret, clientId, clientSecret, bearerToken, webhookEnv, registerWebhook = true } = body;
 
     if (!name?.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
@@ -78,15 +78,21 @@ export async function POST(request: NextRequest) {
       webhookEnv: webhookEnv?.trim() || 'production',
     });
 
-    // Register webhook for the new app
-    console.log('🔄 Registering webhook for new TwitterApp:', app.name);
-    const webhookResult = await registerWebhookForApp(app.id);
+    // Register webhook for the new app if requested
+    let webhookResult: { success: boolean; webhookId?: string; error?: string } = { success: false };
 
-    if (webhookResult.success) {
-      console.log('✅ Webhook registered successfully for app:', app.name);
+    if (registerWebhook) {
+      console.log('🔄 Registering webhook for new TwitterApp:', app.name);
+      webhookResult = await registerWebhookForApp(app.id);
+
+      if (webhookResult.success) {
+        console.log('✅ Webhook registered successfully for app:', app.name);
+      } else {
+        console.warn('⚠️ Webhook registration failed:', webhookResult.error);
+        // Continue anyway - webhook can be registered later
+      }
     } else {
-      console.warn('⚠️ Webhook registration failed:', webhookResult.error);
-      // Continue anyway - webhook can be registered later
+      console.log('ℹ️ Webhook registration skipped for app:', app.name, '(user choice)');
     }
 
     // Get updated app with webhook info
@@ -108,7 +114,8 @@ export async function POST(request: NextRequest) {
         webhookUrl: updatedApp?.webhookUrl || null,
         webhookValid: updatedApp?.webhookValid || false,
         webhookRegistered: webhookResult.success,
-        webhookError: !webhookResult.success ? webhookResult.error : null,
+        webhookSkipped: !registerWebhook,
+        webhookError: registerWebhook && !webhookResult.success ? (webhookResult.error || null) : null,
         createdAt: app.createdAt,
       },
     }, { status: 201 });
