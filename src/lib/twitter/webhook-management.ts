@@ -12,12 +12,19 @@ const WEBHOOK_ENV = process.env.TWITTER_WEBHOOK_ENV || 'production';
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app';
 
 /**
- * Register a webhook for a TwitterApp
+ * Register a webhook for a TwitterApp with retry logic
  * @param appId - The TwitterApp ID
+ * @param retryCount - Number of retries (default: 0, max: 3)
  * @returns The webhook registration result
  */
-export async function registerWebhookForApp(appId: string): Promise<{ success: boolean; webhookId?: string; error?: string }> {
+export async function registerWebhookForApp(
+  appId: string,
+  retryCount: number = 0
+): Promise<{ success: boolean; webhookId?: string; error?: string }> {
   console.log('🔄 REGISTERING WEBHOOK FOR APP:', appId);
+  if (retryCount > 0) {
+    console.log(`   Retry attempt: ${retryCount}/3`);
+  }
 
   try {
     // Get the app
@@ -63,6 +70,23 @@ export async function registerWebhookForApp(appId: string): Promise<{ success: b
 
     if (!response.ok) {
       console.error('❌ Webhook registration failed:', data);
+
+      // Check if it's a temporary error (500, 502, 503, 504)
+      if (response.status >= 500 && response.status < 600 && retryCount < 3) {
+        console.log(`⏳ X API returned ${response.status}, retrying in ${(retryCount + 1) * 2} seconds...`);
+
+        // Wait with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+
+        // Retry
+        return registerWebhookForApp(appId, retryCount + 1);
+      }
+
+      // Check for specific error about duplicate webhook
+      if (data.detail?.includes('already exists') || data.title?.includes('Conflict')) {
+        console.log('⚠️ Webhook URL already exists, may be registered under different app');
+      }
+
       return { success: false, error: data.detail || data.title || 'Registration failed' };
     }
 
@@ -85,6 +109,14 @@ export async function registerWebhookForApp(appId: string): Promise<{ success: b
 
   } catch (error: any) {
     console.error('❌ Error registering webhook:', error);
+
+    // Retry on network errors if we haven't exceeded retry limit
+    if (retryCount < 3 && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND')) {
+      console.log(`⏳ Network error, retrying in ${(retryCount + 1) * 2} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
+      return registerWebhookForApp(appId, retryCount + 1);
+    }
+
     return { success: false, error: error.message };
   }
 }

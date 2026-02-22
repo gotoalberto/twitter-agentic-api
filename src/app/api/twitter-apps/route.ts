@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { getAllTwitterApps, createTwitterApp } from '@/lib/db/twitter-apps';
 import { registerWebhookForApp } from '@/lib/twitter/webhook-management';
+import { prisma } from '@/lib/db/prisma';
 
 /**
  * GET: List all Twitter Apps (credentials masked)
@@ -88,13 +89,26 @@ export async function POST(request: NextRequest) {
       // Continue anyway - webhook can be registered later
     }
 
+    // Get updated app with webhook info
+    const updatedApp = await prisma.twitterApp.findUnique({
+      where: { id: app.id },
+      select: {
+        webhookId: true,
+        webhookUrl: true,
+        webhookValid: true
+      }
+    });
+
     return NextResponse.json({
       app: {
         id: app.id,
         name: app.name,
         webhookEnv: app.webhookEnv,
-        webhookId: webhookResult.webhookId || null,
+        webhookId: updatedApp?.webhookId || null,
+        webhookUrl: updatedApp?.webhookUrl || null,
+        webhookValid: updatedApp?.webhookValid || false,
         webhookRegistered: webhookResult.success,
+        webhookError: !webhookResult.success ? webhookResult.error : null,
         createdAt: app.createdAt,
       },
     }, { status: 201 });

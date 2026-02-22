@@ -43,6 +43,7 @@ export default function AppsPage() {
   const [apps, setApps] = useState<TwitterApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [registeringWebhook, setRegisteringWebhook] = useState<string | null>(null);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -159,6 +160,42 @@ export default function AppsPage() {
       setMessage({ type: 'error', text: 'Failed to delete Twitter App' });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRegisterWebhook = async (appId: string, appName: string) => {
+    setRegisteringWebhook(appId);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/twitter-apps/${appId}/register-webhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: false })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({
+          type: 'error',
+          text: data.message || 'Failed to register webhook. Please try again later.'
+        });
+        return;
+      }
+
+      setMessage({
+        type: 'success',
+        text: `Webhook registered successfully for "${appName}"`
+      });
+      await fetchApps(); // Refresh to show new webhook status
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Failed to register webhook. Please check your network connection.'
+      });
+    } finally {
+      setRegisteringWebhook(null);
     }
   };
 
@@ -318,11 +355,44 @@ export default function AppsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                        <span className="text-sm text-gray-500">
-                          No webhook registered
-                        </span>
+                      <div className="space-y-2">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2 mb-2">
+                            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-red-800">
+                                Webhook Registration Failed
+                              </p>
+                              <p className="text-xs text-red-700 mt-1">
+                                The webhook could not be registered with X API. This might be a temporary issue.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRegisterWebhook(app.id, app.name)}
+                            disabled={registeringWebhook === app.id}
+                            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-medium py-1.5 px-3 rounded transition duration-200 flex items-center justify-center gap-2"
+                          >
+                            {registeringWebhook === app.id ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Registering...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Retry Webhook Registration
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
