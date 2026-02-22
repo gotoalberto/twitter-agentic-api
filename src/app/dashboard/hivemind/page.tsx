@@ -380,11 +380,73 @@ Body:
                     </pre>
                   </div>
 
+                  {/* Retweet Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">6. Retweet a Tweet</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Retweet any tweet using Zeus Army members:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/twitter/retweet
+Headers:
+  Authorization: Bearer ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "tweetId": "1234567890123456789",
+  "action": "retweet"  // or "unretweet" to undo
+}
+
+Response:
+{
+  "success": true,
+  "action": "retweet",
+  "tweetId": "1234567890123456789",
+  "result": {
+    "retweeted": true
+  }
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Like Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">7. Like a Tweet</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Like any tweet using Zeus Army members:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/twitter/like
+Headers:
+  Authorization: Bearer ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "tweetId": "1234567890123456789",
+  "action": "like"  // or "unlike" to undo
+}
+
+Response:
+{
+  "success": true,
+  "action": "like",
+  "tweetId": "1234567890123456789",
+  "result": {
+    "liked": true
+  }
+}`}
+                    </pre>
+                  </div>
+
                   {/* Rate Limits */}
                   <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                     <h4 className="text-sm font-semibold text-yellow-800 mb-1">Rate Limits</h4>
                     <ul className="text-xs text-yellow-700 space-y-1">
                       <li>• Post Tweet: 300 per 3 hours per user</li>
+                      <li>• Retweet: 1000 per 24 hours per user</li>
+                      <li>• Like: 1000 per 24 hours per user</li>
                       <li>• Get Tweets: 180 per 15 minutes</li>
                       <li>• Media Upload: 415 per 24 hours</li>
                       <li>• API Key: 1000 requests per hour</li>
@@ -396,8 +458,10 @@ Body:
                     <h4 className="text-sm font-semibold text-blue-800 mb-1">Important Notes</h4>
                     <ul className="text-xs text-blue-700 space-y-1">
                       <li>• Only admin accounts can access the GET endpoints</li>
+                      <li>• Retweet and Like endpoints work with OAuth 2.0 and OAuth 1.0a</li>
                       <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
                       <li>• Images/videos must be sent as base64-encoded data (data:mime/type;base64,... format)</li>
+                      <li>• Media upload requires OAuth 1.0a authentication (not available with OAuth 2.0)</li>
                       <li>• Maximum file sizes: Images 5MB, Videos 15MB</li>
                       <li>• Users can disconnect anytime from their dashboard</li>
                       <li>• All credentials are encrypted with AES-256-GCM</li>
