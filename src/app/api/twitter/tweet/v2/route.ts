@@ -205,8 +205,17 @@ export async function POST(request: NextRequest) {
       // Validate Hivemind API key
       const hivemindConfig = await getHivemindConfig();
 
+      console.log('📊 Hivemind Config Check:', {
+        configExists: !!hivemindConfig,
+        enabled: hivemindConfig?.enabled,
+        hasApiKey: !!hivemindConfig?.apiKey,
+        apiKeyMatch: hivemindConfig?.apiKey === apiKey
+      });
+
       if (!hivemindConfig || !hivemindConfig.enabled) {
         console.log('❌ Hivemind is not enabled');
+        console.log('   Config exists:', !!hivemindConfig);
+        console.log('   Enabled:', hivemindConfig?.enabled);
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
@@ -217,6 +226,8 @@ export async function POST(request: NextRequest) {
 
       if (hivemindConfig.apiKey !== apiKey) {
         console.log('❌ Invalid Hivemind API key');
+        console.log('   Expected:', hivemindConfig.apiKey?.substring(0, 10) + '...');
+        console.log('   Received:', apiKey?.substring(0, 10) + '...');
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
@@ -226,8 +237,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Get Hivemind user credentials
-      console.log('📦 Fetching Hivemind user credentials...');
+      console.log('📦 Fetching Hivemind user credentials for:', body.username);
       const hivemindUser = await getHivemindUserByUsername(body.username);
+
+      console.log('👤 Hivemind User Check:', {
+        username: body.username,
+        userFound: !!hivemindUser,
+        isActive: hivemindUser?.isActive,
+        hasTokens: !!(hivemindUser?.accessToken && hivemindUser?.accessTokenSecret)
+      });
 
       if (!hivemindUser) {
         console.log('❌ Hivemind user not found:', body.username);
@@ -241,6 +259,7 @@ export async function POST(request: NextRequest) {
 
       if (!hivemindUser.isActive) {
         console.log('❌ Hivemind user is inactive:', body.username);
+        console.log('   User exists but isActive:', hivemindUser.isActive);
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
