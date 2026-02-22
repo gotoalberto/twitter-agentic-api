@@ -61,6 +61,19 @@ export async function deliverToEndpoint(
       }
     });
 
+    // Also create a webhookLog for dashboard display
+    await prisma.webhookLog.create({
+      data: {
+        projectId,
+        eventType,
+        forwardedTo: endpoint.url,
+        status: 'pending',  // Show as pending in dashboard
+        payload,
+        attempts: 0,
+        errorMessage: 'Endpoint disabled - webhook paused',
+      }
+    });
+
     return false;
   }
 
@@ -116,6 +129,22 @@ export async function deliverToEndpoint(
         }
       });
 
+      // Also create a webhookLog for dashboard display
+      await prisma.webhookLog.create({
+        data: {
+          projectId,
+          eventType,
+          forwardedTo: endpoint.url,
+          status: 'delivered',
+          statusCode: response.status,
+          payload,
+          attempts: 1,
+          lastAttemptAt: new Date(),
+          deliveredAt: new Date(),
+          responseBody,
+        }
+      });
+
       console.log('   ✅ Delivered successfully');
       console.log('   Status Code:', response.status);
       console.log('   Duration:', `${duration}ms`);
@@ -133,6 +162,23 @@ export async function deliverToEndpoint(
           payload,
           status: 'pending',
           statusCode: response.status,
+          attempts: 1,
+          lastAttemptAt: new Date(),
+          nextRetryAt,
+          errorMessage,
+          responseBody,
+        }
+      });
+
+      // Also create a webhookLog for dashboard display
+      await prisma.webhookLog.create({
+        data: {
+          projectId,
+          eventType,
+          forwardedTo: endpoint.url,
+          status: 'pending',
+          statusCode: response.status,
+          payload,
           attempts: 1,
           lastAttemptAt: new Date(),
           nextRetryAt,
@@ -162,6 +208,21 @@ export async function deliverToEndpoint(
         eventType,
         payload,
         status: 'pending',
+        attempts: 1,
+        lastAttemptAt: new Date(),
+        nextRetryAt,
+        errorMessage,
+      }
+    });
+
+    // Also create a webhookLog for dashboard display
+    await prisma.webhookLog.create({
+      data: {
+        projectId,
+        eventType,
+        forwardedTo: endpoint.url,
+        status: 'pending',
+        payload,
         attempts: 1,
         lastAttemptAt: new Date(),
         nextRetryAt,
