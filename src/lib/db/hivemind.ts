@@ -20,42 +20,42 @@ export async function createOrUpdateHivemindConfig(twitterAppId: string | null, 
   });
 
   if (existing) {
-    // If the twitterAppId is the same, we don't need to update it
-    // This avoids the unique constraint error
-    if (existing.twitterAppId === twitterAppId) {
-      // Only update the enabled flag and updatedAt timestamp
-      return prisma.hivemindConfig.update({
-        where: { id: existing.id },
-        data: {
-          enabled,
-          updatedAt: new Date()
-        },
-        include: {
-          twitterApp: true
-        }
-      });
-    } else {
-      // twitterAppId is different, so we need to update it
-      // Since HivemindConfig is designed to have only one record (global config),
-      // we don't need to check for conflicts - just update it directly
-      return prisma.hivemindConfig.update({
-        where: { id: existing.id },
-        data: {
-          twitterAppId,
-          enabled,
-          updatedAt: new Date()
-        },
-        include: {
-          twitterApp: true
-        }
-      });
+    // Build update data object dynamically to avoid unique constraint issues
+    const updateData: any = {
+      enabled,
+      updatedAt: new Date()
+    };
+
+    // Only include twitterAppId in the update if it's actually changing
+    // Treat empty string as null for comparison
+    const normalizedExisting = existing.twitterAppId || null;
+    const normalizedNew = (!twitterAppId || twitterAppId === '') ? null : twitterAppId;
+
+    // Log for debugging
+    console.log('🔍 HivemindConfig update comparison:', {
+      existing: normalizedExisting,
+      new: normalizedNew,
+      areEqual: normalizedExisting === normalizedNew
+    });
+
+    if (normalizedExisting !== normalizedNew) {
+      // Only update twitterAppId if it's actually different
+      updateData.twitterAppId = normalizedNew;
     }
+
+    return prisma.hivemindConfig.update({
+      where: { id: existing.id },
+      data: updateData,
+      include: {
+        twitterApp: true
+      }
+    });
   }
 
   // No existing config, create a new one
   return prisma.hivemindConfig.create({
     data: {
-      twitterAppId,
+      twitterAppId: (!twitterAppId || twitterAppId === '') ? null : twitterAppId,
       enabled
     },
     include: {

@@ -11,7 +11,7 @@ export default function HivemindAdminPage() {
   const [hivemindUsers, setHivemindUsers] = useState<any[]>([]);
   const [hivemindStats, setHivemindStats] = useState<any>(null);
   const [twitterApps, setTwitterApps] = useState<any[]>([]);
-  const [selectedAppId, setSelectedAppId] = useState<string>('');
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,7 +38,8 @@ export default function HivemindAdminPage() {
       if (configRes.ok) {
         const config = await configRes.json();
         setHivemindConfig(config);
-        setSelectedAppId(config?.twitterAppId || '');
+        // Keep null as null, don't convert to empty string
+        setSelectedAppId(config?.twitterAppId || null);
         setIsEnabled(config?.enabled || false);
       }
 
@@ -275,8 +276,8 @@ Body:
                   Twitter App for Hivemind
                 </label>
                 <select
-                  value={selectedAppId}
-                  onChange={(e) => setSelectedAppId(e.target.value)}
+                  value={selectedAppId || ''}
+                  onChange={(e) => setSelectedAppId(e.target.value || null)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Use Environment Variables (Default)</option>
