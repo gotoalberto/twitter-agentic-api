@@ -239,26 +239,169 @@ export default function HivemindAdminPage() {
                 </button>
               </div>
 
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">API Usage</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Use this API key to publish tweets through Hivemind users:
-                </p>
-                <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
-{`POST /api/twitter/tweet/v2
+              <div className="mt-4 space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-2">API Usage Examples</h3>
+
+                  {/* Post Tweet Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">1. Post a Tweet</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Publish tweets through any Zeus Army member:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/twitter/tweet/v2
 Headers:
   X-API-Key: ${apiKey || '<your-api-key>'}
   Content-Type: application/json
 
 Body:
 {
-  "username": "<hivemind-user-handle>",
-  "text": "Tweet text",
-  "replyToTweetId": "optional",
-  "imageUrl": "optional",
-  "videoUrl": "optional"
+  "username": "user_handle",
+  "text": "Check out #PEPESDOG - the next big thing!",
+  "imageUrl": "https://example.com/image.jpg"
 }`}
-                </pre>
+                    </pre>
+                  </div>
+
+                  {/* Get User Tweets Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">2. Get Recent Tweets from a Zeus Army Member</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Retrieve the last X tweets from any connected user:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`GET https://hive.pepes.dog/api/hivemind/tweets?username=user_handle&count=20
+Headers:
+  Authorization: Bearer <session-token>
+
+Response:
+{
+  "user": {
+    "username": "user_handle",
+    "userId": "123456789"
+  },
+  "stats": {
+    "total_tweets": 20,
+    "pepesdog_tweets": 5,
+    "total_engagement": 1250,
+    "average_engagement": 62
+  },
+  "tweets": [
+    {
+      "id": "1234567890",
+      "text": "Tweet content here #PEPESDOG",
+      "created_at": "2024-01-01T12:00:00Z",
+      "metrics": {
+        "likes": 45,
+        "retweets": 12,
+        "replies": 5
+      },
+      "is_pepesdog": true
+    }
+  ]
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Reply to Tweet Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">3. Reply to a Tweet</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Reply to any tweet using a Zeus Army member account:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/twitter/tweet/v2
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "username": "user_handle",
+  "text": "This is the way! #PEPESDOG TO THE MOON!",
+  "replyToTweetId": "1234567890123456"
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Get All Members Activity */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">4. Get Zeus Army Members List</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Get a summary of all Zeus Army members:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/hivemind/tweets
+Headers:
+  Authorization: Bearer <session-token>
+  Content-Type: application/json
+
+Body:
+{
+  "hours": 24
+}
+
+Response:
+{
+  "summary": {
+    "total_members": 150,
+    "time_period_hours": 24,
+    "members": [
+      {
+        "username": "member1",
+        "userId": "123",
+        "connectedAt": "2024-01-01T00:00:00Z"
+      }
+    ]
+  }
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Post with Video Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">5. Post Tweet with Video</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Share videos through Zeus Army members:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/twitter/tweet/v2
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "username": "user_handle",
+  "text": "Watch this epic #PEPESDOG moment!",
+  "videoUrl": "https://example.com/video.mp4"
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Rate Limits */}
+                  <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-1">Rate Limits</h4>
+                    <ul className="text-xs text-yellow-700 space-y-1">
+                      <li>• Post Tweet: 300 per 3 hours per user</li>
+                      <li>• Get Tweets: 180 per 15 minutes</li>
+                      <li>• Media Upload: 415 per 24 hours</li>
+                      <li>• API Key: 1000 requests per hour</li>
+                    </ul>
+                  </div>
+
+                  {/* Important Notes */}
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-1">Important Notes</h4>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li>• Only admin accounts can access the GET endpoints</li>
+                      <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
+                      <li>• Users can disconnect anytime from their dashboard</li>
+                      <li>• All credentials are encrypted with AES-256-GCM</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

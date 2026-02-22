@@ -62,18 +62,18 @@ export default function HomePage() {
               ZEUS ARMY
             </h1>
             <p className="zeus-landing__subtitle">
-              The Most Based Degen Network on X 🚀
+              The Most Based Degen Network on X
             </p>
             <p className="zeus-landing__hero-description">
               Join the PepesDog community amplification network.
-              Automated RT & Likes for every $PEPESDOG tweet.
+              Automated RT & Likes for every #PEPESDOG tweet.
               100x your reach, pump the timeline together!
             </p>
             <button
               onClick={() => signIn('twitter', { callbackUrl: '/hivemind' })}
               className="zeus-landing__button"
             >
-              ⚡ JOIN ZEUS ARMY NOW ⚡
+              JOIN ZEUS ARMY NOW
             </button>
           </div>
         </div>
@@ -85,14 +85,14 @@ export default function HomePage() {
         {/* What is Zeus Army */}
         <section className="zeus-landing__card">
           <h2 className="zeus-landing__section-title">
-            WTF IS ZEUS ARMY? 🤔
+            WTF IS ZEUS ARMY?
           </h2>
 
           <div className="zeus-landing__info-box">
             <p style={{ fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', textAlign: 'center' }}>
-              Imagine every PepesDog holder becoming a fucking SIGNAL AMPLIFIER 📡<br/>
-              When you tweet about $PEPESDOG, HUNDREDS of accounts automatically RT & Like your shit.<br/>
-              Your reach goes 100x. The algorithm loves you. WE PUMP THE TIMELINE! 🚀
+              Imagine every PepesDog holder becoming a fucking SIGNAL AMPLIFIER<br/>
+              When you tweet about #PEPESDOG, HUNDREDS of accounts automatically RT & Like your shit.<br/>
+              Your reach goes 100x. The algorithm loves you. WE PUMP THE TIMELINE!
             </p>
           </div>
         </section>
@@ -100,12 +100,12 @@ export default function HomePage() {
         {/* How It Works */}
         <section id="how-it-works" className="zeus-landing__card">
           <h2 className="zeus-landing__section-title">
-            Here's The Degen Science 🧪
+            Here's The Degen Science
           </h2>
 
           <div className="zeus-landing__grid">
             <div className="zeus-landing__info-box">
-              <h3>1️⃣ JOIN THE NETWORK</h3>
+              <h3>1. JOIN THE NETWORK</h3>
               <p>
                 Connect your X account. Give Zeus Army permission to RT & Like on your behalf.
                 Don't worry anon, we ONLY engage with PepesDog content. No random shilling BS.
@@ -113,26 +113,26 @@ export default function HomePage() {
             </div>
 
             <div className="zeus-landing__info-box">
-              <h3>2️⃣ POST ABOUT PEPESDOG</h3>
+              <h3>2. POST ABOUT PEPESDOG</h3>
               <p>
                 Drop a tweet with "pepesdog" in it. Could be a meme, price update, or just pure hopium.
-                The moment you hit send, THE ENTIRE ZEUS ARMY MOVES! ⚡
+                The moment you hit send, THE ENTIRE ZEUS ARMY MOVES!
               </p>
             </div>
 
             <div className="zeus-landing__info-box">
-              <h3>3️⃣ INSTANT AMPLIFICATION</h3>
+              <h3>3. INSTANT AMPLIFICATION</h3>
               <p>
-                BOOM! 💥 Every Zeus Army member auto-RTs and likes your tweet.
+                BOOM! Every Zeus Army member auto-RTs and likes your tweet.
                 50 members = 50 instant engagements. 500 members = 500. We grow TOGETHER!
               </p>
             </div>
 
             <div className="zeus-landing__info-box">
-              <h3>4️⃣ ALGORITHM DOMINATION</h3>
+              <h3>4. ALGORITHM DOMINATION</h3>
               <p>
-                X's algorithm sees massive engagement → Pushes your tweet to MORE timelines →
-                More eyes on PepesDog → Price go BRRRRR 📈 Simple mafs!
+                X's algorithm sees massive engagement. Pushes your tweet to MORE timelines.
+                More eyes on PepesDog. Price go BRRRRR. Simple mafs!
               </p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function HomePage() {
         {/* The Math */}
         <section className="zeus-landing__card zeus-landing__rotate-right">
           <h2 className="zeus-landing__section-title">
-            THE DEGEN MATH 🧮
+            THE DEGEN MATH
           </h2>
 
           <div style={{
@@ -159,18 +159,18 @@ export default function HomePage() {
               color: '#2C2C2C',
               lineHeight: '2'
             }}>
-              <div>You: 500 followers → Post gets 10 likes normally 😔</div>
+              <div>You: 500 followers. Post gets 10 likes normally</div>
               <div style={{ fontSize: '1.5rem', color: '#FF6B6B', margin: '1rem 0' }}>
-                ⬇️ JOIN ZEUS ARMY ⬇️
+                JOIN ZEUS ARMY
               </div>
-              <div>You: 500 followers → Post gets 200+ likes from the army 🔥</div>
+              <div>You: 500 followers. Post gets 200+ likes from the army</div>
               <div style={{
                 fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)',
                 color: '#4BB749',
                 marginTop: '1rem',
                 textShadow: '2px 2px 0 rgba(0,0,0,0.1)'
               }}>
-                = 20X ENGAGEMENT = ALGORITHM LOVES YOU = WE ALL MOON 🌙
+                = 20X ENGAGEMENT = ALGORITHM LOVES YOU = WE ALL MOON
               </div>
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function HomePage() {
         {/* Benefits */}
         <section id="benefits" className="zeus-landing__card">
           <h2 className="zeus-landing__section-title">
-            Why Degens Are APEing In 🦍
+            Why Degens Are APEing In
           </h2>
 
           <div className="zeus-landing__warning">
@@ -189,60 +189,45 @@ export default function HomePage() {
                 fontFamily: 'Comic Neue',
                 fontWeight: '700',
                 fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-                display: 'flex',
-                alignItems: 'flex-start',
                 color: '#2C2C2C'
               }}>
-                <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>💎</span>
-                <span>NO MORE SHOUTING INTO THE VOID - Every tweet gets massive reach</span>
+                • NO MORE SHOUTING INTO THE VOID - Every tweet gets massive reach
               </li>
               <li style={{
                 margin: '1rem 0',
                 fontFamily: 'Comic Neue',
                 fontWeight: '700',
                 fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-                display: 'flex',
-                alignItems: 'flex-start',
                 color: '#2C2C2C'
               }}>
-                <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🤝</span>
-                <span>COMMUNITY STRENGTH - We rise together, no one left behind</span>
+                • COMMUNITY STRENGTH - We rise together, no one left behind
               </li>
               <li style={{
                 margin: '1rem 0',
                 fontFamily: 'Comic Neue',
                 fontWeight: '700',
                 fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-                display: 'flex',
-                alignItems: 'flex-start',
                 color: '#2C2C2C'
               }}>
-                <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🎯</span>
-                <span>LASER FOCUSED - Only PepesDog content, no random spam BS</span>
+                • LASER FOCUSED - Only PepesDog content, no random spam BS
               </li>
               <li style={{
                 margin: '1rem 0',
                 fontFamily: 'Comic Neue',
                 fontWeight: '700',
                 fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-                display: 'flex',
-                alignItems: 'flex-start',
                 color: '#2C2C2C'
               }}>
-                <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🚀</span>
-                <span>FULLY AUTOMATED - Set it once, pump forever</span>
+                • FULLY AUTOMATED - Set it once, pump forever
               </li>
               <li style={{
                 margin: '1rem 0',
                 fontFamily: 'Comic Neue',
                 fontWeight: '700',
                 fontSize: 'clamp(1rem, 2vw, 1.2rem)',
-                display: 'flex',
-                alignItems: 'flex-start',
                 color: '#2C2C2C'
               }}>
-                <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🔓</span>
-                <span>FULL CONTROL - Leave anytime (but why would you lol)</span>
+                • FULL CONTROL - Leave anytime (but why would you lol)
               </li>
             </ul>
           </div>
@@ -251,7 +236,7 @@ export default function HomePage() {
         {/* Security */}
         <section className="zeus-landing__card zeus-landing__rotate-left">
           <h2 className="zeus-landing__section-title">
-            🔒 SECURITY
+            SECURITY
           </h2>
           <p style={{
             fontFamily: 'Comic Neue',
@@ -266,16 +251,16 @@ export default function HomePage() {
 
           <div className="zeus-landing__grid">
             <div className="zeus-landing__info-box" style={{ textAlign: 'center' }}>
-              <p>✅ Your keys are encrypted with military-grade AES-256-GCM</p>
+              <p>Your keys are encrypted with military-grade AES-256-GCM</p>
             </div>
             <div className="zeus-landing__info-box" style={{ textAlign: 'center' }}>
-              <p>✅ We ONLY interact with tweets containing "pepesdog"</p>
+              <p>We ONLY interact with tweets containing "pepesdog"</p>
             </div>
             <div className="zeus-landing__info-box" style={{ textAlign: 'center' }}>
-              <p>✅ Disconnect instantly whenever you want</p>
+              <p>Disconnect instantly whenever you want</p>
             </div>
             <div className="zeus-landing__info-box" style={{ textAlign: 'center' }}>
-              <p>✅ Open source code - verify everything yourself</p>
+              <p>Open source code - verify everything yourself</p>
             </div>
           </div>
         </section>
@@ -283,7 +268,7 @@ export default function HomePage() {
         {/* FAQ */}
         <section id="faq" className="zeus-landing__card">
           <h2 className="zeus-landing__section-title">
-            Degen FAQs 🤷‍♂️
+            Degen FAQs
           </h2>
 
           <div className="zeus-landing__faq-item">
@@ -321,7 +306,7 @@ export default function HomePage() {
               "Wen moon?"
             </h4>
             <p className="zeus-landing__faq-answer">
-              Soon™️. But faster with Zeus Army. More engagement = More visibility = More buyers = 🌙
+              Soon. But faster with Zeus Army. More engagement = More visibility = More buyers = Moon
             </p>
           </div>
         </section>
@@ -346,7 +331,7 @@ export default function HomePage() {
           }}>
             Join hundreds of PepesDog degens already pumping the timeline!<br/>
             <span style={{ fontSize: 'clamp(1rem, 2vw, 1.3rem)' }}>
-              LFG! It's time to dominate X together! 🚀
+              LFG! It's time to dominate X together!
             </span>
           </p>
 
@@ -355,7 +340,7 @@ export default function HomePage() {
             className="zeus-landing__button"
             style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)' }}
           >
-            ⚡ JOIN ZEUS ARMY NOW ⚡
+            JOIN ZEUS ARMY NOW
           </button>
 
           <p style={{
@@ -374,7 +359,7 @@ export default function HomePage() {
       <footer className="zeus-landing__footer">
         <p className="zeus-landing__footer-text">
           Zeus Army Network • Part of the PepesDog Ecosystem<br/>
-          Built by degens, for degens 🤝
+          Built by degens, for degens
         </p>
         <a href="/admin" className="zeus-landing__footer-link">
           [Admin Access]

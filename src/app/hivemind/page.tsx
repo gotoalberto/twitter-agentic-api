@@ -229,17 +229,17 @@ export default function HivemindDashboard() {
             <div className="zeus-warning">
               <h4>⚠️ IMPORTANT INFORMATION</h4>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
-                  ✅ Only "pepesdog" tweets are automatically engaged
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem', color: '#2C2C2C' }}>
+                  Only "pepesdog" tweets are automatically engaged
                 </li>
-                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
-                  🔒 Your credentials are encrypted with military-grade security
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem', color: '#2C2C2C' }}>
+                  Your credentials are encrypted with military-grade security
                 </li>
-                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
-                  🚪 You can disconnect anytime - Full control remains yours
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem', color: '#2C2C2C' }}>
+                  You can disconnect anytime - Full control remains yours
                 </li>
-                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
-                  🚀 The more members, the stronger we all become!
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem', color: '#2C2C2C' }}>
+                  The more members, the stronger we all become!
                 </li>
               </ul>
             </div>
@@ -266,8 +266,8 @@ export default function HivemindDashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                     </div>
-                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>TWEET POWER</h4>
-                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem', color: '#2C2C2C' }}>TWEET POWER</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem', color: '#2C2C2C' }}>
                       Post & RT tweets
                     </p>
                   </div>
@@ -278,8 +278,8 @@ export default function HivemindDashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
                     </div>
-                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>LIKE FORCE</h4>
-                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem', color: '#2C2C2C' }}>LIKE FORCE</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem', color: '#2C2C2C' }}>
                       Auto-like content
                     </p>
                   </div>
@@ -290,8 +290,8 @@ export default function HivemindDashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
-                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>ARMY UNITY</h4>
-                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem', color: '#2C2C2C' }}>ARMY UNITY</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem', color: '#2C2C2C' }}>
                       Support community
                     </p>
                   </div>
