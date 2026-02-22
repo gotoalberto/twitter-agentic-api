@@ -11,6 +11,30 @@ import {
   validateState,
 } from '@/lib/twitter/oauth2';
 
+// Helper to determine redirect URL based on authentication status
+function getRedirectUrl(request: NextRequest, projectId: string | undefined, status: 'success' | 'error', message?: string) {
+  const isPublicFlow = request.cookies.get('oauth_public_flow')?.value === 'true';
+
+  if (isPublicFlow && projectId) {
+    // Redirect to public project page
+    const baseUrl = `/project/${projectId}`;
+    return status === 'success'
+      ? `${baseUrl}?success=bot_connected`
+      : `${baseUrl}?error=${encodeURIComponent(message || 'oauth_failed')}`;
+  }
+
+  // Default: redirect to dashboard (for admin users)
+  if (projectId) {
+    return status === 'success'
+      ? `/dashboard/projects/${projectId}?success=bot_connected`
+      : `/dashboard/projects/${projectId}?error=${encodeURIComponent(message || 'oauth_failed')}`;
+  }
+
+  return status === 'success'
+    ? '/dashboard?success=bot_connected'
+    : `/dashboard?error=${encodeURIComponent(message || 'oauth_failed')}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -32,9 +56,7 @@ export async function GET(request: NextRequest) {
     console.error('Error:', error);
 
     const projectIdFromCookie = request.cookies.get('oauth_project_id')?.value;
-    const errorRedirectUrl = projectIdFromCookie
-      ? `/dashboard/projects/${projectIdFromCookie}?error=${encodeURIComponent(error.message || 'oauth_failed')}`
-      : `/dashboard?error=${encodeURIComponent(error.message || 'oauth_failed')}`;
+    const errorRedirectUrl = getRedirectUrl(request, projectIdFromCookie, 'error', error.message);
 
     const response = NextResponse.redirect(new URL(errorRedirectUrl, request.url));
     clearOAuthCookies(response);
@@ -204,9 +226,7 @@ async function handleOAuth2Callback(request: NextRequest, searchParams: URLSearc
   console.log('⚠️  Webhook registration skipped for OAuth 2.0 bot (not yet implemented)');
 
   // Clear cookies and redirect
-  const redirectUrl = projectIdFromCookie
-    ? `/dashboard/projects/${project.id}?success=bot_connected`
-    : '/dashboard?success=bot_connected';
+  const redirectUrl = getRedirectUrl(request, project.id, 'success');
 
   console.log('✅ Redirecting to:', redirectUrl);
 
@@ -264,9 +284,10 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
   // OAuth 1.0a flow requires consumer key/secret
   if (!apiKey || !apiSecret) {
     console.error('❌ OAuth 1.0a credentials not configured for this TwitterApp');
-    return NextResponse.redirect(
-      `${origin}/dashboard/projects/${projectIdFromCookie}?error=oauth1_not_configured`
-    );
+    const errorRedirectUrl = getRedirectUrl(request, projectIdFromCookie, 'error', 'oauth1_not_configured');
+    const response = NextResponse.redirect(new URL(errorRedirectUrl, request.url));
+    clearOAuthCookies(response);
+    return response;
   }
 
   // Initialize Twitter client with temporary credentials
@@ -494,9 +515,7 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
   }
 
   // Clear cookies and redirect
-  const redirectUrl = projectIdFromCookie
-    ? `/dashboard/projects/${project.id}?success=bot_connected`
-    : '/dashboard?success=bot_connected';
+  const redirectUrl = getRedirectUrl(request, project.id, 'success');
 
   console.log('✅ Redirecting to:', redirectUrl);
 
@@ -522,4 +541,5 @@ function clearOAuthCookies(response: NextResponse) {
   // Common cookies
   response.cookies.delete('oauth_project_id');
   response.cookies.delete('oauth_twitter_app_id');
+  response.cookies.delete('oauth_public_flow');
 }

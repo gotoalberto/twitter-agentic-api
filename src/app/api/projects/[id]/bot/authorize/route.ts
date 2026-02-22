@@ -23,12 +23,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify admin authentication
+    // This endpoint is PUBLIC - anyone with the project link can connect a bot
+    // No authentication required to allow external users to connect their bots
     const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const isAdmin = session && session.user;
 
     const { id: projectId } = await params;
 
@@ -126,6 +124,15 @@ export async function GET(
         path: '/',
       });
 
+      // Set flag to indicate if this is a public flow (non-admin user)
+      response.cookies.set('oauth_public_flow', (!isAdmin).toString(), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
       return response;
     } else {
       // ====================================
@@ -195,6 +202,15 @@ export async function GET(
 
       // Set flag to indicate OAuth 1.0a flow
       response.cookies.set('oauth_version', '1.0a', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+
+      // Set flag to indicate if this is a public flow (non-admin user)
+      response.cookies.set('oauth_public_flow', (!isAdmin).toString(), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',

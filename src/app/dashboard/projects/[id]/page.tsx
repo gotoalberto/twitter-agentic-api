@@ -498,6 +498,15 @@ function ProjectDetailContent() {
     window.location.href = `/api/projects/${projectId}/bot/authorize`;
   };
 
+  const copyProjectLink = () => {
+    const projectUrl = `${window.location.origin}/project/${projectId}`;
+    navigator.clipboard.writeText(projectUrl).then(() => {
+      setMessage({ type: 'success', text: 'Project link copied to clipboard!' });
+    }).catch(() => {
+      setMessage({ type: 'error', text: 'Failed to copy link' });
+    });
+  };
+
   const disconnectBot = async () => {
     if (!confirm('Are you sure you want to disconnect the bot?')) {
       return;
@@ -583,6 +592,16 @@ function ProjectDetailContent() {
                 <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
                 <p className="text-sm text-gray-500">Project Configuration</p>
               </div>
+              <button
+                onClick={copyProjectLink}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-colors ml-4"
+                title="Share project link"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                </svg>
+                <span className="text-sm font-medium">Share</span>
+              </button>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
