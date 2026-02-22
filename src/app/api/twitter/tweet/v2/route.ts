@@ -18,6 +18,7 @@ import { getProjectById } from '@/lib/db/projects';
 import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 import { getHivemindUserByUsername, getHivemindConfig, updateHivemindUserActivity } from '@/lib/db/hivemind';
 import { prisma } from '@/lib/db/prisma';
+import { isTokenExpired, refreshAccessToken, calculateExpirationDate } from '@/lib/twitter/oauth2';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -195,6 +196,7 @@ export async function POST(request: NextRequest) {
     let isHivemind = false;
     let projectId: string | null = null;
     let userCredentials: { accessToken: string; accessTokenSecret: string } | null = null;
+    let oauth2Token: string | null = null; // For OAuth 2.0 support
     let consumerKey: string | undefined;
     let consumerSecret: string | undefined;
 
@@ -269,10 +271,75 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('✅ Hivemind user found:', hivemindUser.username);
-      userCredentials = {
-        accessToken: hivemindUser.accessToken,
-        accessTokenSecret: hivemindUser.accessTokenSecret
-      };
+
+      // Check if user has OAuth 2.0 tokens
+      let useOAuth2 = false;
+
+      if (hivemindUser.oauth2AccessToken) {
+        console.log('🔐 User has OAuth 2.0 tokens');
+
+        // Check if token is expired
+        if (isTokenExpired(hivemindUser.expiresAt)) {
+          console.log('⏰ OAuth 2.0 token expired, attempting refresh...');
+
+          if (hivemindUser.refreshToken && hivemindConfig.twitterApp?.clientId && hivemindConfig.twitterApp?.clientSecret) {
+            try {
+              const refreshedTokens = await refreshAccessToken({
+                refreshToken: hivemindUser.refreshToken,
+                clientId: hivemindConfig.twitterApp.clientId,
+                clientSecret: hivemindConfig.twitterApp.clientSecret
+              });
+
+              // Update tokens in database
+              const newExpiresAt = calculateExpirationDate(refreshedTokens.expiresIn);
+              await prisma.hivemindUser.update({
+                where: { userId: hivemindUser.userId },
+                data: {
+                  oauth2AccessToken: refreshedTokens.accessToken,
+                  refreshToken: refreshedTokens.refreshToken || hivemindUser.refreshToken,
+                  expiresAt: newExpiresAt,
+                  scope: refreshedTokens.scope
+                }
+              });
+
+              console.log('✅ Token refreshed successfully');
+              console.log('   New expiration:', newExpiresAt.toISOString());
+
+              oauth2Token = refreshedTokens.accessToken;
+              useOAuth2 = true;
+            } catch (error: any) {
+              console.error('❌ Failed to refresh OAuth 2.0 token:', error.message);
+              console.log('   User needs to re-authenticate');
+              return NextResponse.json(
+                { error: 'OAuth 2.0 token expired and refresh failed. Please reconnect to Hivemind.' },
+                { status: 401 }
+              );
+            }
+          } else {
+            console.log('❌ Cannot refresh token - missing refresh token or OAuth 2.0 credentials');
+            return NextResponse.json(
+              { error: 'OAuth 2.0 token expired. Please reconnect to Hivemind.' },
+              { status: 401 }
+            );
+          }
+        } else {
+          console.log('✅ OAuth 2.0 token is still valid');
+          oauth2Token = hivemindUser.oauth2AccessToken;
+          useOAuth2 = true;
+        }
+      } else if (hivemindUser.accessToken && hivemindUser.accessTokenSecret) {
+        console.log('🔐 User has OAuth 1.0a tokens');
+        userCredentials = {
+          accessToken: hivemindUser.accessToken,
+          accessTokenSecret: hivemindUser.accessTokenSecret
+        };
+      } else {
+        console.log('❌ User has no valid authentication tokens');
+        return NextResponse.json(
+          { error: 'User has no authentication tokens. Please reconnect to Hivemind.' },
+          { status: 401 }
+        );
+      }
 
       // Update user activity
       await updateHivemindUserActivity(hivemindUser.userId);
@@ -288,17 +355,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (!hivemindConfig.twitterApp.consumerKey || !hivemindConfig.twitterApp.consumerSecret) {
-        console.error('❌ Hivemind TwitterApp missing OAuth 1.0a credentials');
-        return NextResponse.json({
-          success: false,
-          error: 'Hivemind TwitterApp does not have OAuth 1.0a credentials configured'
-        }, { status: 500 });
+      // For OAuth 1.0a, we need consumer key/secret
+      if (!useOAuth2) {
+        if (!hivemindConfig.twitterApp.consumerKey || !hivemindConfig.twitterApp.consumerSecret) {
+          console.error('❌ Hivemind TwitterApp missing OAuth 1.0a credentials');
+          return NextResponse.json({
+            success: false,
+            error: 'Hivemind TwitterApp does not have OAuth 1.0a credentials configured'
+          }, { status: 500 });
+        }
+        consumerKey = hivemindConfig.twitterApp.consumerKey;
+        consumerSecret = hivemindConfig.twitterApp.consumerSecret;
       }
 
-      consumerKey = hivemindConfig.twitterApp.consumerKey;
-      consumerSecret = hivemindConfig.twitterApp.consumerSecret;
       console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
+      console.log('   Auth method:', useOAuth2 ? 'OAuth 2.0' : 'OAuth 1.0a');
 
       isHivemind = true;
     } else {
@@ -398,9 +469,12 @@ export async function POST(request: NextRequest) {
     }
     console.log('');
 
-    // Ensure we have credentials
-    if (!consumerKey || !consumerSecret) {
+    // Ensure we have credentials (OAuth 1.0a needs consumer key/secret, OAuth 2.0 needs token)
+    if (!oauth2Token && (!consumerKey || !consumerSecret)) {
       console.log('❌ Missing Twitter API credentials');
+      console.log('   OAuth 2.0 token:', oauth2Token ? '✅' : '❌');
+      console.log('   OAuth 1.0a consumer key:', consumerKey ? '✅' : '❌');
+      console.log('   OAuth 1.0a consumer secret:', consumerSecret ? '✅' : '❌');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
@@ -409,8 +483,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userCredentials) {
+    if (!oauth2Token && !userCredentials) {
       console.log('❌ No user credentials found');
+      console.log('   OAuth 2.0 token:', oauth2Token ? '✅' : '❌');
+      console.log('   OAuth 1.0a credentials:', userCredentials ? '✅' : '❌');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
@@ -460,14 +536,23 @@ export async function POST(request: NextRequest) {
       console.log('');
     }
 
-    // Create Twitter client with OAuth 1.0a
+    // Create Twitter client
     console.log('🔑 Initializing Twitter client...');
-    const client = new TwitterApi({
-      appKey: consumerKey,
-      appSecret: consumerSecret,
-      accessToken: userCredentials.accessToken,
-      accessSecret: userCredentials.accessTokenSecret,
-    } as any);
+    let client: TwitterApi;
+
+    // Check if this is a Hivemind request with OAuth 2.0
+    if (isHivemind && oauth2Token) {
+      console.log('   Using OAuth 2.0 bearer token');
+      client = new TwitterApi(oauth2Token);
+    } else {
+      console.log('   Using OAuth 1.0a credentials');
+      client = new TwitterApi({
+        appKey: consumerKey,
+        appSecret: consumerSecret,
+        accessToken: userCredentials.accessToken,
+        accessSecret: userCredentials.accessTokenSecret,
+      } as any);
+    }
 
     // Handle media upload if provided
     let mediaId: string | undefined;
