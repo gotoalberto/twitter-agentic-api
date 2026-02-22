@@ -406,13 +406,15 @@
   }
 
   /* How it works title */
-  h2[style*="font-size: 3rem"] {
+  .zeus-how-it-works {
     font-size: 2rem !important;
+    padding: 0 0.5rem;
   }
 
   /* Ready to join title */
-  h2[style*="font-size: 2.5rem"] {
+  .zeus-ready-title {
     font-size: 1.8rem !important;
+    padding: 0 0.5rem;
   }
 
   /* Join button in call to action */
@@ -476,6 +478,54 @@
   /* Warning list items */
   .zeus-warning ul li {
     font-size: 0.9rem !important;
+  }
+
+  /* Text overflow fixes */
+  h2, h3, h4, p {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Ensure proper text display */
+  .zeus-hero h1, .zeus-hero p {
+    width: 100%;
+    padding: 0 0.5rem;
+  }
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 480px) {
+  .zeus-title {
+    font-size: 2rem !important;
+  }
+
+  .zeus-subtitle {
+    font-size: 1rem !important;
+    padding: 0 1rem;
+  }
+
+  .zeus-card {
+    padding: 1rem;
+    border-radius: 15px;
+  }
+
+  .zeus-button {
+    font-size: 0.9rem !important;
+    padding: 0.7rem 1.2rem !important;
+  }
+
+  .zeus-info-box h4 {
+    font-size: 1.1rem;
+  }
+
+  .zeus-list-item {
+    font-size: 0.85rem;
+  }
+
+  .zeus-list-item span:first-child {
+    font-size: 1.2rem !important;
+    margin-right: 0.5rem !important;
   }
 }
 

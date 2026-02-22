@@ -163,7 +163,7 @@ export default function HivemindDashboard() {
 
           {/* How it works section */}
           <div className="zeus-section">
-            <h2 style={{
+            <h2 className="zeus-how-it-works" style={{
               fontFamily: 'GROBOLD',
               fontSize: '3rem',
               textAlign: 'center',
@@ -172,7 +172,8 @@ export default function HivemindDashboard() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               marginBottom: '2rem',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              lineHeight: '1.2'
             }}>
               How Zeus Army Works
             </h2>
@@ -310,14 +311,15 @@ export default function HivemindDashboard() {
                 border: '3px solid #FFD700',
                 boxShadow: '0 5px 0 #FFD700, 0 8px 15px rgba(255, 215, 0, 0.3)'
               }}>
-                <h2 style={{
+                <h2 className="zeus-ready-title" style={{
                   fontFamily: 'GROBOLD',
                   fontSize: '2.5rem',
                   background: 'linear-gradient(90deg, #FF6B6B 0%, #FFD700 50%, #4BB749 100%)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  lineHeight: '1.2'
                 }}>
                   READY TO JOIN?
                 </h2>
