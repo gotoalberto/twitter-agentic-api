@@ -757,11 +757,12 @@ These endpoints use the default "goodboy" project:
 ## Recent Updates
 
 ### Version 2.1.2 - February 22, 2026
-- **Final Fix for HivemindConfig Unique Constraint**: Implemented two-step update process to handle Prisma's unique constraint properly
-  - When changing twitterAppId, first sets it to null, then updates to new value
-  - Added early return if no changes are detected
-  - Enhanced debug logging to track all update operations
-  - This completely resolves the P2002 error for all edge cases
+- **Complete Fix for HivemindConfig Issues**:
+  - **Root cause found**: Missing database migration for `api_key` field was causing schema mismatches
+  - Applied missing migration to add `api_key` column to `hivemind_config` table
+  - Implemented comprehensive logging to track all database operations
+  - Added two-step update process for handling unique constraints safely
+  - Database schema now fully aligned with Prisma schema
 
 ### Version 2.1.1 - February 22, 2026
 - **HivemindConfig Update Improvements**: Initial attempts to fix unique constraint issues
