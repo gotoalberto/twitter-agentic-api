@@ -7,6 +7,7 @@ import {
   deleteTwitterApp,
 } from '@/lib/db/twitter-apps';
 import { prisma } from '@/lib/db/prisma';
+import { deleteWebhookForApp, registerWebhookForApp } from '@/lib/twitter/webhook-management';
 
 /**
  * GET: Get a single Twitter App with decrypted credentials (for editing)
@@ -39,6 +40,9 @@ export async function GET(
         clientSecret: app.clientSecret,
         bearerToken: app.bearerToken,
         webhookEnv: app.webhookEnv,
+        webhookId: app.webhookId,
+        webhookUrl: app.webhookUrl,
+        webhookValid: app.webhookValid,
         createdAt: app.createdAt,
         updatedAt: app.updatedAt,
       },
@@ -89,11 +93,25 @@ export async function PUT(
 
     const app = await updateTwitterApp(id, updateData);
 
+    // If bearer token was updated, try to re-register webhook
+    if (body.bearerToken !== undefined && body.bearerToken.trim() !== '') {
+      console.log('🔄 Bearer token updated, re-registering webhook...');
+      const webhookResult = await registerWebhookForApp(id);
+
+      if (webhookResult.success) {
+        console.log('✅ Webhook re-registered successfully');
+      } else {
+        console.warn('⚠️ Webhook re-registration failed:', webhookResult.error);
+      }
+    }
+
     return NextResponse.json({
       app: {
         id: app.id,
         name: app.name,
         webhookEnv: app.webhookEnv,
+        webhookId: app.webhookId,
+        webhookValid: app.webhookValid,
         updatedAt: app.updatedAt,
       },
     });
@@ -131,6 +149,17 @@ export async function DELETE(
         { error: `Cannot delete: ${projectCount} project(s) are still using this app. Reassign them first.` },
         { status: 409 }
       );
+    }
+
+    // Delete webhook from X API before deleting the app
+    console.log('🗑️ Deleting webhook for TwitterApp before deletion:', id);
+    const webhookResult = await deleteWebhookForApp(id);
+
+    if (webhookResult.success) {
+      console.log('✅ Webhook deleted successfully');
+    } else {
+      console.warn('⚠️ Webhook deletion failed:', webhookResult.error);
+      // Continue with app deletion anyway
     }
 
     await deleteTwitterApp(id);

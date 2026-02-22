@@ -8,6 +8,9 @@ interface TwitterApp {
   id: string;
   name: string;
   webhookEnv: string;
+  webhookId?: string | null;
+  webhookUrl?: string | null;
+  webhookValid?: boolean;
   createdAt: string;
   updatedAt: string;
   projectCount: number;
@@ -290,13 +293,38 @@ export default function AppsPage() {
                   </div>
 
                   {/* Project count */}
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-400"></div>
                       <span className="text-sm text-gray-600">
                         {app.projectCount} project{app.projectCount !== 1 ? 's' : ''} assigned
                       </span>
                     </div>
+                  </div>
+
+                  {/* Webhook Status */}
+                  <div className="mb-4">
+                    {app.webhookUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${app.webhookValid ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                          <span className="text-sm text-gray-600">
+                            Webhook: <span className="font-medium">{app.webhookValid ? 'Active' : 'Registered'}</span>
+                          </span>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2 break-all">
+                          <p className="text-xs text-gray-500 mb-1">Webhook URL:</p>
+                          <p className="text-xs font-mono text-gray-700">{app.webhookUrl}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                        <span className="text-sm text-gray-500">
+                          No webhook registered
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Stats */}
@@ -436,9 +464,12 @@ export default function AppsPage() {
               </div>
 
               {/* Help Text */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-2">
                 <p className="text-sm text-gray-700">
                   <strong>Note:</strong> You must provide either OAuth 1.0a credentials (Consumer Key/Secret) or OAuth 2.0 credentials (Client ID/Secret), or both. OAuth 2.0 is recommended for new apps.
+                </p>
+                <p className="text-sm text-gray-700">
+                  <strong>Webhook:</strong> A webhook URL will be automatically generated and registered with X API when you create or update this app (requires valid Bearer Token).
                 </p>
               </div>
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { getAllTwitterApps, createTwitterApp } from '@/lib/db/twitter-apps';
+import { registerWebhookForApp } from '@/lib/twitter/webhook-management';
 
 /**
  * GET: List all Twitter Apps (credentials masked)
@@ -20,6 +21,9 @@ export async function GET() {
       id: app.id,
       name: app.name,
       webhookEnv: app.webhookEnv,
+      webhookId: app.webhookId,
+      webhookUrl: app.webhookUrl,
+      webhookValid: app.webhookValid,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
       projectCount: (app as any)._count?.projects ?? 0,
@@ -73,11 +77,24 @@ export async function POST(request: NextRequest) {
       webhookEnv: webhookEnv?.trim() || 'production',
     });
 
+    // Register webhook for the new app
+    console.log('🔄 Registering webhook for new TwitterApp:', app.name);
+    const webhookResult = await registerWebhookForApp(app.id);
+
+    if (webhookResult.success) {
+      console.log('✅ Webhook registered successfully for app:', app.name);
+    } else {
+      console.warn('⚠️ Webhook registration failed:', webhookResult.error);
+      // Continue anyway - webhook can be registered later
+    }
+
     return NextResponse.json({
       app: {
         id: app.id,
         name: app.name,
         webhookEnv: app.webhookEnv,
+        webhookId: webhookResult.webhookId || null,
+        webhookRegistered: webhookResult.success,
         createdAt: app.createdAt,
       },
     }, { status: 201 });

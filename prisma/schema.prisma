@@ -26,6 +26,13 @@ model TwitterApp {
   bearerToken    String
 
   webhookEnv     String          @default("production")
+
+  // Webhook configuration (one webhook per app)
+  webhookId         String?      // X webhook ID
+  webhookUrl        String?      // Full webhook URL for this app
+  webhookValid      Boolean      @default(false)
+  webhookCreatedAt  DateTime?    // When webhook was registered in X
+
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   projects       Project[]

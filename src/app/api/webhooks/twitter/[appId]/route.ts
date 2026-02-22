@@ -120,13 +120,16 @@ export async function POST(
       } else {
         console.log('🔍 LOOKING UP PROJECT FOR BOT');
         console.log('   Bot User ID:', forUserId);
+        console.log('   Twitter App ID:', appId);
 
+        // Find bot that belongs to a project using this TwitterApp
         const bot = await prisma.bot.findUnique({
           where: { userId: forUserId },
           include: {
             project: {
               include: {
                 forwardingEndpoints: true,
+                twitterApp: true,
               },
             },
           },
@@ -134,9 +137,14 @@ export async function POST(
 
         if (!bot) {
           console.log(`⚠️  FORWARDING SKIPPED: No bot found for user ID: ${forUserId}`);
+        } else if (bot.project.twitterAppId !== appId) {
+          console.log(`⚠️  FORWARDING SKIPPED: Bot's project uses different app`);
+          console.log(`   Bot's app: ${bot.project.twitterAppId}`);
+          console.log(`   Webhook app: ${appId}`);
         } else {
           console.log(`   ✅ Bot found: @${bot.username}`);
           console.log(`   📁 Project: ${bot.project.name}`);
+          console.log(`   🔑 App matched: ${bot.project.twitterApp?.name}`);
 
           const endpoints = bot.project.forwardingEndpoints;
 
