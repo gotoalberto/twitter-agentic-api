@@ -561,6 +561,21 @@ export async function POST(request: NextRequest) {
     let mediaId: string | undefined;
 
     if (hasImage || hasVideo) {
+      // Check if user is using OAuth 2.0 - media upload requires OAuth 1.0a
+      if (isHivemind && oauth2Token && !userCredentials) {
+        console.log('❌ Media upload not supported with OAuth 2.0');
+        console.log('   OAuth 2.0 users cannot upload media at this time');
+        console.log('   Twitter API v1.1 (used for media upload) requires OAuth 1.0a');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          {
+            error: 'Media upload is not supported for OAuth 2.0 users. Please post text-only tweets or reconnect with OAuth 1.0a to upload media.',
+            details: 'Twitter API v1.1 media upload requires OAuth 1.0a authentication'
+          },
+          { status: 400 }
+        );
+      }
       let mediaBuffer: Buffer;
       let mediaType: 'image' | 'video';
       let mimeType: string;
