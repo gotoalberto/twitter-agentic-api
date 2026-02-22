@@ -46,6 +46,7 @@ export default function AppsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [registeringWebhook, setRegisteringWebhook] = useState<string | null>(null);
+  const [deletingWebhook, setDeletingWebhook] = useState<string | null>(null);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -205,6 +206,44 @@ export default function AppsPage() {
     }
   };
 
+  const handleDeleteWebhook = async (appId: string, appName: string) => {
+    if (!confirm(`Are you sure you want to delete the webhook for "${appName}"? This will stop receiving events from Twitter.`)) {
+      return;
+    }
+
+    setDeletingWebhook(appId);
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/twitter-apps/${appId}/delete-webhook`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({
+          type: 'error',
+          text: data.error || 'Failed to delete webhook. Please try again later.'
+        });
+        return;
+      }
+
+      setMessage({
+        type: 'success',
+        text: `Webhook deleted successfully for "${appName}"`
+      });
+      await fetchApps(); // Refresh to show updated webhook status
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: 'Failed to delete webhook. Please check your network connection.'
+      });
+    } finally {
+      setDeletingWebhook(null);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -359,6 +398,28 @@ export default function AppsPage() {
                           <p className="text-xs text-gray-500 mb-1">Webhook URL:</p>
                           <p className="text-xs font-mono text-gray-700">{app.webhookUrl}</p>
                         </div>
+                        <button
+                          onClick={() => handleDeleteWebhook(app.id, app.name)}
+                          disabled={deletingWebhook === app.id}
+                          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-medium py-1.5 px-3 rounded transition duration-200 flex items-center justify-center gap-2 mt-2"
+                        >
+                          {deletingWebhook === app.id ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Deleting Webhook...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete Webhook
+                            </>
+                          )}
+                        </button>
                       </div>
                     ) : (
                       <div className="space-y-2">
