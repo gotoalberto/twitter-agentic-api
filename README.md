@@ -756,13 +756,18 @@ These endpoints use the default "goodboy" project:
 
 ## Recent Updates
 
+### Version 2.1.3 - February 22, 2026
+- **FINAL FIX - HivemindConfig Duplicate Records**:
+  - **Real root cause**: Database had duplicate HivemindConfig records (should be singleton)
+  - Cleaned up duplicate records, keeping only the most recent one
+  - Implemented atomic transaction-based updates to prevent race conditions
+  - Simplified logic to work with single config record (as designed)
+  - Added database cleanup script for maintenance
+
 ### Version 2.1.2 - February 22, 2026
-- **Complete Fix for HivemindConfig Issues**:
-  - **Root cause found**: Missing database migration for `api_key` field was causing schema mismatches
-  - Applied missing migration to add `api_key` column to `hivemind_config` table
-  - Implemented comprehensive logging to track all database operations
-  - Added two-step update process for handling unique constraints safely
-  - Database schema now fully aligned with Prisma schema
+- **Database Schema Fix**: Applied missing migration for `api_key` field
+  - Added comprehensive logging for debugging
+  - Database schema aligned with Prisma schema
 
 ### Version 2.1.1 - February 22, 2026
 - **HivemindConfig Update Improvements**: Initial attempts to fix unique constraint issues
