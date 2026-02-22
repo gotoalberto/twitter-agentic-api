@@ -88,6 +88,18 @@ export async function DELETE(
 
       console.log(`🗑️ Deleted ${deletedWebhooks.count} webhook registration(s) from database`);
 
+      // Update TwitterApp to clear webhook fields
+      await prisma.twitterApp.update({
+        where: { id: twitterAppId },
+        data: {
+          webhookId: null,
+          webhookUrl: null,
+          webhookValid: false
+        }
+      });
+
+      console.log('✅ TwitterApp webhook fields cleared');
+
       return NextResponse.json({
         success: true,
         message: 'Webhook deleted successfully',
@@ -102,6 +114,16 @@ export async function DELETE(
       try {
         const deletedWebhooks = await prisma.webhookRegistration.deleteMany({
           where: { url: webhookUrl }
+        });
+
+        // Update TwitterApp to clear webhook fields even if Twitter deletion failed
+        await prisma.twitterApp.update({
+          where: { id: twitterAppId },
+          data: {
+            webhookId: null,
+            webhookUrl: null,
+            webhookValid: false
+          }
         });
 
         return NextResponse.json({
