@@ -12,6 +12,9 @@ export async function getHivemindConfig() {
 }
 
 export async function createOrUpdateHivemindConfig(twitterAppId: string | null, enabled: boolean) {
+  // Normalize the input
+  const normalizedAppId = (!twitterAppId || twitterAppId === '') ? null : twitterAppId;
+
   // First, try to find an existing config
   const existing = await prisma.hivemindConfig.findFirst({
     include: {
@@ -20,32 +23,53 @@ export async function createOrUpdateHivemindConfig(twitterAppId: string | null, 
   });
 
   if (existing) {
-    // Build update data object dynamically to avoid unique constraint issues
-    const updateData: any = {
-      enabled,
-      updatedAt: new Date()
-    };
-
-    // Only include twitterAppId in the update if it's actually changing
-    // Treat empty string as null for comparison
-    const normalizedExisting = existing.twitterAppId || null;
-    const normalizedNew = (!twitterAppId || twitterAppId === '') ? null : twitterAppId;
-
     // Log for debugging
-    console.log('🔍 HivemindConfig update comparison:', {
-      existing: normalizedExisting,
-      new: normalizedNew,
-      areEqual: normalizedExisting === normalizedNew
+    console.log('🔍 HivemindConfig update:', {
+      existingId: existing.id,
+      existingAppId: existing.twitterAppId,
+      newAppId: normalizedAppId,
+      enabled,
+      isSameAppId: existing.twitterAppId === normalizedAppId
     });
 
-    if (normalizedExisting !== normalizedNew) {
-      // Only update twitterAppId if it's actually different
-      updateData.twitterAppId = normalizedNew;
+    // If nothing is changing, just return the existing config
+    if (existing.twitterAppId === normalizedAppId && existing.enabled === enabled) {
+      console.log('✅ No changes detected, returning existing config');
+      return existing;
     }
 
+    // If we're changing to a different twitterAppId (including null to ID or ID to null)
+    // we need to be careful with the unique constraint
+    if (existing.twitterAppId !== normalizedAppId) {
+      // First, set to null to avoid unique constraint
+      if (existing.twitterAppId !== null) {
+        await prisma.hivemindConfig.update({
+          where: { id: existing.id },
+          data: { twitterAppId: null }
+        });
+      }
+
+      // Then update with the new value
+      return prisma.hivemindConfig.update({
+        where: { id: existing.id },
+        data: {
+          twitterAppId: normalizedAppId,
+          enabled,
+          updatedAt: new Date()
+        },
+        include: {
+          twitterApp: true
+        }
+      });
+    }
+
+    // Only enabled is changing
     return prisma.hivemindConfig.update({
       where: { id: existing.id },
-      data: updateData,
+      data: {
+        enabled,
+        updatedAt: new Date()
+      },
       include: {
         twitterApp: true
       }
@@ -53,9 +77,10 @@ export async function createOrUpdateHivemindConfig(twitterAppId: string | null, 
   }
 
   // No existing config, create a new one
+  console.log('🔍 Creating new HivemindConfig with appId:', normalizedAppId);
   return prisma.hivemindConfig.create({
     data: {
-      twitterAppId: (!twitterAppId || twitterAppId === '') ? null : twitterAppId,
+      twitterAppId: normalizedAppId,
       enabled
     },
     include: {

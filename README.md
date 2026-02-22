@@ -756,13 +756,17 @@ These endpoints use the default "goodboy" project:
 
 ## Recent Updates
 
+### Version 2.1.2 - February 22, 2026
+- **Final Fix for HivemindConfig Unique Constraint**: Implemented two-step update process to handle Prisma's unique constraint properly
+  - When changing twitterAppId, first sets it to null, then updates to new value
+  - Added early return if no changes are detected
+  - Enhanced debug logging to track all update operations
+  - This completely resolves the P2002 error for all edge cases
+
 ### Version 2.1.1 - February 22, 2026
-- **Fixed HivemindConfig Update Issue**: Resolved unique constraint error when updating Hivemind configuration with the same TwitterApp ID
-  - Implemented dynamic update object that only includes fields that actually change
-  - Fixed frontend state management to properly handle null values instead of converting to empty strings
-  - Added proper null/empty string normalization to prevent comparison mismatches
-  - Added debug logging to track update comparisons
-  - Prevents Prisma P2002 unique constraint violations on updates
+- **HivemindConfig Update Improvements**: Initial attempts to fix unique constraint issues
+  - Fixed frontend state management to properly handle null values
+  - Added proper null/empty string normalization
 
 ### Version 2.1.0 - February 2026
 - **OAuth Token Mismatch Detection**: Automatically detects when OAuth tokens are incompatible with the shared webhook and restarts the OAuth flow with the correct credentials
