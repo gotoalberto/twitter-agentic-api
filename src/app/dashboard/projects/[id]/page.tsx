@@ -499,9 +499,10 @@ function ProjectDetailContent() {
   };
 
   const copyProjectLink = () => {
-    const projectUrl = `${window.location.origin}/project/${projectId}`;
-    navigator.clipboard.writeText(projectUrl).then(() => {
-      setMessage({ type: 'success', text: 'Project link copied to clipboard!' });
+    // Direct OAuth authorization link for the project
+    const authUrl = `${window.location.origin}/api/projects/${projectId}/bot/authorize`;
+    navigator.clipboard.writeText(authUrl).then(() => {
+      setMessage({ type: 'success', text: 'Bot authorization link copied! Share this with someone to let them connect their bot.' });
     }).catch(() => {
       setMessage({ type: 'error', text: 'Failed to copy link' });
     });
@@ -814,12 +815,12 @@ function ProjectDetailContent() {
                 <button
                   onClick={copyProjectLink}
                   className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                  title="Share this link with someone to let them connect their bot"
+                  title="Copy direct authorization link - share with anyone to let them connect their Twitter bot"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
                   </svg>
-                  Share Link
+                  Share Auth Link
                 </button>
               </div>
             </div>

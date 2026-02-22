@@ -12,15 +12,27 @@ import {
 } from '@/lib/twitter/oauth2';
 
 // Helper to determine redirect URL based on authentication status
-function getRedirectUrl(request: NextRequest, projectId: string | undefined, status: 'success' | 'error', message?: string) {
+function getRedirectUrl(
+  request: NextRequest,
+  projectId: string | undefined,
+  status: 'success' | 'error',
+  message?: string,
+  botUsername?: string,
+  projectName?: string
+) {
   const isPublicFlow = request.cookies.get('oauth_public_flow')?.value === 'true';
 
-  if (isPublicFlow && projectId) {
-    // Redirect to public project page
-    const baseUrl = `/project/${projectId}`;
-    return status === 'success'
-      ? `${baseUrl}?success=bot_connected`
-      : `${baseUrl}?error=${encodeURIComponent(message || 'oauth_failed')}`;
+  if (isPublicFlow) {
+    // Redirect to public success/error page
+    const params = new URLSearchParams();
+    if (status === 'success') {
+      params.set('success', 'true');
+      if (botUsername) params.set('bot', botUsername);
+      if (projectName) params.set('project', projectName);
+    } else {
+      params.set('error', encodeURIComponent(message || 'oauth_failed'));
+    }
+    return `/bot-connected?${params.toString()}`;
   }
 
   // Default: redirect to dashboard (for admin users)
@@ -226,7 +238,7 @@ async function handleOAuth2Callback(request: NextRequest, searchParams: URLSearc
   console.log('⚠️  Webhook registration skipped for OAuth 2.0 bot (not yet implemented)');
 
   // Clear cookies and redirect
-  const redirectUrl = getRedirectUrl(request, project.id, 'success');
+  const redirectUrl = getRedirectUrl(request, project.id, 'success', undefined, savedBot.username, project.name);
 
   console.log('✅ Redirecting to:', redirectUrl);
 
@@ -515,7 +527,7 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
   }
 
   // Clear cookies and redirect
-  const redirectUrl = getRedirectUrl(request, project.id, 'success');
+  const redirectUrl = getRedirectUrl(request, project.id, 'success', undefined, savedBot.username, project.name);
 
   console.log('✅ Redirecting to:', redirectUrl);
 
