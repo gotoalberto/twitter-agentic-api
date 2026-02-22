@@ -55,6 +55,7 @@ model Project {
   forwardingConfig     ForwardingConfig?
   forwardingEndpoints  ForwardingEndpoint[]
   idempotentTweets     IdempotentTweet[]
+  receivedTweets       ReceivedTweet[]
   twitterApp           TwitterApp?           @relation(fields: [twitterAppId], references: [id])
   webhookDeliveries    WebhookDelivery[]
   webhookLogs          WebhookLog[]
@@ -256,4 +257,56 @@ model HivemindUser {
   @@index([isActive])
   @@index([connectedAt])
   @@map("hivemind_users")
+}
+
+/// ReceivedTweet stores tweets received via webhook for a project
+/// Allows projects to query their tweet history via API
+model ReceivedTweet {
+  id                String   @id @default(cuid())
+  projectId         String   @map("project_id")
+
+  // Twitter identifiers
+  tweetId           String   @map("tweet_id")          // Twitter's tweet ID
+  userId            String   @map("user_id")           // ID of the user who posted the tweet
+  username          String                              // Username of the poster
+  userDisplayName   String?  @map("user_display_name") // Display name of the poster
+
+  // Tweet content
+  text              String                              // Full text of the tweet
+  truncated         Boolean  @default(false)           // Whether the tweet was truncated
+
+  // Reply information
+  inReplyToStatusId String?  @map("in_reply_to_status_id") // If this is a reply, the tweet it's replying to
+  inReplyToUserId   String?  @map("in_reply_to_user_id")   // If this is a reply, the user it's replying to
+
+  // Bot information
+  forUserId         String   @map("for_user_id")       // The bot user ID that received this tweet
+
+  // Metadata
+  lang              String?                            // Language of the tweet
+  retweetCount      Int      @default(0) @map("retweet_count")
+  favoriteCount     Int      @default(0) @map("favorite_count")
+  replyCount        Int      @default(0) @map("reply_count")
+  quoteCount        Int      @default(0) @map("quote_count")
+
+  // Media and entities (stored as JSON)
+  entities          Json?                              // Hashtags, mentions, URLs, etc.
+  extendedEntities  Json?    @map("extended_entities") // Media attachments
+
+  // Full raw payload for reference
+  rawPayload        Json     @map("raw_payload")       // Complete webhook payload
+
+  // Timestamps
+  tweetCreatedAt    DateTime @map("tweet_created_at")  // When the tweet was posted on Twitter
+  receivedAt        DateTime @default(now()) @map("received_at") // When we received the webhook
+
+  // Relations
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, tweetId]) // Prevent duplicate tweets per project
+  @@index([projectId, receivedAt(sort: Desc)]) // For querying latest tweets
+  @@index([projectId, forUserId]) // For filtering by bot
+  @@index([projectId, userId]) // For filtering by sender
+  @@index([tweetId]) // For looking up specific tweets
+  @@map("received_tweets")
 }

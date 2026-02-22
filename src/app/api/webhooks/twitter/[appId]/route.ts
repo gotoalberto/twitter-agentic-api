@@ -191,6 +191,56 @@ export async function POST(
               console.log('⏭️  No relevant events for this bot after filtering');
             } else {
               try {
+                // Store tweets in database before forwarding
+                if (eventType === 'tweet_create_events' && body.tweet_create_events?.length > 0) {
+                  console.log('💾 Storing tweets in database...');
+                  for (const tweet of body.tweet_create_events) {
+                    try {
+                      // Check if tweet already exists for this project
+                      const existing = await prisma.receivedTweet.findUnique({
+                        where: {
+                          projectId_tweetId: {
+                            projectId: bot.project.id,
+                            tweetId: tweet.id_str
+                          }
+                        }
+                      });
+
+                      if (!existing) {
+                        await prisma.receivedTweet.create({
+                          data: {
+                            projectId: bot.project.id,
+                            tweetId: tweet.id_str,
+                            userId: tweet.user?.id_str || '',
+                            username: tweet.user?.screen_name || '',
+                            userDisplayName: tweet.user?.name || null,
+                            text: tweet.text || tweet.full_text || '',
+                            truncated: tweet.truncated || false,
+                            inReplyToStatusId: tweet.in_reply_to_status_id_str || null,
+                            inReplyToUserId: tweet.in_reply_to_user_id_str || null,
+                            forUserId: forUserId,
+                            lang: tweet.lang || null,
+                            retweetCount: tweet.retweet_count || 0,
+                            favoriteCount: tweet.favorite_count || 0,
+                            replyCount: tweet.reply_count || 0,
+                            quoteCount: tweet.quote_count || 0,
+                            entities: tweet.entities || null,
+                            extendedEntities: tweet.extended_entities || null,
+                            rawPayload: tweet,
+                            tweetCreatedAt: new Date(tweet.created_at)
+                          }
+                        });
+                        console.log(`   ✅ Stored tweet ${tweet.id_str} from @${tweet.user?.screen_name}`);
+                      } else {
+                        console.log(`   ⏭️ Tweet ${tweet.id_str} already stored`);
+                      }
+                    } catch (storeError: any) {
+                      console.error(`   ❌ Failed to store tweet ${tweet.id_str}:`, storeError.message);
+                    }
+                  }
+                }
+
+                // Forward to endpoints
                 const { deliverToAllEndpoints } = await import('@/lib/webhooks/delivery');
                 await deliverToAllEndpoints(bot.project.id, eventType, filteredPayload);
                 console.log('   ✅ Delivered to all endpoints. Event type:', eventType);

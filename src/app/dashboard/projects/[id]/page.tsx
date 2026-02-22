@@ -92,6 +92,7 @@ function ProjectDetailContent() {
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
   const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
   const [isFollowingDocsOpen, setIsFollowingDocsOpen] = useState(false);
+  const [tweetsApiDocsOpen, setTweetsApiDocsOpen] = useState(false);
 
   // Webhook logs state
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
@@ -1876,6 +1877,234 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                     <li>• Relationship verification (confirm mutual connections)</li>
                     <li>• Influencer validation (check if user follows brand ambassadors)</li>
                     <li>• Trust scoring (build reputation based on who users follow)</li>
+                  </ul>
+                </div>
+                </div>
+              )}
+            </div>
+
+            {/* Received Tweets API Documentation - Collapsible */}
+            <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setTweetsApiDocsOpen(!tweetsApiDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-cyan-900 hover:text-cyan-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7 2a1 1 0 00-1 1v1H5a1 1 0 00-1 1v12a1 1 0 001 1h10a1 1 0 001-1V5a1 1 0 00-1-1h-1V3a1 1 0 00-1-1H7zM6 9a1 1 0 112 0 1 1 0 01-2 0zm0 3a1 1 0 112 0 1 1 0 01-2 0z" clipRule="evenodd"/>
+                  </svg>
+                  Received Tweets API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${tweetsApiDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {tweetsApiDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-1">Endpoint</p>
+                  <div className="bg-white rounded border border-cyan-200 p-2 font-mono text-cyan-900">
+                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/{projectId}/tweets
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Description</p>
+                  <p className="text-cyan-700">
+                    Retrieve tweets received by your bot via webhooks. All tweet_create_events are automatically stored in the database and can be queried through this API.
+                    Supports pagination and filtering by sender, bot account, and date range.
+                  </p>
+                </div>
+
+                {/* Query Parameters */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Query Parameters</p>
+                  <div className="bg-white rounded border border-cyan-200 p-2 space-y-2 font-mono text-cyan-900">
+                    <div>
+                      <div className="text-blue-600">page (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// Page number (default: 1)</div>
+                    </div>
+                    <div>
+                      <div className="text-blue-600">limit (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// Number of tweets per page (default: 20, max: 100)</div>
+                    </div>
+                    <div>
+                      <div className="text-blue-600">userId (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// Filter by sender user ID</div>
+                    </div>
+                    <div>
+                      <div className="text-blue-600">forUserId (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// Filter by bot user ID that received the tweet</div>
+                    </div>
+                    <div>
+                      <div className="text-blue-600">since (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// ISO date string - get tweets after this date</div>
+                    </div>
+                    <div>
+                      <div className="text-blue-600">until (optional)</div>
+                      <div className="text-cyan-600 text-[10px]">// ISO date string - get tweets before this date</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Headers Required */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Headers Required</p>
+                  <div className="bg-white rounded border border-cyan-200 p-2 font-mono text-cyan-900">
+                    X-API-Key: {apiKeyConfig?.apiKey || 'your_api_key_here'}
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?page=1&limit=10
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "tweets": [
+    {
+      "id": "cmlxhdksq0000jm043yu898dj",
+      "tweetId": "1867517889123456789",
+      "userId": "1234567890",
+      "username": "sender_username",
+      "userDisplayName": "Sender Display Name",
+      "text": "Hey @your_bot, how are you today?",
+      "truncated": false,
+      "inReplyToStatusId": null,
+      "inReplyToUserId": null,
+      "forUserId": "9876543210",
+      "lang": "en",
+      "retweetCount": 0,
+      "favoriteCount": 2,
+      "replyCount": 1,
+      "quoteCount": 0,
+      "entities": {
+        "hashtags": [],
+        "mentions": [
+          {
+            "screen_name": "your_bot",
+            "id_str": "9876543210"
+          }
+        ]
+      },
+      "extendedEntities": null,
+      "tweetCreatedAt": "2024-02-22T10:30:00.000Z",
+      "receivedAt": "2024-02-22T10:30:05.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5,
+    "totalCount": 48,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  }
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Get Specific Tweet */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Get Specific Tweet (POST method)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets
+Content-Type: application/json
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
+
+{
+  "tweetId": "1867517889123456789"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-cyan-700 text-[10px] mb-1">401 Unauthorized - Missing or invalid API key:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-cyan-700 text-[10px] mb-1">404 Not Found - Project not found:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Project not found" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-cyan-700 text-[10px] mb-1">403 Forbidden - API disabled:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "API is disabled for this project" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with curl */}
+                <div>
+                  <p className="text-cyan-800 font-semibold mb-2">Example with curl</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`# Get latest tweets (paginated)
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?page=1&limit=20" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"
+
+# Filter tweets from a specific user
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?userId=1234567890" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"
+
+# Get tweets from last 24 hours
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?since=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%SZ')" \\
+  -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
+                  </div>
+                </div>
+
+                {/* Use Cases */}
+                <div className="bg-cyan-100 border border-cyan-300 rounded p-2">
+                  <p className="text-[10px] text-cyan-800 mb-2">
+                    <strong>Common Use Cases:</strong>
+                  </p>
+                  <ul className="text-[10px] text-cyan-700 ml-4 space-y-1">
+                    <li>• Analyze mentions and engagement patterns</li>
+                    <li>• Build conversation history for context</li>
+                    <li>• Track specific user interactions over time</li>
+                    <li>• Generate analytics and reports</li>
+                    <li>• Implement custom moderation workflows</li>
+                    <li>• Create backup of received tweets</li>
+                    <li>• Build training datasets for AI/ML models</li>
+                    <li>• Monitor brand mentions and sentiment</li>
+                  </ul>
+                </div>
+
+                {/* Important Notes */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                  <p className="text-[10px] text-yellow-800 mb-2">
+                    <strong>Important Notes:</strong>
+                  </p>
+                  <ul className="text-[10px] text-yellow-700 ml-4 space-y-1">
+                    <li>• Only tweet_create_events are stored (not DMs, follows, or likes)</li>
+                    <li>• Tweets are stored immediately when received via webhook</li>
+                    <li>• Each project can only access its own tweets</li>
+                    <li>• Raw payload is preserved for accessing additional Twitter fields</li>
+                    <li>• Results are ordered by receivedAt date (newest first)</li>
+                    <li>• API key must match the project's configured key</li>
                   </ul>
                 </div>
                 </div>
