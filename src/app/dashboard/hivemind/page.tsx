@@ -259,7 +259,7 @@ Body:
 {
   "username": "user_handle",
   "text": "Check out #PEPESDOG - the next big thing!",
-  "imageUrl": "https://example.com/image.jpg"
+  "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
 }`}
                     </pre>
                   </div>
@@ -375,7 +375,7 @@ Body:
 {
   "username": "user_handle",
   "text": "Watch this epic #PEPESDOG moment!",
-  "videoUrl": "https://example.com/video.mp4"
+  "videoData": "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAA..."
 }`}
                     </pre>
                   </div>
@@ -397,6 +397,8 @@ Body:
                     <ul className="text-xs text-blue-700 space-y-1">
                       <li>• Only admin accounts can access the GET endpoints</li>
                       <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
+                      <li>• Images/videos must be sent as base64-encoded data (data:mime/type;base64,... format)</li>
+                      <li>• Maximum file sizes: Images 5MB, Videos 15MB</li>
                       <li>• Users can disconnect anytime from their dashboard</li>
                       <li>• All credentials are encrypted with AES-256-GCM</li>
                     </ul>

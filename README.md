@@ -476,24 +476,46 @@ curl -X POST https://hive.pepes.dog/api/twitter/tweet \
 #### With Image Attachment
 
 ```bash
+# Using data URL format (includes MIME type)
 curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
     "text": "Check out this image!",
-    "imageUrl": "https://example.com/image.jpg"
+    "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD..."
+  }'
+
+# Or using raw base64 with explicit MIME type
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bot_handle",
+    "text": "Check out this image!",
+    "imageData": "/9j/4AAQSkZJRgABAQEASABIAAD...",
+    "imageMimeType": "image/jpeg"
   }'
 ```
 
 #### With Video Attachment
 
 ```bash
+# Using data URL format (includes MIME type)
 curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
     "text": "Check out this video!",
-    "videoUrl": "https://example.com/video.mp4"
+    "videoData": "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG..."
+  }'
+
+# Or using raw base64 with explicit MIME type
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bot_handle",
+    "text": "Check out this video!",
+    "videoData": "AAAAHGZ0eXBtcDQyAAAAAG...",
+    "videoMimeType": "video/mp4"
   }'
 ```
 
@@ -610,8 +632,8 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
     "text": "Tweet text",
     "replyToTweetId": "optional_tweet_id",
     "idempotencyKey": "unique-key-123",
-    "imageUrl": "https://example.com/image.jpg",
-    "videoUrl": "https://example.com/video.mp4"
+    "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD...",
+    "videoData": "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG..."
   }
   ```
 
@@ -620,14 +642,17 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
   - `text` (required): Tweet text (max 280 characters)
   - `replyToTweetId` (optional): Tweet ID to reply to
   - `idempotencyKey` (optional): Prevents duplicate tweets on retry
-  - `imageUrl` (optional): URL of image to attach to tweet
-  - `videoUrl` (optional): URL of video to attach to tweet
+  - `imageData` (optional): Base64-encoded image data (data URL or raw base64)
+  - `imageMimeType` (optional): MIME type for raw base64 (default: image/jpeg)
+  - `videoData` (optional): Base64-encoded video data (data URL or raw base64)
+  - `videoMimeType` (optional): MIME type for raw base64 (default: video/mp4)
 
   **Media Attachments:**
-  - `imageUrl` and `videoUrl` are optional
+  - Send image/video as base64-encoded data
+  - Use data URL format: `data:<mime-type>;base64,<data>` or raw base64 with explicit MIME type
   - Only one media type per tweet (image OR video, not both)
-  - Media is downloaded from URL and uploaded to Twitter
-  - Media appears in tweet (not as URL in text)
+  - Media is uploaded directly to Twitter
+  - Media appears embedded in tweet (not as URL in text)
   - Supported image formats: PNG, JPG, GIF, WEBP
   - Supported video formats: MP4
 

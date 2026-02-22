@@ -61,10 +61,15 @@ interface TweetRequest {
  *   "idempotencyKey": "unique-key-123", // optional - prevents duplicate tweets on retry
  *
  *   // Option 1: Send image/video as base64 data (RECOMMENDED)
- *   "imageData": "base64_encoded_image_data", // optional - Base64 encoded image
- *   "imageMimeType": "image/png", // optional - MIME type (default: image/jpeg)
- *   "videoData": "base64_encoded_video_data", // optional - Base64 encoded video
- *   "videoMimeType": "video/mp4", // optional - MIME type (default: video/mp4)
+ *   "imageData": "data:image/jpeg;base64,/9j/4AAQ...", // Data URL format
+ *   // OR raw base64 with explicit MIME type:
+ *   "imageData": "/9j/4AAQ...", // Raw base64 data
+ *   "imageMimeType": "image/jpeg", // MIME type for raw base64 (default: image/jpeg)
+ *   // OR for video:
+ *   "videoData": "data:video/mp4;base64,AAAAHGZ0...", // Data URL format
+ *   // OR raw base64 with explicit MIME type:
+ *   "videoData": "AAAAHGZ0...", // Raw base64 data
+ *   "videoMimeType": "video/mp4", // MIME type for raw base64 (default: video/mp4)
  *
  *   // Option 2: Send image/video URLs (DEPRECATED - use base64 data instead)
  *   "imageUrl": "https://example.com/image.jpg", // deprecated - URL of image

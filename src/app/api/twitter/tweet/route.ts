@@ -58,11 +58,15 @@ interface TweetRequest {
  *   // Media options (use EITHER base64 data OR URL, not both):
  *
  *   // Option 1: Base64 encoded media (PREFERRED)
- *   "imageData": "base64_encoded_image_data", // Base64 encoded image
- *   "imageMimeType": "image/jpeg", // Optional MIME type (default: image/jpeg)
- *   // OR
- *   "videoData": "base64_encoded_video_data", // Base64 encoded video
- *   "videoMimeType": "video/mp4", // Optional MIME type (default: video/mp4)
+ *   "imageData": "data:image/jpeg;base64,/9j/4AAQ...", // Data URL format
+ *   // OR raw base64 with explicit MIME type:
+ *   "imageData": "/9j/4AAQ...", // Raw base64 data
+ *   "imageMimeType": "image/jpeg", // MIME type for raw base64 (default: image/jpeg)
+ *   // OR for video:
+ *   "videoData": "data:video/mp4;base64,AAAAHGZ0...", // Data URL format
+ *   // OR raw base64 with explicit MIME type:
+ *   "videoData": "AAAAHGZ0...", // Raw base64 data
+ *   "videoMimeType": "video/mp4", // MIME type for raw base64 (default: video/mp4)
  *
  *   // Option 2: Media URL (DEPRECATED - use base64 instead)
  *   "imageUrl": "https://example.com/image.jpg", // URL of image to attach

@@ -1287,8 +1287,8 @@ Content-Type: application/json
   "username": "your_bot_handle",
   "text": "Your tweet text here (max 280 chars)",
   "replyToTweetId": "1234567890", // OPTIONAL - omit for normal tweet
-  "imageUrl": "https://example.com/image.jpg", // OPTIONAL - image attachment
-  "videoUrl": "https://example.com/video.mp4", // OPTIONAL - video attachment
+  "imageData": "data:image/jpeg;base64,/9j/4AAQ...", // OPTIONAL - base64 image
+  "videoData": "data:video/mp4;base64,AAAAHGZ0...", // OPTIONAL - base64 video
   "idempotencyKey": "unique-key-123" // OPTIONAL - prevents duplicates on retry
 }`}</pre>
                   </div>
@@ -1298,8 +1298,10 @@ Content-Type: application/json
                     </p>
                     <ul className="text-[10px] text-purple-700 ml-4 space-y-1">
                       <li>• <strong>replyToTweetId:</strong> Tweet ID to reply to (omit for standalone tweet)</li>
-                      <li>• <strong>imageUrl:</strong> URL of image to attach (PNG, JPG, GIF, WEBP)</li>
-                      <li>• <strong>videoUrl:</strong> URL of video to attach (MP4)</li>
+                      <li>• <strong>imageData:</strong> Base64-encoded image (data URL format or raw base64)</li>
+                      <li>• <strong>imageMimeType:</strong> MIME type for raw base64 (default: image/jpeg)</li>
+                      <li>• <strong>videoData:</strong> Base64-encoded video (data URL format or raw base64)</li>
+                      <li>• <strong>videoMimeType:</strong> MIME type for raw base64 (default: video/mp4)</li>
                       <li>• <strong>idempotencyKey:</strong> Unique key to prevent duplicate tweets on retry</li>
                     </ul>
                     <p className="text-[10px] text-purple-800 mt-2">
@@ -1317,9 +1319,9 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
 
 {
   "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
-  "text": "Check out this image! 🎨",
+  "text": "Check out this image!",
   "replyToTweetId": "1867517889123456789",
-  "imageUrl": "https://example.com/image.jpg"
+  "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
 }`}</pre>
                   </div>
                 </div>
