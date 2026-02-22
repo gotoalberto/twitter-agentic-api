@@ -36,19 +36,8 @@ export async function createOrUpdateHivemindConfig(twitterAppId: string | null, 
       });
     } else {
       // twitterAppId is different, so we need to update it
-      // First, let's check if another config exists with this twitterAppId
-      if (twitterAppId !== null) {
-        const conflictingConfig = await prisma.hivemindConfig.findUnique({
-          where: { twitterAppId }
-        });
-
-        if (conflictingConfig && conflictingConfig.id !== existing.id) {
-          // Another config already uses this twitterAppId
-          throw new Error(`Twitter App ID ${twitterAppId} is already in use by another configuration`);
-        }
-      }
-
-      // Safe to update both fields
+      // Since HivemindConfig is designed to have only one record (global config),
+      // we don't need to check for conflicts - just update it directly
       return prisma.hivemindConfig.update({
         where: { id: existing.id },
         data: {

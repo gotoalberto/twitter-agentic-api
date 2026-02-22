@@ -758,9 +758,9 @@ These endpoints use the default "goodboy" project:
 
 ### Version 2.1.1 - February 22, 2026
 - **Fixed HivemindConfig Update Issue**: Resolved unique constraint error when updating Hivemind configuration with the same TwitterApp ID
-  - Implemented more robust logic that explicitly checks if twitterAppId has changed before updating
+  - Implemented logic that explicitly checks if twitterAppId has changed before updating
   - Added separate update paths for when only `enabled` flag changes vs when `twitterAppId` changes
-  - Added validation to prevent conflicts when changing to a twitterAppId already in use
+  - Removed unnecessary conflict validation since HivemindConfig is a single-record global configuration table
   - Prevents Prisma P2002 unique constraint violations on updates
 
 ### Version 2.1.0 - February 2026
