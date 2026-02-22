@@ -274,21 +274,208 @@
 /* Responsive */
 @media (max-width: 768px) {
   .zeus-container {
-    padding: 1rem;
+    padding: 0.5rem;
+  }
+
+  .zeus-hero {
+    padding: 1.5rem 0;
   }
 
   .zeus-card {
-    padding: 2rem;
+    padding: 1.5rem;
+    transform: none;
+    margin: 1rem 0;
+    border-width: 3px;
+    border-radius: 20px;
+  }
+
+  .zeus-card:hover {
     transform: none;
   }
 
   .zeus-title {
-    font-size: 3rem;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .zeus-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
   }
 
   .zeus-button {
-    padding: 1rem 2rem;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    transform: none;
+    border-width: 3px;
+    box-shadow: 0 4px 0 #000, 0 6px 15px rgba(0, 0, 0, 0.3);
+  }
+
+  .zeus-button:hover {
+    transform: translateY(-2px);
+  }
+
+  .zeus-status {
+    padding: 1.5rem;
+    transform: none;
+  }
+
+  .zeus-status:hover {
+    transform: none;
+  }
+
+  .zeus-info-box {
+    padding: 1rem;
+    margin: 0.5rem 0;
+  }
+
+  .zeus-info-box h4 {
     font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .zeus-list-item {
+    font-size: 0.95rem;
+    margin: 0.5rem 0;
+  }
+
+  .zeus-list-item span {
+    font-size: 0.9rem;
+  }
+
+  .zeus-warning {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .zeus-warning h4 {
+    font-size: 1.1rem;
+  }
+
+  .zeus-permissions-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .zeus-permission-card {
+    padding: 1rem;
+    transform: none;
+  }
+
+  .zeus-permission-card:hover {
+    transform: none;
+  }
+
+  .zeus-permission-card .icon {
+    width: 50px;
+    height: 50px;
+  }
+
+  .zeus-permission-card h4 {
+    font-size: 1rem;
+  }
+
+  .zeus-permission-card p {
+    font-size: 0.85rem;
+  }
+
+  /* Header with user info - mobile layout */
+  .zeus-card > div:first-child {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .zeus-card > div:first-child > button {
+    margin-top: 1rem;
+  }
+
+  /* Status card - mobile layout */
+  .zeus-status > div {
+    flex-direction: column;
+  }
+
+  .zeus-status button {
+    margin-left: 0 !important;
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  /* Call to action section */
+  .zeus-section > div[style*="padding: 2rem"] {
+    padding: 1.5rem !important;
+  }
+
+  /* How it works title */
+  h2[style*="font-size: 3rem"] {
+    font-size: 2rem !important;
+  }
+
+  /* Ready to join title */
+  h2[style*="font-size: 2.5rem"] {
+    font-size: 1.8rem !important;
+  }
+
+  /* Join button in call to action */
+  button[style*="font-size: 1.8rem"] {
+    font-size: 1.2rem !important;
+    padding: 1rem 2rem !important;
+  }
+
+  /* Footer text */
+  p[style*="font-size: 1rem"] {
+    font-size: 0.9rem !important;
+  }
+
+  /* Header section mobile */
+  .zeus-header-section {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .zeus-welcome-title {
+    font-size: 1.5rem !important;
+  }
+
+  .zeus-username {
+    font-size: 1rem !important;
+  }
+
+  .zeus-signout-btn {
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  /* Status content mobile */
+  .zeus-status-content {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .zeus-status-title {
+    font-size: 1.3rem !important;
+    text-align: center;
+  }
+
+  .zeus-status-desc {
+    font-size: 0.95rem !important;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .zeus-action-btn {
+    margin-left: 0 !important;
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  /* List items text wrapping */
+  .zeus-list-item span:last-child {
+    flex: 1;
+  }
+
+  /* Warning list items */
+  .zeus-warning ul li {
+    font-size: 0.9rem !important;
   }
 }
 

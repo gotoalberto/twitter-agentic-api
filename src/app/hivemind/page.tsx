@@ -110,18 +110,18 @@ export default function HivemindDashboard() {
         {/* Main Card */}
         <div className="zeus-card">
           {/* Header with user info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <div className="zeus-header-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
-              <h2 style={{ fontFamily: 'BreakingTheComic', fontSize: '2rem', color: '#2C2C2C', textTransform: 'uppercase' }}>
+              <h2 className="zeus-welcome-title" style={{ fontFamily: 'BreakingTheComic', fontSize: '2rem', color: '#2C2C2C', textTransform: 'uppercase' }}>
                 Welcome, Soldier!
               </h2>
-              <p style={{ fontFamily: 'Comic Neue', fontSize: '1.2rem', color: '#666', fontWeight: '700' }}>
+              <p className="zeus-username" style={{ fontFamily: 'Comic Neue', fontSize: '1.2rem', color: '#666', fontWeight: '700' }}>
                 @{session?.user?.username || session?.user?.name}
               </p>
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/' })}
-              className="zeus-button zeus-button-secondary"
+              className="zeus-button zeus-button-secondary zeus-signout-btn"
               style={{ fontSize: '1rem', padding: '0.8rem 1.5rem' }}
             >
               Sign Out
@@ -130,12 +130,12 @@ export default function HivemindDashboard() {
 
           {/* Connection Status */}
           <div className={`zeus-status ${!isConnected ? 'disconnected' : ''}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="zeus-status-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', fontFamily: 'BreakingTheComic' }}>
+                <h3 className="zeus-status-title" style={{ fontSize: '1.8rem', marginBottom: '0.5rem', fontFamily: 'BreakingTheComic' }}>
                   {isConnected ? '⚡ ZEUS ARMY ACTIVATED ⚡' : '🛡️ JOIN THE ZEUS ARMY'}
                 </h3>
-                <p style={{ fontSize: '1.1rem', opacity: 0.95 }}>
+                <p className="zeus-status-desc" style={{ fontSize: '1.1rem', opacity: 0.95 }}>
                   {isConnected
                     ? `Connected as @${hivemindStatus?.username} • Active since ${new Date(hivemindStatus?.connectedAt).toLocaleDateString()}`
                     : 'Connect your Twitter to join the most powerful crypto army on X!'}
@@ -144,7 +144,7 @@ export default function HivemindDashboard() {
               {!isConnected ? (
                 <button
                   onClick={handleJoinHivemind}
-                  className="zeus-button"
+                  className="zeus-button zeus-action-btn"
                   style={{ marginLeft: '2rem' }}
                 >
                   JOIN NOW ⚡
@@ -152,7 +152,7 @@ export default function HivemindDashboard() {
               ) : (
                 <button
                   onClick={handleDisconnect}
-                  className="zeus-button zeus-button-danger"
+                  className="zeus-button zeus-button-danger zeus-action-btn"
                   style={{ marginLeft: '2rem' }}
                 >
                   DISCONNECT
