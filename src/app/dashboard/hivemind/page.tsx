@@ -268,7 +268,7 @@ Body:
                   <div className="mb-4">
                     <h4 className="text-sm font-semibold text-gray-700 mb-2">2. Get Recent Tweets from a Zeus Army Member</h4>
                     <p className="text-sm text-gray-600 mb-2">
-                      Retrieve the last X tweets from any connected user:
+                      Retrieve the last X tweets from any connected user (includes both tweets and replies):
                     </p>
                     <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
 {`GET https://hive.pepes.dog/api/hivemind/tweets?username=user_handle&count=20
@@ -283,6 +283,8 @@ Response:
   },
   "stats": {
     "total_tweets": 20,
+    "original_tweets": 15,    // Number of original tweets
+    "replies": 5,              // Number of replies to other tweets
     "pepesdog_tweets": 5,
     "total_engagement": 1250,
     "average_engagement": 62
@@ -292,11 +294,32 @@ Response:
       "id": "1234567890",
       "text": "Tweet content here #PEPESDOG",
       "created_at": "2024-01-01T12:00:00Z",
+      "type": "tweet",          // "tweet" for original tweets, "reply" for replies
+      "is_reply": false,        // Boolean indicating if it's a reply
+      "reply_to_id": null,      // ID of tweet being replied to (null if not a reply)
+      "in_reply_to_user_id": null, // User ID being replied to
       "metrics": {
         "likes": 45,
         "retweets": 12,
         "replies": 5
       },
+      "url": "https://twitter.com/user_handle/status/1234567890",
+      "is_pepesdog": true
+    },
+    {
+      "id": "1234567891",
+      "text": "@other_user Great point! #PEPESDOG to the moon!",
+      "created_at": "2024-01-01T13:00:00Z",
+      "type": "reply",          // This is a reply to another tweet
+      "is_reply": true,
+      "reply_to_id": "1234567800", // ID of the original tweet
+      "in_reply_to_user_id": "987654321", // User being replied to
+      "metrics": {
+        "likes": 10,
+        "retweets": 2,
+        "replies": 1
+      },
+      "url": "https://twitter.com/user_handle/status/1234567891",
       "is_pepesdog": true
     }
   ]
@@ -458,6 +481,7 @@ Response:
                     <h4 className="text-sm font-semibold text-blue-800 mb-1">Important Notes</h4>
                     <ul className="text-xs text-blue-700 space-y-1">
                       <li>• Only admin accounts can access the GET endpoints</li>
+                      <li>• GET /api/hivemind/tweets now returns both tweets and replies with type indicators</li>
                       <li>• Retweet and Like endpoints work with OAuth 2.0 and OAuth 1.0a</li>
                       <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
                       <li>• Images/videos must be sent as base64-encoded data (data:mime/type;base64,... format)</li>

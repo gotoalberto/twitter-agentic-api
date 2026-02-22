@@ -72,31 +72,46 @@ export async function GET(req: NextRequest) {
       accessSecret: accessTokenSecret,
     });
 
-    // Get user's timeline
+    // Get user's timeline (including replies but not retweets)
     const timeline = await client.v2.userTimeline(bot.userId, {
       max_results: count,
-      'tweet.fields': ['created_at', 'public_metrics', 'entities', 'referenced_tweets'],
-      exclude: ['retweets', 'replies'] // Only original tweets
+      'tweet.fields': ['created_at', 'public_metrics', 'entities', 'referenced_tweets', 'in_reply_to_user_id'],
+      exclude: ['retweets'] // Exclude retweets but include replies
     });
 
     // Format the response
-    const tweets = timeline.data?.data?.map((tweet: any) => ({
-      id: tweet.id,
-      text: tweet.text,
-      created_at: tweet.created_at,
-      metrics: {
-        likes: tweet.public_metrics?.like_count || 0,
-        retweets: tweet.public_metrics?.retweet_count || 0,
-        replies: tweet.public_metrics?.reply_count || 0,
-        impressions: tweet.public_metrics?.impression_count || 0
-      },
-      url: `https://twitter.com/${targetUsername}/status/${tweet.id}`,
-      is_pepesdog: tweet.text.toLowerCase().includes('pepesdog')
-    })) || [];
+    const tweets = timeline.data?.data?.map((tweet: any) => {
+      // Check if this is a reply to another tweet
+      const isReply = tweet.referenced_tweets?.some((ref: any) => ref.type === 'replied_to') ||
+                      tweet.in_reply_to_user_id !== undefined;
+
+      // Get the ID of the tweet being replied to (if it's a reply)
+      const replyToId = tweet.referenced_tweets?.find((ref: any) => ref.type === 'replied_to')?.id;
+
+      return {
+        id: tweet.id,
+        text: tweet.text,
+        created_at: tweet.created_at,
+        type: isReply ? 'reply' : 'tweet', // Indicate if it's a reply or a normal tweet
+        is_reply: isReply,
+        reply_to_id: replyToId || null, // ID of the tweet being replied to
+        in_reply_to_user_id: tweet.in_reply_to_user_id || null,
+        metrics: {
+          likes: tweet.public_metrics?.like_count || 0,
+          retweets: tweet.public_metrics?.retweet_count || 0,
+          replies: tweet.public_metrics?.reply_count || 0,
+          impressions: tweet.public_metrics?.impression_count || 0
+        },
+        url: `https://twitter.com/${targetUsername}/status/${tweet.id}`,
+        is_pepesdog: tweet.text.toLowerCase().includes('pepesdog')
+      };
+    }) || [];
 
     // Calculate stats
     const stats = {
       total_tweets: tweets.length,
+      original_tweets: tweets.filter((t: any) => !t.is_reply).length,
+      replies: tweets.filter((t: any) => t.is_reply).length,
       pepesdog_tweets: tweets.filter((t: any) => t.is_pepesdog).length,
       total_engagement: tweets.reduce((sum: number, t: any) =>
         sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0
