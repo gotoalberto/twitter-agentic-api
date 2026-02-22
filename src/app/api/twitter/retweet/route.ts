@@ -124,10 +124,43 @@ export async function POST(request: NextRequest) {
     } catch (twitterError: any) {
       console.error('❌ Twitter API error:', twitterError);
 
+      // Handle rate limit error (429)
+      if (twitterError?.code === 429 || twitterError?.status === 429) {
+        console.error('⚠️ Rate limit exceeded for retweet endpoint');
+
+        // Extract rate limit info if available
+        const rateLimitInfo = twitterError?.rateLimit || {};
+        const resetTime = rateLimitInfo.reset ? new Date(rateLimitInfo.reset * 1000).toISOString() : 'unknown';
+
+        console.error('📊 Rate limit details:', {
+          limit: rateLimitInfo.limit || 'unknown',
+          remaining: rateLimitInfo.remaining || 0,
+          reset: resetTime,
+          endpoint: 'POST /2/users/:id/retweets'
+        });
+
+        return NextResponse.json({
+          error: 'Rate limit exceeded. Too many retweet requests.',
+          details: {
+            message: 'Twitter API rate limit reached for retweets. Please wait before trying again.',
+            resetAt: resetTime,
+            limit: rateLimitInfo.limit || 1000,
+            remaining: 0,
+            retryAfter: rateLimitInfo.reset ? Math.max(0, rateLimitInfo.reset - Math.floor(Date.now() / 1000)) : 900, // seconds until reset
+            endpoint: 'retweets'
+          }
+        }, { status: 429 });
+      }
+
       // Handle specific Twitter API errors
       if (twitterError?.code === 327) {
         return NextResponse.json({
-          error: 'You have already retweeted this Tweet.'
+          error: 'You have already retweeted this Tweet.',
+          details: {
+            message: 'This tweet has already been retweeted by this user.',
+            tweetId: tweetId,
+            action: action
+          }
         }, { status: 400 });
       }
 
@@ -137,6 +170,11 @@ export async function POST(request: NextRequest) {
           error: errorDetail.message || 'Twitter API error',
           code: errorDetail.code,
         }, { status: 400 });
+      }
+
+      // Log full error details for debugging
+      if (twitterError?.data) {
+        console.error('📝 Twitter API Error Details:', JSON.stringify(twitterError.data, null, 2));
       }
 
       throw twitterError;

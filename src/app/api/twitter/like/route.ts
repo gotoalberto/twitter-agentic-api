@@ -124,6 +124,34 @@ export async function POST(request: NextRequest) {
     } catch (twitterError: any) {
       console.error('❌ Twitter API error:', twitterError);
 
+      // Handle rate limit error (429)
+      if (twitterError?.code === 429 || twitterError?.status === 429) {
+        console.error('⚠️ Rate limit exceeded for like endpoint');
+
+        // Extract rate limit info if available
+        const rateLimitInfo = twitterError?.rateLimit || {};
+        const resetTime = rateLimitInfo.reset ? new Date(rateLimitInfo.reset * 1000).toISOString() : 'unknown';
+
+        console.error('📊 Rate limit details:', {
+          limit: rateLimitInfo.limit || 'unknown',
+          remaining: rateLimitInfo.remaining || 0,
+          reset: resetTime,
+          endpoint: 'POST /2/users/:id/likes'
+        });
+
+        return NextResponse.json({
+          error: 'Rate limit exceeded. Too many like requests.',
+          details: {
+            message: 'Twitter API rate limit reached for likes. Please wait before trying again.',
+            resetAt: resetTime,
+            limit: rateLimitInfo.limit || 1000,
+            remaining: 0,
+            retryAfter: rateLimitInfo.reset ? Math.max(0, rateLimitInfo.reset - Math.floor(Date.now() / 1000)) : 900, // seconds until reset
+            endpoint: 'likes'
+          }
+        }, { status: 429 });
+      }
+
       // Handle specific Twitter API errors
       if (twitterError?.errors?.[0]) {
         const errorDetail = twitterError.errors[0];
@@ -131,7 +159,12 @@ export async function POST(request: NextRequest) {
         // Check for already liked error
         if (errorDetail.message?.includes('already liked')) {
           return NextResponse.json({
-            error: 'You have already liked this Tweet.'
+            error: 'You have already liked this Tweet.',
+            details: {
+              message: 'This tweet has already been liked by this user.',
+              tweetId: tweetId,
+              action: action
+            }
           }, { status: 400 });
         }
 
@@ -139,6 +172,11 @@ export async function POST(request: NextRequest) {
           error: errorDetail.message || 'Twitter API error',
           code: errorDetail.code,
         }, { status: 400 });
+      }
+
+      // Log full error details for debugging
+      if (twitterError?.data) {
+        console.error('📝 Twitter API Error Details:', JSON.stringify(twitterError.data, null, 2));
       }
 
       throw twitterError;
