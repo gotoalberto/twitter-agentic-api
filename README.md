@@ -386,7 +386,7 @@ See `.env.example` for all required variables. Key variables include:
 
 ### Required
 
-- `NEXTAUTH_URL` - Your app URL (e.g., `https://bitso-twitter-api.vercel.app`)
+- `NEXTAUTH_URL` - Your app URL (e.g., `https://hive.pepes.dog`)
 - `NEXTAUTH_SECRET` - NextAuth encryption secret
 - `NEXT_PUBLIC_APP_URL` - Public app URL (same as NEXTAUTH_URL)
 - `DATABASE_URL` - PostgreSQL connection string
@@ -464,7 +464,7 @@ External applications can publish tweets via the API with guaranteed duplicate p
 #### Basic Usage
 
 ```bash
-curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
@@ -476,7 +476,7 @@ curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
 #### With Image Attachment
 
 ```bash
-curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
@@ -488,7 +488,7 @@ curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
 #### With Video Attachment
 
 ```bash
-curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
@@ -500,7 +500,7 @@ curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
 #### With Idempotency Key (Recommended)
 
 ```bash
-curl -X POST https://bitso-twitter-api.vercel.app/api/twitter/tweet \
+curl -X POST https://hive.pepes.dog/api/twitter/tweet \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bot_handle",
@@ -649,7 +649,7 @@ vercel logs bitso-twitter-api.vercel.app --production --follow
 
   **Example:**
   ```bash
-  curl -X GET "https://bitso-twitter-api.vercel.app/api/twitter/user?handle=elonmusk" \
+  curl -X GET "https://hive.pepes.dog/api/twitter/user?handle=elonmusk" \
     -H "X-API-Key: your_api_key_here"
   ```
 
@@ -880,7 +880,7 @@ bitso-twitter-api/
 
    # Example:
    printf '%s' 'your_value_here' | vercel env add NEXTAUTH_SECRET production
-   printf '%s' 'https://bitso-twitter-api.vercel.app' | vercel env add NEXTAUTH_URL production
+   printf '%s' 'https://hive.pepes.dog' | vercel env add NEXTAUTH_URL production
 
    # Add DATABASE_URL
    printf '%s' 'postgresql://user:pass@host:5432/db' | vercel env add DATABASE_URL production
@@ -977,7 +977,7 @@ Look for:
 Option 1: Use the force OAuth 1.0a endpoint:
 ```bash
 # Visit this URL in your browser (replace project-id):
-https://bitso-twitter-api.vercel.app/api/projects/<project-id>/bot/authorize-oauth1
+https://hive.pepes.dog/api/projects/<project-id>/bot/authorize-oauth1
 ```
 
 Option 2: Via dashboard:

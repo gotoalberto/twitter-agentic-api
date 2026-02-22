@@ -15,7 +15,7 @@ const CONSUMER_SECRET = 'vC1PP4yDM3a9yc3PER7ps74rEttTTFfUmNX5o1BSlzPU722iPw';
 const CLIENT_ID = 'WkZPRlQyRll2Tzk5NDN0RFFJOUU6MTpjaQ';
 const CLIENT_SECRET = 'QBPuvAjIBHhFI2cXwHEzERupoUttIFBTKPsnniqqfeIB2zaPlW';
 
-const WEBHOOK_URL = 'https://bitso-twitter-api.vercel.app/api/webhooks/twitter';
+const WEBHOOK_URL = 'https://hive.pepes.dog/api/webhooks/twitter';
 
 // Variables globales para el flujo
 let webhookId = null;

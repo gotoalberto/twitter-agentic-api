@@ -113,7 +113,7 @@ async function testRegisterWebhook() {
   console.log('='.repeat(80));
   console.log('');
 
-  const webhookUrl = 'https://bitso-twitter-api.vercel.app/api/webhooks/twitter';
+  const webhookUrl = 'https://hive.pepes.dog/api/webhooks/twitter';
 
   try {
     console.log('📡 Calling Twitter API v2...');

@@ -143,7 +143,7 @@ async function main() {
     console.log('');
 
     // Current app URL
-    const currentUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app';
+    const currentUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog';
     const currentWebhookUrl = `${currentUrl}/api/webhooks/twitter`;
 
     const currentWebhook = webhooks.find(wh => wh.url === currentWebhookUrl);

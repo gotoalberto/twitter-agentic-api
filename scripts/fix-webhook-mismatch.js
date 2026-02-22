@@ -104,7 +104,7 @@ async function fixWebhookMismatch(projectId) {
     console.log('');
     console.log('   Option A: Manual webhook registration (if you have TAAS access):');
     console.log('   - Use Twitter Developer Portal to manually register the webhook');
-    console.log('   - URL should be: https://bitso-twitter-api.vercel.app/api/webhooks/twitter/cmlwr6ynj0000jj041q5jsjoc');
+    console.log('   - URL should be: https://hive.pepes.dog/api/webhooks/twitter/cmlwr6ynj0000jj041q5jsjoc');
     console.log('');
     console.log('   Option B: Use a different TwitterApp that already has webhooks:');
     console.log('   - Switch to a TwitterApp that already has registered webhooks');
@@ -118,7 +118,7 @@ async function fixWebhookMismatch(projectId) {
     if (!project.bot?.accessToken || !project.bot?.accessTokenSecret) {
       console.log('⚠️  ADDITIONAL ISSUE: Bot lacks OAuth 1.0a tokens');
       console.log('   - The bot needs to be reconnected with OAuth 1.0a (not OAuth 2.0)');
-      console.log('   - Use: https://bitso-twitter-api.vercel.app/api/projects/' + projectId + '/bot/authorize-oauth1');
+      console.log('   - Use: https://hive.pepes.dog/api/projects/' + projectId + '/bot/authorize-oauth1');
     }
 
     console.log('\n================================================================================\n');

@@ -150,7 +150,7 @@ async function testListWebhooks(bearerToken) {
 async function testWebhookRegistration(project) {
   console.log('🔧 Testing: Register webhook (v1.1 API)...\n');
 
-  const webhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${project.twitter_app_id}`;
+  const webhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${project.twitter_app_id}`;
   const webhookEnv = project.webhookEnv || 'production';
   const apiUrl = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;
 
@@ -284,7 +284,7 @@ async function main() {
       console.log('✅ Using newly registered webhook:', webhookId);
     } else if (webhooks.length > 0) {
       // Find webhook for this TwitterApp
-      const appWebhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${project.twitter_app_id}`;
+      const appWebhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${project.twitter_app_id}`;
       const matchingWebhook = webhooks.find(w => w.url === appWebhookUrl);
 
       if (matchingWebhook) {

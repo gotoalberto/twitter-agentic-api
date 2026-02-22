@@ -94,7 +94,7 @@ async function testNewWebhookAPI() {
     console.log('3️⃣ Testing NEW X API v2 Webhook System...');
     console.log('   Endpoint: POST https://api.x.com/2/webhooks');
 
-    const webhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${twitterApp.id}`;
+    const webhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${twitterApp.id}`;
     console.log('   Webhook URL:', webhookUrl);
     console.log('');
 

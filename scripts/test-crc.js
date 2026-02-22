@@ -46,7 +46,7 @@ async function testCRC(twitterAppName) {
     console.log('');
 
     // Test the actual webhook URL
-    const webhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${app.id}`;
+    const webhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${app.id}`;
     console.log('📋 Test 2: Testing actual webhook endpoint');
     console.log('   Webhook URL:', webhookUrl);
     console.log('');

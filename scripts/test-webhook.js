@@ -102,7 +102,7 @@ async function testWebhookForProject(projectId) {
     if (!project.twitterApp.consumerKey || !project.twitterApp.consumerSecret) {
       console.log('   ❌ Cannot test - OAuth 1.0a credentials not configured');
     } else {
-      const webhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${project.twitterApp.id}`;
+      const webhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${project.twitterApp.id}`;
       const apiUrl = 'https://api.twitter.com/1.1/account_activity/all/production/webhooks.json';
 
       console.log('   Endpoint:', apiUrl);

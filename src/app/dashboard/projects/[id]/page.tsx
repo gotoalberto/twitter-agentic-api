@@ -1255,7 +1255,7 @@ Content-Type: application/json
                 <div>
                   <p className="text-purple-800 font-semibold mb-1">Endpoint</p>
                   <code className="bg-purple-100 text-purple-900 px-2 py-1 rounded block">
-                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet
                   </code>
                 </div>
 
@@ -1312,7 +1312,7 @@ Content-Type: application/json
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example Request (Reply with Image)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
 
 {
@@ -1328,7 +1328,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example Request (Normal Tweet)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
 
 {
@@ -1342,7 +1342,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example Request (Tweet with Video)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
 
 {
@@ -1399,7 +1399,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example with curl (with image)</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/tweet \\
+                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet \\
   -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
   -d '{
     "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
@@ -1439,7 +1439,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-indigo-800 font-semibold mb-1">Endpoint</p>
                   <code className="bg-indigo-100 text-indigo-900 px-2 py-1 rounded block">
-                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/dm
                   </code>
                 </div>
 
@@ -1484,7 +1484,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-indigo-800 font-semibold mb-2">Example Request</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/dm
 Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
 
 {
@@ -1541,7 +1541,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-indigo-800 font-semibold mb-2">Example with curl</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/dm \\
+                    <pre className="text-[10px]">{`curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/dm \\
   -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
   -d '{
     "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
@@ -1581,7 +1581,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-teal-800 font-semibold mb-1">Endpoint</p>
                   <code className="bg-teal-100 text-teal-900 px-2 py-1 rounded block">
-                    {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user
+                    {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/user
                   </code>
                 </div>
 
@@ -1620,7 +1620,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-teal-800 font-semibold mb-2">Example Request</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user?handle=elonmusk
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/user?handle=elonmusk
 X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                   </div>
                 </div>
@@ -1727,7 +1727,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-teal-800 font-semibold mb-2">Example with curl</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/user?handle=gotoalberto" \\
+                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/user?handle=gotoalberto" \\
   -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
                   </div>
                 </div>
@@ -1779,7 +1779,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-purple-800 font-semibold mb-1">Endpoint</p>
                   <div className="bg-white rounded border border-purple-200 p-2 font-mono text-purple-900">
-                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following
+                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/is-following
                   </div>
                 </div>
 
@@ -1810,7 +1810,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example Request</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk
 X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                   </div>
                 </div>
@@ -1882,7 +1882,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-purple-800 font-semibold mb-2">Example with curl</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk" \\
+                    <pre className="text-[10px]">{`curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/is-following?userA=gotoalberto&userB=elonmusk" \\
   -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
                   </div>
                 </div>
@@ -1932,7 +1932,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-cyan-800 font-semibold mb-1">Endpoint</p>
                   <div className="bg-white rounded border border-cyan-200 p-2 font-mono text-cyan-900">
-                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/{projectId}/tweets
+                    GET {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/{projectId}/tweets
                   </div>
                 </div>
 
@@ -1988,7 +1988,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-cyan-800 font-semibold mb-2">Example Request</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?page=1&limit=10
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/tweets?page=1&limit=10
 X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                   </div>
                 </div>
@@ -2045,7 +2045,7 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}`}</pre>
                 <div>
                   <p className="text-cyan-800 font-semibold mb-2">Get Specific Tweet (POST method)</p>
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
-                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/tweets
 Content-Type: application/json
 X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
 
@@ -2085,15 +2085,15 @@ X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
                   <p className="text-cyan-800 font-semibold mb-2">Example with curl</p>
                   <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
                     <pre className="text-[10px]">{`# Get latest tweets (paginated)
-curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?page=1&limit=20" \\
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/tweets?page=1&limit=20" \\
   -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"
 
 # Filter tweets from a specific user
-curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?userId=1234567890" \\
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/tweets?userId=1234567890" \\
   -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"
 
 # Get tweets from last 24 hours
-curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/projects/${projectId}/tweets?since=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%SZ')" \\
+curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/tweets?since=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%SZ')" \\
   -H "X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}"`}</pre>
                   </div>
                 </div>

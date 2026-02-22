@@ -49,7 +49,7 @@ export async function POST(
         success: true,
         message: 'Webhook registered successfully',
         webhookId: result.webhookId,
-        webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/webhooks/twitter/${id}`
+        webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/webhooks/twitter/${id}`
       });
     } else {
       console.error('❌ Webhook registration failed:', result.error);

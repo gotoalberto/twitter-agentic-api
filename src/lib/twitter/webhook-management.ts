@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db/prisma';
 import { TwitterApp } from '@/generated/prisma';
 
 const WEBHOOK_ENV = process.env.TWITTER_WEBHOOK_ENV || 'production';
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog';
 
 /**
  * Register a webhook for a TwitterApp with retry logic

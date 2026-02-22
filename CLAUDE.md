@@ -191,7 +191,7 @@ After pushing to GitHub:
 
 ## Getting Help
 
-- Check deployment logs: `vercel logs bitso-twitter-api.vercel.app --production`
+- Check deployment logs: `vercel logs hive.pepes.dog --production`
 - Review README.md for setup instructions
 - Check Prisma docs for ORM questions
 - Review Next.js docs for framework questions

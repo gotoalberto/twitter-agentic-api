@@ -120,7 +120,7 @@ async function testWebhook() {
       }
     });
 
-    const webhookUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app'}/api/webhooks/twitter/${twitterApp.id}`;
+    const webhookUrl = `${process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/webhooks/twitter/${twitterApp.id}`;
     console.log('   Webhook URL:', webhookUrl);
 
     const webhookEnv = twitterApp.webhookEnv || 'production';

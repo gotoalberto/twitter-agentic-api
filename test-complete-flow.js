@@ -215,7 +215,7 @@ async function testCompleteFlow() {
     console.log('5️⃣ ATTEMPTING TO REGISTER WEBHOOK');
     console.log('────────────────────────────────────');
 
-    const webhookUrl = `https://bitso-twitter-api.vercel.app/api/webhooks/twitter/${twitterApp.id}`;
+    const webhookUrl = `https://hive.pepes.dog/api/webhooks/twitter/${twitterApp.id}`;
     console.log('Webhook URL:', webhookUrl);
 
     const registerUrl = `https://api.twitter.com/1.1/account_activity/all/${webhookEnv}/webhooks.json`;

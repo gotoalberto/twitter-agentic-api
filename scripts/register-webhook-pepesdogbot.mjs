@@ -223,7 +223,7 @@ async function main() {
   const bearerToken = process.env.X_API_BEARER_TOKEN;
   const consumerKey = process.env.TWITTER_OAUTH_API_KEY;
   const consumerSecret = process.env.TWITTER_OAUTH_API_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bitso-twitter-api.vercel.app';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog';
 
   if (!bearerToken || !consumerKey || !consumerSecret) {
     console.error('❌ Missing required environment variables:');
