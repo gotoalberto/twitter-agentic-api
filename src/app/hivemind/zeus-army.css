@@ -32,6 +32,7 @@
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  padding-top: 80px; /* Space for navbar */
 }
 
 .zeus-bg::before {
@@ -273,6 +274,10 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .zeus-bg {
+    padding-top: 65px; /* Smaller navbar on mobile */
+  }
+
   .zeus-container {
     padding: 0.5rem;
   }

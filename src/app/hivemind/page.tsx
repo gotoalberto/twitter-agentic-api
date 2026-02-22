@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Navbar from '@/components/Navbar';
 import './zeus-army.css';
 
 export default function HivemindDashboard() {
@@ -76,31 +77,39 @@ export default function HivemindDashboard() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="zeus-bg">
-        <div className="zeus-container">
-          <div className="zeus-hero">
-            <h1 className="zeus-title">Loading...</h1>
+      <>
+        <Navbar />
+        <div className="zeus-bg">
+          <div className="zeus-container">
+            <div className="zeus-hero">
+              <h1 className="zeus-title">Loading...</h1>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (status === 'unauthenticated') {
     return (
-      <div className="zeus-bg">
-        <div className="zeus-container">
-          <div className="zeus-hero">
-            <h1 className="zeus-title">Redirecting...</h1>
+      <>
+        <Navbar />
+        <div className="zeus-bg">
+          <div className="zeus-container">
+            <div className="zeus-hero">
+              <h1 className="zeus-title">Redirecting...</h1>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="zeus-bg">
-      <div className="zeus-container">
+    <>
+      <Navbar />
+      <div className="zeus-bg">
+        <div className="zeus-container">
         {/* Hero Section */}
         <div className="zeus-hero">
           <h1 className="zeus-title">ZEUS ARMY</h1>
@@ -360,5 +369,6 @@ export default function HivemindDashboard() {
         </div>
       </div>
     </div>
+    </>
   );
 }

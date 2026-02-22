@@ -1,0 +1,317 @@
+/* Zeus Army Navbar Styles */
+
+.zeus-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: rgba(13, 14, 35, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 2px solid transparent;
+  background-image: linear-gradient(rgba(13, 14, 35, 0.95), rgba(13, 14, 35, 0.95)),
+                    linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5);
+}
+
+.zeus-navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Logo */
+.zeus-navbar-logo {
+  font-family: GROBOLD, 'Comic Neue', cursive;
+  font-size: 2rem;
+  background: linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+  text-decoration: none;
+  transition: transform 0.3s ease;
+}
+
+.zeus-navbar-logo:hover {
+  transform: translateY(-2px);
+}
+
+.zeus-navbar-logo img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid transparent;
+  background-image: linear-gradient(#fff, #fff),
+                    linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+  transition: transform 0.3s ease;
+}
+
+.zeus-navbar-logo:hover img {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.zeus-navbar-logo-text {
+  font-size: 1.8rem;
+}
+
+.zeus-navbar-logo-army {
+  background: linear-gradient(90deg, #FF6B9D, #A55EEA);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Navigation Links */
+.zeus-navbar-links {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.zeus-navbar-link {
+  color: #FFFFFF;
+  font-weight: 700;
+  font-family: 'Comic Neue', cursive;
+  transition: all 0.3s ease;
+  position: relative;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  opacity: 0.9;
+  text-decoration: none;
+}
+
+.zeus-navbar-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+}
+
+.zeus-navbar-link:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.zeus-navbar-link:hover::after {
+  width: 80%;
+}
+
+/* Dropdown */
+.zeus-dropdown-container {
+  position: relative;
+}
+
+.zeus-dropdown-button {
+  color: #FFFFFF;
+  font-weight: 700;
+  font-family: 'Comic Neue', cursive;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  opacity: 0.9;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.zeus-dropdown-button::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #FF6B6B, #FFD700, #4BB749, #1E90FF, #A55EEA);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+}
+
+.zeus-dropdown-button:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.zeus-dropdown-button:hover::after {
+  width: 80%;
+}
+
+.zeus-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  background: rgba(13, 14, 35, 0.98);
+  backdrop-filter: blur(20px);
+  border-radius: 10px;
+  padding: 1rem 0;
+  min-width: 200px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 2px solid #FFD700;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(-10px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.zeus-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.zeus-dropdown-item {
+  display: block;
+  padding: 0.75rem 1.5rem;
+  color: #FFFFFF;
+  text-decoration: none;
+  font-weight: 600;
+  font-family: 'Comic Neue', cursive;
+  transition: all 0.3s ease;
+}
+
+.zeus-dropdown-item:hover {
+  background: #FFD700;
+  color: #000;
+}
+
+/* Mobile Menu Button */
+.zeus-mobile-menu {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 1001;
+  padding: 5px;
+}
+
+.zeus-mobile-menu span {
+  width: 25px;
+  height: 3px;
+  background: #FFD700;
+  transition: all 0.3s ease;
+  border-radius: 2px;
+}
+
+.zeus-mobile-menu.open span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.zeus-mobile-menu.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.zeus-mobile-menu.open span:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -6px);
+}
+
+/* Mobile Menu Container */
+.zeus-mobile-menu-container {
+  display: none;
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  background: rgba(13, 14, 35, 0.98);
+  backdrop-filter: blur(20px);
+  padding: 2rem;
+  gap: 1.5rem;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border-bottom: 2px solid #FFD700;
+  z-index: 9999;
+}
+
+.zeus-mobile-menu-container.open {
+  transform: translateX(0);
+}
+
+.zeus-mobile-nav-link {
+  display: block;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-family: 'Comic Neue', cursive;
+  font-size: 1.2rem;
+  padding: 1rem;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.zeus-mobile-nav-link:hover {
+  background: #FFD700;
+  color: #000;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .zeus-navbar-container {
+    padding: 0.75rem 1rem;
+  }
+
+  .zeus-navbar-logo {
+    font-size: 1.2rem;
+    gap: 0.3rem;
+    letter-spacing: 0.02em;
+  }
+
+  .zeus-navbar-logo-text {
+    font-size: 1.2rem;
+  }
+
+  .zeus-navbar-logo img {
+    width: 30px;
+    height: 30px;
+  }
+
+  .zeus-navbar-links {
+    display: none;
+  }
+
+  .zeus-mobile-menu {
+    display: flex;
+  }
+
+  .zeus-mobile-menu-container {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Adjust main content to account for fixed navbar */
+body {
+  padding-top: 80px;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-top: 65px;
+  }
+}
