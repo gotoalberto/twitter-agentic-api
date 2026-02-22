@@ -1,0 +1,357 @@
+/* Zeus Army Network - Custom Styles */
+
+/* Font Imports */
+@import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Fredoka:wght@400;600;700;900&display=swap');
+
+@font-face {
+  font-family: GROBOLD;
+  src: url('https://pepes.dog/assets/fonts/GROBOLD.woff2') format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: BreakingTheComic;
+  src: url('https://pepes.dog/assets/fonts/BreakingTheComic.woff2') format("woff2");
+  font-display: swap;
+}
+
+/* Base colors */
+:root {
+  --color-primary: #FFD700;
+  --color-secondary: #1E90FF;
+  --color-accent: #4BB749;
+  --color-background: #4394f4;
+  --color-dark: #0a0e27;
+  --color-text-light: #FFFFFF;
+  --color-text: #2C2C2C;
+}
+
+/* Background gradient */
+.zeus-bg {
+  background: linear-gradient(135deg, #4394f4 0%, #1E90FF 50%, #FFD700 100%);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.zeus-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('https://pepes.dog/assets/images/pattern.png');
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* Main container */
+.zeus-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero Section */
+.zeus-hero {
+  text-align: center;
+  padding: 3rem 0;
+  animation: fadeInUp 0.9s ease-out;
+}
+
+.zeus-title {
+  font-family: GROBOLD;
+  font-size: clamp(3rem, 8vw, 6rem);
+  background: linear-gradient(90deg,
+    #FF6B6B 0%,
+    #FF9F40 16.66%,
+    #FFD700 33.33%,
+    #4BB749 50%,
+    #1E90FF 66.66%,
+    #A55EEA 83.33%,
+    #FF6B9D 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 80px rgba(255, 215, 0, 0.5);
+  animation: rainbow-text 5s linear infinite;
+  background-size: 200% auto;
+}
+
+.zeus-subtitle {
+  font-family: 'Comic Neue', cursive;
+  font-size: 1.5rem;
+  color: #FFD700;
+  text-shadow: 2px 2px 0 #000, 0 0 20px rgba(255, 215, 0, 0.5);
+  margin-bottom: 2rem;
+}
+
+/* Main Card */
+.zeus-card {
+  background: #FFFFFF;
+  border: 5px solid #000;
+  border-radius: 30px;
+  box-shadow: 0 10px 0 #000, 0 20px 40px rgba(0, 0, 0, 0.3);
+  padding: 3rem;
+  margin: 2rem 0;
+  position: relative;
+  transform: rotate(-1deg);
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.9s ease-out 0.2s backwards;
+}
+
+.zeus-card:hover {
+  transform: rotate(-1deg) translateY(-5px);
+  box-shadow: 0 15px 0 #000, 0 25px 50px rgba(255, 215, 0, 0.4);
+}
+
+/* Buttons */
+.zeus-button {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  border: 5px solid #000;
+  border-radius: 60px;
+  padding: 1.2rem 2.5rem;
+  color: #000;
+  font-family: BreakingTheComic;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 0 #000, 0 10px 30px rgba(0, 0, 0, 0.4);
+  text-shadow: 2px 2px 0px rgba(255, 255, 255, 0.5);
+  transform: rotate(-2deg);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.zeus-button:hover {
+  transform: translateY(-5px) rotate(-2deg) scale(1.05);
+  box-shadow: 0 12px 0 #000, 0 15px 40px rgba(255, 215, 0, 0.6);
+}
+
+.zeus-button:active {
+  transform: translateY(0) rotate(-2deg);
+  box-shadow: 0 4px 0 #000, 0 5px 20px rgba(0, 0, 0, 0.4);
+}
+
+.zeus-button-secondary {
+  background: linear-gradient(135deg, #1E90FF 0%, #4169E1 100%);
+  color: #FFF;
+}
+
+.zeus-button-danger {
+  background: linear-gradient(135deg, #FF6B6B 0%, #DC143C 100%);
+  color: #FFF;
+}
+
+/* Status cards */
+.zeus-status {
+  background: linear-gradient(135deg, #4BB749 0%, #3A9637 100%);
+  border: 4px solid #000;
+  border-radius: 20px;
+  padding: 2rem;
+  margin: 1.5rem 0;
+  color: #FFF;
+  font-family: 'Comic Neue', cursive;
+  font-weight: 700;
+  box-shadow: 0 6px 0 #000, 0 10px 20px rgba(0, 0, 0, 0.3);
+  transform: rotate(1deg);
+  transition: all 0.3s ease;
+}
+
+.zeus-status.disconnected {
+  background: linear-gradient(135deg, #6C757D 0%, #495057 100%);
+}
+
+.zeus-status:hover {
+  transform: rotate(1deg) translateY(-3px);
+  box-shadow: 0 8px 0 #000, 0 12px 25px rgba(0, 0, 0, 0.35);
+}
+
+/* Info boxes */
+.zeus-info-box {
+  background: #FFF;
+  border: 3px solid #FFD700;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 5px 0 #FFD700, 0 8px 15px rgba(255, 215, 0, 0.3);
+  transition: all 0.3s ease;
+  font-family: 'Comic Neue', cursive;
+}
+
+.zeus-info-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 0 #FFD700, 0 10px 20px rgba(255, 215, 0, 0.4);
+}
+
+.zeus-info-box h4 {
+  font-family: BreakingTheComic;
+  font-size: 1.5rem;
+  color: #FFD700;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* List items */
+.zeus-list {
+  list-style: none;
+  padding: 0;
+}
+
+.zeus-list-item {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.8rem 0;
+  font-family: 'Comic Neue', cursive;
+  font-size: 1.1rem;
+  color: #2C2C2C;
+}
+
+.zeus-list-item::before {
+  content: '⚡';
+  font-size: 1.5rem;
+  margin-right: 0.8rem;
+  animation: pulse 2s infinite;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rainbow-text {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Warning box */
+.zeus-warning {
+  background: linear-gradient(135deg, #FFE4B5 0%, #FFD700 100%);
+  border: 4px solid #FFA500;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 5px 0 #FFA500, 0 8px 15px rgba(255, 165, 0, 0.3);
+  animation: pulse 3s infinite;
+}
+
+.zeus-warning h4 {
+  font-family: BreakingTheComic;
+  font-size: 1.3rem;
+  color: #FF6B00;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .zeus-container {
+    padding: 1rem;
+  }
+
+  .zeus-card {
+    padding: 2rem;
+    transform: none;
+  }
+
+  .zeus-title {
+    font-size: 3rem;
+  }
+
+  .zeus-button {
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+  }
+}
+
+/* Comic style section */
+.zeus-section {
+  animation: fadeInUp 0.9s ease-out;
+  margin: 2rem 0;
+}
+
+/* Badge */
+.zeus-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #4BB749 0%, #3A9637 100%);
+  color: #FFF;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  border: 2px solid #000;
+  font-family: BreakingTheComic;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  box-shadow: 0 3px 0 #000;
+  margin-left: 1rem;
+}
+
+/* Permissions grid */
+.zeus-permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.zeus-permission-card {
+  background: linear-gradient(135deg, #E6F3FF 0%, #B3D9FF 100%);
+  border: 3px solid #1E90FF;
+  border-radius: 20px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 5px 0 #1E90FF, 0 8px 15px rgba(30, 144, 255, 0.3);
+  transition: all 0.3s ease;
+  transform: rotate(-2deg);
+}
+
+.zeus-permission-card:hover {
+  transform: rotate(-2deg) translateY(-5px);
+  box-shadow: 0 8px 0 #1E90FF, 0 10px 20px rgba(30, 144, 255, 0.4);
+}
+
+.zeus-permission-card .icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 1rem;
+  background: linear-gradient(135deg, #1E90FF 0%, #4169E1 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #000;
+  box-shadow: 0 4px 0 #000;
+}
+
+.zeus-permission-card .icon svg {
+  width: 30px;
+  height: 30px;
+  color: #FFF;
+}

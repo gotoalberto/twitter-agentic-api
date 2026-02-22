@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import './zeus-army.css';
 
 export default function HivemindDashboard() {
   const { data: session, status } = useSession();
@@ -52,7 +53,7 @@ export default function HivemindDashboard() {
   };
 
   const handleDisconnect = async () => {
-    if (!confirm('Are you sure you want to disconnect from Hivemind?')) {
+    if (!confirm('Are you sure you want to leave the Zeus Army Network? You can rejoin anytime!')) {
       return;
     }
 
@@ -69,155 +70,291 @@ export default function HivemindDashboard() {
       }
     } catch (error) {
       console.error('Error disconnecting from Hivemind:', error);
-      alert('Failed to disconnect from Hivemind. Please try again.');
+      alert('Failed to disconnect from Zeus Army. Please try again.');
     }
   };
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-        <p className="text-gray-600 text-lg">Loading...</p>
+      <div className="zeus-bg">
+        <div className="zeus-container">
+          <div className="zeus-hero">
+            <h1 className="zeus-title">Loading...</h1>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (status === 'unauthenticated') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-        <p className="text-gray-600 text-lg">Redirecting to login...</p>
+      <div className="zeus-bg">
+        <div className="zeus-container">
+          <div className="zeus-hero">
+            <h1 className="zeus-title">Redirecting...</h1>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-8">
+    <div className="zeus-bg">
+      <div className="zeus-container">
+        {/* Hero Section */}
+        <div className="zeus-hero">
+          <h1 className="zeus-title">ZEUS ARMY</h1>
+          <p className="zeus-subtitle">Unite for PepesDog • Amplify Together • Win as One</p>
+        </div>
+
+        {/* Main Card */}
+        <div className="zeus-card">
+          {/* Header with user info */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
-              <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
-                Hivemind Dashboard
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Welcome, @{session?.user?.username || session?.user?.name}
+              <h2 style={{ fontFamily: 'BreakingTheComic', fontSize: '2rem', color: '#2C2C2C', textTransform: 'uppercase' }}>
+                Welcome, Soldier!
+              </h2>
+              <p style={{ fontFamily: 'Comic Neue', fontSize: '1.2rem', color: '#666', fontWeight: '700' }}>
+                @{session?.user?.username || session?.user?.name}
               </p>
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/' })}
-              className="text-sm text-gray-600 hover:text-gray-800 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="zeus-button zeus-button-secondary"
+              style={{ fontSize: '1rem', padding: '0.8rem 1.5rem' }}
             >
               Sign Out
             </button>
           </div>
 
           {/* Connection Status */}
-          <div className="mb-8">
-            <div className={`rounded-lg p-6 ${isConnected ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800 mb-2">
-                    Connection Status
-                  </h2>
-                  <p className={`text-sm ${isConnected ? 'text-green-600' : 'text-gray-600'}`}>
-                    {isConnected
-                      ? `✓ Connected to Hivemind as @${hivemindStatus?.username}`
-                      : 'Not connected to Hivemind'}
-                  </p>
-                  {isConnected && hivemindStatus?.connectedAt && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Connected since {new Date(hivemindStatus.connectedAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-
-                {!isConnected ? (
-                  <button
-                    onClick={handleJoinHivemind}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    Join Hivemind
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleDisconnect}
-                    className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    Disconnect
-                  </button>
-                )}
+          <div className={`zeus-status ${!isConnected ? 'disconnected' : ''}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', fontFamily: 'BreakingTheComic' }}>
+                  {isConnected ? '⚡ ZEUS ARMY ACTIVATED ⚡' : '🛡️ JOIN THE ZEUS ARMY'}
+                </h3>
+                <p style={{ fontSize: '1.1rem', opacity: 0.95 }}>
+                  {isConnected
+                    ? `Connected as @${hivemindStatus?.username} • Active since ${new Date(hivemindStatus?.connectedAt).toLocaleDateString()}`
+                    : 'Connect your Twitter to join the most powerful crypto army on X!'}
+                </p>
               </div>
+              {!isConnected ? (
+                <button
+                  onClick={handleJoinHivemind}
+                  className="zeus-button"
+                  style={{ marginLeft: '2rem' }}
+                >
+                  JOIN NOW ⚡
+                </button>
+              ) : (
+                <button
+                  onClick={handleDisconnect}
+                  className="zeus-button zeus-button-danger"
+                  style={{ marginLeft: '2rem' }}
+                >
+                  DISCONNECT
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Permissions Info */}
-          {isConnected && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                Granted Permissions
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center text-white">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">Tweet Publishing</p>
-                      <p className="text-sm text-gray-600">Post tweets on your behalf</p>
-                    </div>
-                  </div>
-                </div>
+          {/* How it works section */}
+          <div className="zeus-section">
+            <h2 style={{
+              fontFamily: 'GROBOLD',
+              fontSize: '3rem',
+              textAlign: 'center',
+              background: 'linear-gradient(90deg, #FFD700 0%, #FF6B6B 50%, #1E90FF 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              marginBottom: '2rem',
+              textTransform: 'uppercase'
+            }}>
+              How Zeus Army Works
+            </h2>
 
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-white">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">Direct Messages</p>
-                      <p className="text-sm text-gray-600">Send DMs from your account</p>
-                    </div>
-                  </div>
-                </div>
+            <div style={{ display: 'grid', gap: '1.5rem', marginBottom: '2rem' }}>
+              {/* What you get */}
+              <div className="zeus-info-box" style={{ background: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)', borderColor: '#4BB749' }}>
+                <h4>🚀 YOUR BENEFITS</h4>
+                <ul className="zeus-list">
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>💎</span>
+                    <span>Automatic RT & Likes from ALL Zeus Army members on your PepesDog tweets</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>📈</span>
+                    <span>Massive reach amplification - Your tweets seen by thousands more</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🏆</span>
+                    <span>Higher engagement = Better algorithm ranking = More visibility</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🤝</span>
+                    <span>Be part of the strongest crypto community on Twitter</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* How you contribute */}
+              <div className="zeus-info-box" style={{ background: 'linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)', borderColor: '#1E90FF' }}>
+                <h4>🤖 YOUR CONTRIBUTION</h4>
+                <ul className="zeus-list">
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>♻️</span>
+                    <span>Your account auto-RTs & likes fellow members' PepesDog content</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>🎯</span>
+                    <span>Only tweets with "pepesdog" keyword are engaged - focused support</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>⚡</span>
+                    <span>Fully automated - Set it and forget it!</span>
+                  </li>
+                  <li className="zeus-list-item">
+                    <span style={{ marginRight: '1rem', fontSize: '1.5rem' }}>💪</span>
+                    <span>Together we dominate the Twitter algorithm</span>
+                  </li>
+                </ul>
               </div>
             </div>
-          )}
 
-          {/* Information Panel */}
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-6 border border-purple-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">
-              About Hivemind
-            </h3>
-            <div className="space-y-3 text-sm text-gray-600">
-              <p>
-                Hivemind is a distributed Twitter automation network that allows coordinated actions
-                while maintaining individual account control.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <span className="text-purple-500 mr-2 mt-0.5">•</span>
-                  <span>Your credentials are encrypted and stored securely</span>
+            {/* Important notice */}
+            <div className="zeus-warning">
+              <h4>⚠️ IMPORTANT INFORMATION</h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
+                  ✅ Only "pepesdog" tweets are automatically engaged
                 </li>
-                <li className="flex items-start">
-                  <span className="text-purple-500 mr-2 mt-0.5">•</span>
-                  <span>No webhook events are received from your account</span>
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
+                  🔒 Your credentials are encrypted with military-grade security
                 </li>
-                <li className="flex items-start">
-                  <span className="text-purple-500 mr-2 mt-0.5">•</span>
-                  <span>You can disconnect at any time to revoke access</span>
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
+                  🚪 You can disconnect anytime - Full control remains yours
                 </li>
-                <li className="flex items-start">
-                  <span className="text-purple-500 mr-2 mt-0.5">•</span>
-                  <span>Your account remains under your full control</span>
+                <li style={{ margin: '0.5rem 0', fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '1.05rem' }}>
+                  🚀 The more members, the stronger we all become!
                 </li>
               </ul>
             </div>
+
+            {/* Permissions Display (when connected) */}
+            {isConnected && (
+              <div className="zeus-section">
+                <h3 style={{
+                  fontFamily: 'BreakingTheComic',
+                  fontSize: '2rem',
+                  textAlign: 'center',
+                  color: '#FFD700',
+                  textTransform: 'uppercase',
+                  marginBottom: '2rem',
+                  textShadow: '3px 3px 0 #000'
+                }}>
+                  Active Permissions
+                </h3>
+
+                <div className="zeus-permissions-grid">
+                  <div className="zeus-permission-card">
+                    <div className="icon">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </div>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>TWEET POWER</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                      Post & RT tweets
+                    </p>
+                  </div>
+
+                  <div className="zeus-permission-card">
+                    <div className="icon">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>LIKE FORCE</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                      Auto-like content
+                    </p>
+                  </div>
+
+                  <div className="zeus-permission-card">
+                    <div className="icon">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <h4 style={{ fontFamily: 'BreakingTheComic', fontSize: '1.2rem', marginBottom: '0.5rem' }}>ARMY UNITY</h4>
+                    <p style={{ fontFamily: 'Comic Neue', fontWeight: '700', fontSize: '0.95rem' }}>
+                      Support community
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Call to action */}
+            {!isConnected && (
+              <div style={{
+                textAlign: 'center',
+                marginTop: '3rem',
+                padding: '2rem',
+                background: 'linear-gradient(135deg, #FFF9E6 0%, #FFE4B5 100%)',
+                borderRadius: '20px',
+                border: '3px solid #FFD700',
+                boxShadow: '0 5px 0 #FFD700, 0 8px 15px rgba(255, 215, 0, 0.3)'
+              }}>
+                <h2 style={{
+                  fontFamily: 'GROBOLD',
+                  fontSize: '2.5rem',
+                  background: 'linear-gradient(90deg, #FF6B6B 0%, #FFD700 50%, #4BB749 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '1rem'
+                }}>
+                  READY TO JOIN?
+                </h2>
+                <p style={{
+                  fontFamily: 'Comic Neue',
+                  fontSize: '1.3rem',
+                  fontWeight: '700',
+                  marginBottom: '2rem',
+                  color: '#2C2C2C'
+                }}>
+                  Connect your Twitter and become part of the Zeus Army!<br/>
+                  Together, we make PepesDog unstoppable! 🚀
+                </p>
+                <button
+                  onClick={handleJoinHivemind}
+                  className="zeus-button"
+                  style={{ fontSize: '1.8rem', padding: '1.5rem 3rem' }}
+                >
+                  ⚡ JOIN ZEUS ARMY ⚡
+                </button>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: 'center', marginTop: '3rem', paddingBottom: '2rem' }}>
+          <p style={{
+            fontFamily: 'Comic Neue',
+            fontSize: '1rem',
+            color: '#FFD700',
+            textShadow: '1px 1px 0 #000',
+            fontWeight: '700'
+          }}>
+            Zeus Army Network • Part of the PepesDog Ecosystem<br/>
+            Powered by X Forwarder Technology
+          </p>
         </div>
       </div>
     </div>
