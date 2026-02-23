@@ -757,6 +757,15 @@ Response:
   }
 }`}
                       </pre>
+                      <div className="mt-3 p-3 bg-amber-100 border border-amber-300 rounded text-xs">
+                        <p className="font-semibold text-amber-800 mb-1">⚠️ Important Note on Rate Limit Tracking:</p>
+                        <ul className="text-amber-700 space-y-1 ml-2">
+                          <li>• Rate limits for tweets (POST /2/tweets) are only captured when hitting 429 errors</li>
+                          <li>• Twitter API v2 with OAuth 2.0 doesn't return rate limit headers on successful requests</li>
+                          <li>• Like and retweet endpoints properly track rate limits on both success and errors</li>
+                          <li>• To see tweet rate limits, you must hit the limit (429 error) at least once</li>
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>
