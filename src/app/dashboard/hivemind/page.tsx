@@ -527,6 +527,72 @@ Response:
                       <li>• All credentials are encrypted with AES-256-GCM</li>
                     </ul>
                   </div>
+
+                  {/* Rate Limits Example */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">9. Check Rate Limits</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Monitor Twitter API rate limits for Zeus Army operations:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`GET https://hive.pepes.dog/api/hivemind/rate-limits
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+
+// Optional: Get rate limits for specific user
+GET https://hive.pepes.dog/api/hivemind/rate-limits?username=user_handle
+
+Response:
+{
+  "rateLimits": [
+    {
+      "account": {
+        "id": "1234567890",
+        "username": "user_handle",
+        "displayName": "User Name"
+      },
+      "endpoint": "POST /2/tweets",
+      "endpointType": "tweet",
+      "limit": 300,
+      "remaining": 250,
+      "used": 50,
+      "percentageUsed": 17,
+      "reset": "2024-02-23T10:00:00.000Z",
+      "resetIn": 3600,
+      "lastRequestAt": "2024-02-23T09:00:00.000Z"
+    }
+  ],
+  "summary": {
+    "totalUsers": 5,
+    "activeEndpoints": 10,
+    "mostUsedEndpoint": "POST /2/tweets",
+    "nextReset": "2024-02-23T10:00:00.000Z"
+  }
+}`}
+                    </pre>
+                  </div>
+
+                  {/* Rate Limit Error Handling */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">10. Rate Limit Error Handling</h4>
+                    <p className="text-sm text-gray-600 mb-2">
+                      When rate limits are exceeded, you'll receive detailed error information:
+                    </p>
+                    <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`// 429 Rate Limit Error Response
+{
+  "error": "Rate limit exceeded. Too many requests.",
+  "details": {
+    "message": "Twitter API rate limit reached.",
+    "resetAt": "2024-02-23T10:00:00.000Z",
+    "limit": 50,
+    "remaining": 0,
+    "retryAfter": 900,  // seconds until reset
+    "endpoint": "likes"
+  }
+}`}
+                    </pre>
+                  </div>
                 </div>
               </div>
             </div>

@@ -115,9 +115,11 @@ export async function GET(request: NextRequest) {
         username: user.username,
         displayName: user.displayName,
         totalEndpoints: rateLimits.length,
-        mostUsedEndpoint: rateLimits.reduce((prev, current) =>
-          (prev.percentageUsed > current.percentageUsed) ? prev : current
-        )?.endpoint || null,
+        mostUsedEndpoint: rateLimits.length > 0
+          ? rateLimits.reduce((prev, current) =>
+              (prev.percentageUsed > current.percentageUsed) ? prev : current
+            ).endpoint
+          : null,
         nextReset: rateLimits[0]?.reset || null
       };
     } else {

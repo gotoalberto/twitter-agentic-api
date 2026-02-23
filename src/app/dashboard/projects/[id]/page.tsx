@@ -92,6 +92,8 @@ function ProjectDetailContent() {
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
   const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
   const [isFollowingDocsOpen, setIsFollowingDocsOpen] = useState(false);
+  const [receivedTweetsDocsOpen, setReceivedTweetsDocsOpen] = useState(false);
+  const [rateLimitDocsOpen, setRateLimitDocsOpen] = useState(false);
   const [tweetsApiDocsOpen, setTweetsApiDocsOpen] = useState(false);
 
   // Webhook logs state
@@ -2129,6 +2131,150 @@ curl -X GET "${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/
                     <li>• Raw payload is preserved for accessing additional Twitter fields</li>
                     <li>• Results are ordered by receivedAt date (newest first)</li>
                     <li>• API key must match the project's configured key</li>
+                  </ul>
+                </div>
+                </div>
+              )}
+            </div>
+
+            {/* Rate Limits API Documentation - Collapsible */}
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setRateLimitDocsOpen(!rateLimitDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-indigo-900 hover:text-indigo-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                  </svg>
+                  Rate Limits API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${rateLimitDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
+
+              {rateLimitDocsOpen && (
+                <div className="mt-4 space-y-3 text-xs">
+                {/* Rate Limits Overview */}
+                <div className="bg-white p-3 rounded border border-indigo-200">
+                  <p className="text-indigo-800 font-semibold mb-2">Monitor Twitter API Rate Limits</p>
+                  <p className="text-gray-700 mb-3">
+                    Track your bot's Twitter API rate limits to prevent hitting limits and optimize your API usage.
+                  </p>
+
+                  <div className="bg-gray-50 p-2 rounded">
+                    <p className="font-semibold text-indigo-900 mb-1">What is tracked:</p>
+                    <ul className="text-[10px] text-gray-700 ml-3 space-y-1">
+                      <li>• Tweet posting limits (POST /2/tweets)</li>
+                      <li>• Like/Unlike limits (POST /2/users/:id/likes)</li>
+                      <li>• Retweet/Unretweet limits (POST /2/users/:id/retweets)</li>
+                      <li>• Direct Message limits (POST /2/dm_conversations)</li>
+                      <li>• All other Twitter API endpoints used by your bot</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Get Rate Limits Endpoint */}
+                <div className="bg-white p-3 rounded border border-indigo-200">
+                  <p className="text-indigo-800 font-semibold mb-2">Get Current Rate Limits</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`GET ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/rate-limits
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
+
+Response:
+{
+  "projectId": "${projectId}",
+  "projectName": "${project?.name || 'Your Project'}",
+  "rateLimits": [
+    {
+      "account": {
+        "id": "1234567890",
+        "username": "${botStatus?.bot?.username || 'bot_handle'}"
+      },
+      "endpoint": "POST /2/tweets",
+      "endpointType": "tweet",
+      "limit": 300,
+      "remaining": 250,
+      "used": 50,
+      "percentageUsed": 17,
+      "reset": "2024-02-23T10:00:00.000Z",
+      "resetIn": 3600,
+      "lastRequestAt": "2024-02-23T09:00:00.000Z"
+    },
+    {
+      "account": {
+        "id": "1234567890",
+        "username": "${botStatus?.bot?.username || 'bot_handle'}"
+      },
+      "endpoint": "POST /2/users/:id/likes",
+      "endpointType": "like",
+      "limit": 50,
+      "remaining": 45,
+      "used": 5,
+      "percentageUsed": 10,
+      "reset": "2024-02-23T09:30:00.000Z",
+      "resetIn": 1800,
+      "lastRequestAt": "2024-02-23T09:15:00.000Z"
+    }
+  ]
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Rate Limit Error Responses */}
+                <div className="bg-white p-3 rounded border border-indigo-200">
+                  <p className="text-indigo-800 font-semibold mb-2">Rate Limit Error Responses</p>
+                  <p className="text-gray-700 mb-2">
+                    When rate limits are exceeded, API endpoints will return a 429 status with detailed information:
+                  </p>
+                  <div className="bg-gray-900 text-red-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`HTTP/1.1 429 Too Many Requests
+
+{
+  "error": "Rate limit exceeded. Too many tweet requests.",
+  "details": {
+    "message": "Twitter API rate limit reached for tweets.",
+    "resetAt": "2024-02-23T10:00:00.000Z",
+    "limit": 300,
+    "remaining": 0,
+    "retryAfter": 900,  // seconds until reset
+    "endpoint": "tweet"
+  }
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Best Practices */}
+                <div className="bg-indigo-100 border border-indigo-300 rounded p-2">
+                  <p className="text-[10px] text-indigo-800 mb-2">
+                    <strong>Best Practices:</strong>
+                  </p>
+                  <ul className="text-[10px] text-indigo-700 ml-4 space-y-1">
+                    <li>• Check rate limits before bulk operations</li>
+                    <li>• Implement exponential backoff when hitting limits</li>
+                    <li>• Use the retryAfter value to schedule retries</li>
+                    <li>• Monitor percentageUsed to avoid hitting limits</li>
+                    <li>• Cache rate limit data to reduce API calls</li>
+                    <li>• Distribute operations across time windows</li>
+                  </ul>
+                </div>
+
+                {/* Important Notes */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                  <p className="text-[10px] text-yellow-800 mb-2">
+                    <strong>Important Notes:</strong>
+                  </p>
+                  <ul className="text-[10px] text-yellow-700 ml-4 space-y-1">
+                    <li>• Rate limits are tracked automatically for all API calls</li>
+                    <li>• Limits are per-account and per-endpoint</li>
+                    <li>• Twitter's rate limits vary by endpoint type</li>
+                    <li>• Resets occur on a rolling time window</li>
+                    <li>• OAuth 2.0 may have different limits than OAuth 1.0a</li>
                   </ul>
                 </div>
                 </div>
