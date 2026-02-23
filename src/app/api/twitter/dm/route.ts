@@ -45,6 +45,10 @@ interface DMRequest {
  * }
  */
 export async function POST(request: NextRequest) {
+  let body: DMRequest = {} as DMRequest; // Initialize with empty object
+  let bot: any;
+  let project: any;
+
   try {
     console.log('');
     console.log('================================================================================');
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
     console.log('');
 
     // Parse request body
-    const body: DMRequest = await request.json();
+    body = await request.json();
 
     console.log('📋 Request details:');
     console.log('   Username:', body.username);
@@ -105,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Get bot credentials from PostgreSQL
     console.log('📦 Fetching bot credentials from database...');
-    const bot = await getBotByUsername(body.username);
+    bot = await getBotByUsername(body.username);
 
     if (!bot) {
       console.log('❌ Bot not found for username:', body.username);
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
     const apiKey = request.headers.get('x-api-key');
 
     // Get project to check API key
-    const project = await getProjectById(bot.projectId);
+    project = await getProjectById(bot.projectId);
 
     if (!project) {
       console.log('❌ Project not found');
@@ -273,6 +277,29 @@ export async function POST(request: NextRequest) {
         reset: resetTime,
         endpoint: 'POST /2/dm_conversations/with/:participant_id/messages'
       });
+
+      // Save rate limit information even on error
+      if (rateLimitInfo.limit && rateLimitInfo.reset && bot && project) {
+        try {
+          await saveRateLimit(
+            {
+              projectId: project.id,
+              accountId: bot.userId,
+              accountUsername: bot.username,
+              endpoint: 'POST /2/dm_conversations/with/:participant_id/messages',
+              endpointType: EndpointType.DM,
+            },
+            {
+              limit: rateLimitInfo.limit || 1000,
+              remaining: 0, // When we hit 429, remaining is always 0
+              reset: rateLimitInfo.reset
+            }
+          );
+          console.log('💾 Rate limit saved to database despite error');
+        } catch (saveError) {
+          console.error('❌ Failed to save rate limit:', saveError);
+        }
+      }
 
       return NextResponse.json(
         {

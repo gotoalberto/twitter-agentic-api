@@ -93,6 +93,12 @@ interface TweetRequest {
  * }
  */
 export async function POST(request: NextRequest) {
+  let body: TweetRequest = {} as TweetRequest; // Initialize with empty object to avoid TypeScript errors
+  let isHivemind = false;
+  let projectId: string | null = null;
+  let hivemindUser: any = null;
+  let bot: any = null;
+
   try {
     console.log('');
     console.log('================================================================================');
@@ -102,17 +108,17 @@ export async function POST(request: NextRequest) {
     console.log('');
 
     // Parse request body
-    const body: TweetRequest = await request.json();
+    body = await request.json();
 
     console.log('📋 Request details:');
-    console.log('   Username:', body.username);
-    console.log('   Text length:', body.text?.length || 0);
-    console.log('   Reply to:', body.replyToTweetId || 'N/A');
-    console.log('   Idempotency key:', body.idempotencyKey || 'N/A');
-    console.log('   Image data:', body.imageData ? `${body.imageData.length} chars (base64)` : 'N/A');
-    console.log('   Image URL:', body.imageUrl || 'N/A');
-    console.log('   Video data:', body.videoData ? `${body.videoData.length} chars (base64)` : 'N/A');
-    console.log('   Video URL:', body.videoUrl || 'N/A');
+    console.log('   Username:', body?.username || 'N/A');
+    console.log('   Text length:', body?.text?.length || 0);
+    console.log('   Reply to:', body?.replyToTweetId || 'N/A');
+    console.log('   Idempotency key:', body?.idempotencyKey || 'N/A');
+    console.log('   Image data:', body?.imageData ? `${body.imageData.length} chars (base64)` : 'N/A');
+    console.log('   Image URL:', body?.imageUrl || 'N/A');
+    console.log('   Video data:', body?.videoData ? `${body.videoData.length} chars (base64)` : 'N/A');
+    console.log('   Video URL:', body?.videoUrl || 'N/A');
     console.log('');
 
     // Validate request
@@ -194,10 +200,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine if this is a Hivemind or Project API request
-    let isHivemind = false;
-    let projectId: string | null = null;
-    let hivemindUser: any = null; // Will be set if this is a Hivemind request
-    let bot: any = null; // Will be set if this is a Project request
     let userCredentials: { accessToken: string; accessTokenSecret: string } | null = null;
     let oauth2Token: string | null = null; // For OAuth 2.0 support
     let consumerKey: string | undefined;
@@ -795,6 +797,58 @@ export async function POST(request: NextRequest) {
       console.error('   Reason: Unauthorized - check credentials');
     } else if (error.code === 429) {
       console.error('   Reason: Rate limit exceeded');
+
+      // Save rate limit information even on error
+      if (error.rateLimit) {
+        try {
+          const accountInfo = isHivemind
+            ? {
+                accountId: hivemindUser?.userId || body?.username || 'unknown',
+                accountUsername: body?.username || 'unknown'
+              }
+            : {
+                accountId: bot?.userId || body?.username || 'unknown',
+                accountUsername: body?.username || 'unknown'
+              };
+
+          await saveRateLimit(
+            {
+              projectId: projectId || undefined,
+              hivemindUserId: isHivemind ? (hivemindUser?.userId || undefined) : undefined,
+              accountId: accountInfo.accountId,
+              accountUsername: accountInfo.accountUsername,
+              endpoint: 'POST /2/tweets',
+              endpointType: EndpointType.TWEET,
+            },
+            {
+              limit: error.rateLimit.limit || 300,
+              remaining: 0, // When we hit 429, remaining is always 0
+              reset: error.rateLimit.reset
+            }
+          );
+          console.log('💾 Rate limit saved to database despite error');
+        } catch (saveError) {
+          console.error('❌ Failed to save rate limit:', saveError);
+        }
+      }
+
+      // Return enhanced error response
+      const resetTime = error.rateLimit?.reset ? new Date(error.rateLimit.reset * 1000).toISOString() : 'unknown';
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Rate limit exceeded. Too many tweet requests.',
+          details: {
+            message: 'Twitter API rate limit reached for tweets. Please wait before trying again.',
+            resetAt: resetTime,
+            limit: error.rateLimit?.limit || 300,
+            remaining: 0,
+            retryAfter: error.rateLimit?.reset ? Math.max(0, error.rateLimit.reset - Math.floor(Date.now() / 1000)) : 900,
+            endpoint: 'tweets'
+          }
+        },
+        { status: 429 }
+      );
     }
 
     console.log('================================================================================');

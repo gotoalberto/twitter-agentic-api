@@ -155,6 +155,29 @@ export async function POST(request: NextRequest) {
           endpoint: 'POST /2/users/:id/retweets'
         });
 
+        // Save rate limit information even on error
+        if (rateLimitInfo.limit && rateLimitInfo.reset) {
+          try {
+            await saveRateLimit(
+              {
+                hivemindUserId: hivemindUser.userId,
+                accountId: hivemindUser.userId,
+                accountUsername: hivemindUser.username,
+                endpoint: action === 'unretweet' ? 'DELETE /2/users/:id/retweets/:source_tweet_id' : 'POST /2/users/:id/retweets',
+                endpointType: EndpointType.RETWEET,
+              },
+              {
+                limit: rateLimitInfo.limit || 50,
+                remaining: 0, // When we hit 429, remaining is always 0
+                reset: rateLimitInfo.reset
+              }
+            );
+            console.log('💾 Rate limit saved to database despite error');
+          } catch (saveError) {
+            console.error('❌ Failed to save rate limit:', saveError);
+          }
+        }
+
         return NextResponse.json({
           error: 'Rate limit exceeded. Too many retweet requests.',
           details: {
