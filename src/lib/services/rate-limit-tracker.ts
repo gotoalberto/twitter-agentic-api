@@ -178,7 +178,7 @@ export async function getProjectRateLimits(projectId: string) {
   // This includes expired ones so users can see their rate limit status
   const rateLimits = await prisma.$queryRaw<any[]>`
     SELECT DISTINCT ON (endpoint) *
-    FROM "RateLimit"
+    FROM "rate_limits"
     WHERE "project_id" = ${projectId}
     ORDER BY endpoint, "last_request_at" DESC
   `;
@@ -194,7 +194,7 @@ export async function getHivemindUserRateLimits(hivemindUserId: string) {
   // This includes expired ones so users can see their rate limit status
   const rateLimits = await prisma.$queryRaw<any[]>`
     SELECT DISTINCT ON (endpoint) *
-    FROM "RateLimit"
+    FROM "rate_limits"
     WHERE "hivemind_user_id" = ${hivemindUserId}
     ORDER BY endpoint, "last_request_at" DESC
   `;
@@ -213,8 +213,8 @@ export async function getAllHivemindRateLimits() {
       r.*,
       h.username as "hivemind_username",
       h."display_name" as "hivemind_display_name"
-    FROM "RateLimit" r
-    LEFT JOIN "HivemindUser" h ON r."hivemind_user_id" = h."user_id"
+    FROM "rate_limits" r
+    LEFT JOIN "hivemind_users" h ON r."hivemind_user_id" = h."user_id"
     WHERE r."hivemind_user_id" IS NOT NULL
     ORDER BY r."account_id", r.endpoint, r."last_request_at" DESC
   `;
