@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { prisma } from '@/lib/db/prisma';
 import { refreshAccessToken, isTokenExpired, calculateExpirationDate } from '@/lib/twitter/oauth2';
+import { saveRateLimit, extractRateLimit, EndpointType } from '@/lib/services/rate-limit-tracker';
 
 export async function POST(request: NextRequest) {
   try {
@@ -113,6 +114,21 @@ export async function POST(request: NextRequest) {
         console.log('❤️ Attempting to like tweet:', tweetId);
         result = await v2Client.like(userId, tweetId);
         console.log('✅ Like successful');
+      }
+
+      // Save rate limit information
+      const rateLimitInfo = extractRateLimit(result);
+      if (rateLimitInfo) {
+        await saveRateLimit(
+          {
+            hivemindUserId: hivemindUser.userId,
+            accountId: hivemindUser.userId,
+            accountUsername: hivemindUser.username,
+            endpoint: action === 'unlike' ? 'DELETE /2/users/:id/likes/:tweet_id' : 'POST /2/users/:id/likes',
+            endpointType: EndpointType.LIKE,
+          },
+          rateLimitInfo
+        );
       }
 
       return NextResponse.json({

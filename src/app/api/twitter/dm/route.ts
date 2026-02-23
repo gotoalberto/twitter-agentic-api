@@ -12,6 +12,7 @@ import { TwitterApi } from 'twitter-api-v2';
 import { getBotByUsername } from '@/lib/db/bots';
 import { getProjectById } from '@/lib/db/projects';
 import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
+import { saveRateLimit, extractRateLimit, EndpointType } from '@/lib/services/rate-limit-tracker';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -222,6 +223,22 @@ export async function POST(request: NextRequest) {
     console.log('   Duration:', `${duration}ms`);
     console.log('────────────────────────────────────────────────────────────────────────────────');
     console.log('');
+
+    // Save rate limit information
+    const rateLimitInfo = extractRateLimit(response);
+    if (rateLimitInfo) {
+      await saveRateLimit(
+        {
+          projectId: project.id,
+          accountId: bot.userId,
+          accountUsername: bot.username,
+          endpoint: 'POST /2/dm_conversations/with/:participant_id/messages',
+          endpointType: EndpointType.DM,
+        },
+        rateLimitInfo
+      );
+    }
+
     console.log('================================================================================');
     console.log('');
 
@@ -245,6 +262,32 @@ export async function POST(request: NextRequest) {
       console.error('   Reason: Unauthorized - check bot credentials');
     } else if (error.code === 429) {
       console.error('   Reason: Rate limit exceeded');
+
+      // Extract rate limit info if available
+      const rateLimitInfo = error?.rateLimit || {};
+      const resetTime = rateLimitInfo.reset ? new Date(rateLimitInfo.reset * 1000).toISOString() : 'unknown';
+
+      console.error('📊 Rate limit details:', {
+        limit: rateLimitInfo.limit || 'unknown',
+        remaining: rateLimitInfo.remaining || 0,
+        reset: resetTime,
+        endpoint: 'POST /2/dm_conversations/with/:participant_id/messages'
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded. Too many DM requests.',
+          details: {
+            message: 'Twitter API rate limit reached for DMs. Please wait before trying again.',
+            resetAt: resetTime,
+            limit: rateLimitInfo.limit || 1000,
+            remaining: 0,
+            retryAfter: rateLimitInfo.reset ? Math.max(0, rateLimitInfo.reset - Math.floor(Date.now() / 1000)) : 900,
+            endpoint: 'dm'
+          }
+        },
+        { status: 429 }
+      );
     }
 
     console.log('================================================================================');

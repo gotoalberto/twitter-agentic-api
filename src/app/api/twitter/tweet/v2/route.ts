@@ -19,6 +19,7 @@ import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 import { getHivemindUserByUsername, getHivemindConfig, updateHivemindUserActivity } from '@/lib/db/hivemind';
 import { prisma } from '@/lib/db/prisma';
 import { isTokenExpired, refreshAccessToken, calculateExpirationDate } from '@/lib/twitter/oauth2';
+import { saveRateLimit, extractRateLimit, EndpointType } from '@/lib/services/rate-limit-tracker';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -195,6 +196,8 @@ export async function POST(request: NextRequest) {
     // Determine if this is a Hivemind or Project API request
     let isHivemind = false;
     let projectId: string | null = null;
+    let hivemindUser: any = null; // Will be set if this is a Hivemind request
+    let bot: any = null; // Will be set if this is a Project request
     let userCredentials: { accessToken: string; accessTokenSecret: string } | null = null;
     let oauth2Token: string | null = null; // For OAuth 2.0 support
     let consumerKey: string | undefined;
@@ -240,7 +243,7 @@ export async function POST(request: NextRequest) {
 
       // Get Hivemind user credentials
       console.log('📦 Fetching Hivemind user credentials for:', body.username);
-      const hivemindUser = await getHivemindUserByUsername(body.username);
+      hivemindUser = await getHivemindUserByUsername(body.username);
 
       console.log('👤 Hivemind User Check:', {
         username: body.username,
@@ -378,7 +381,7 @@ export async function POST(request: NextRequest) {
 
       // Get bot credentials from PostgreSQL
       console.log('📦 Fetching bot credentials from database...');
-      const bot = await getBotByUsername(body.username);
+      bot = await getBotByUsername(body.username);
 
       if (!bot) {
         console.log('❌ Bot not found for username:', body.username);
@@ -700,6 +703,33 @@ export async function POST(request: NextRequest) {
     console.log('   URL:', `https://twitter.com/${body.username}/status/${response.data.id}`);
     console.log('────────────────────────────────────────────────────────────────────────────────');
     console.log('');
+
+    // Save rate limit information
+    const rateLimitInfo = extractRateLimit(response);
+    if (rateLimitInfo) {
+      // Determine the account that made the request
+      const accountInfo = isHivemind
+        ? {
+            accountId: hivemindUser?.userId || body.username,
+            accountUsername: body.username
+          }
+        : {
+            accountId: bot?.userId || body.username,
+            accountUsername: body.username
+          };
+
+      await saveRateLimit(
+        {
+          projectId: projectId || undefined,
+          hivemindUserId: isHivemind ? (hivemindUser?.userId || undefined) : undefined,
+          accountId: accountInfo.accountId,
+          accountUsername: accountInfo.accountUsername,
+          endpoint: 'POST /2/tweets',
+          endpointType: EndpointType.TWEET,
+        },
+        rateLimitInfo
+      );
+    }
 
     // Store idempotency key if provided (only for projects)
     if (body.idempotencyKey && projectId) {

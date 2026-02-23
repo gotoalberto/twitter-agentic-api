@@ -56,6 +56,7 @@ model Project {
   forwardingEndpoints  ForwardingEndpoint[]
   idempotentTweets     IdempotentTweet[]
   receivedTweets       ReceivedTweet[]
+  rateLimits           RateLimit[]
   twitterApp           TwitterApp?           @relation(fields: [twitterAppId], references: [id])
   webhookDeliveries    WebhookDelivery[]
   webhookLogs          WebhookLog[]
@@ -253,6 +254,9 @@ model HivemindUser {
   lastActiveAt      DateTime @default(now()) @map("last_active_at")
   isActive          Boolean  @default(true) @map("is_active")
 
+  // Relations
+  rateLimits        RateLimit[]
+
   @@index([username])
   @@index([isActive])
   @@index([connectedAt])
@@ -309,4 +313,42 @@ model ReceivedTweet {
   @@index([projectId, userId]) // For filtering by sender
   @@index([tweetId]) // For looking up specific tweets
   @@map("received_tweets")
+}
+
+/// RateLimit stores the current rate limit status for each endpoint and account
+model RateLimit {
+  id              String   @id @default(cuid())
+
+  // Owner identification (either project or hivemind)
+  projectId       String?  @map("project_id")       // For project bots
+  hivemindUserId  String?  @map("hivemind_user_id") // For Hivemind users
+
+  // Account that made the request
+  accountId       String   @map("account_id")       // Twitter user ID
+  accountUsername String   @map("account_username") // Twitter username
+
+  // Endpoint information
+  endpoint        String                            // e.g., "POST /2/tweets", "POST /2/users/:id/likes"
+  endpointType    String   @map("endpoint_type")    // e.g., "tweet", "like", "retweet", "search", "timeline"
+
+  // Rate limit values
+  limit           Int                               // Total requests allowed in window
+  remaining       Int                               // Requests remaining
+  reset           DateTime                          // When the rate limit resets
+
+  // Tracking
+  lastUpdated     DateTime @default(now()) @map("last_updated") // Last time this was updated
+  lastRequestAt   DateTime @default(now()) @map("last_request_at") // Last API call timestamp
+
+  // Relations
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hivemindUser    HivemindUser? @relation(fields: [hivemindUserId], references: [userId], onDelete: Cascade)
+
+  // Unique constraint: one rate limit per endpoint per account
+  @@unique([accountId, endpoint])
+  @@index([projectId, endpoint])
+  @@index([hivemindUserId, endpoint])
+  @@index([reset]) // For finding expired rate limits
+  @@index([endpointType, accountId])
+  @@map("rate_limits")
 }
