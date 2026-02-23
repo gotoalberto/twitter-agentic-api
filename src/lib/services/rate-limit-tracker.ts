@@ -174,17 +174,14 @@ export function extractRateLimit(response: any): RateLimitInfo | null {
  * Get current rate limits for a project
  */
 export async function getProjectRateLimits(projectId: string) {
-  const rateLimits = await prisma.rateLimit.findMany({
-    where: {
-      projectId,
-      reset: {
-        gte: new Date(), // Only show active rate limits
-      },
-    },
-    orderBy: {
-      endpoint: 'asc',
-    },
-  });
+  // Get the most recent rate limit for each endpoint
+  // This includes expired ones so users can see their rate limit status
+  const rateLimits = await prisma.$queryRaw<any[]>`
+    SELECT DISTINCT ON (endpoint) *
+    FROM "RateLimit"
+    WHERE "project_id" = ${projectId}
+    ORDER BY endpoint, "last_request_at" DESC
+  `;
 
   return formatRateLimits(rateLimits);
 }
@@ -193,17 +190,14 @@ export async function getProjectRateLimits(projectId: string) {
  * Get current rate limits for a Hivemind user
  */
 export async function getHivemindUserRateLimits(hivemindUserId: string) {
-  const rateLimits = await prisma.rateLimit.findMany({
-    where: {
-      hivemindUserId,
-      reset: {
-        gte: new Date(), // Only show active rate limits
-      },
-    },
-    orderBy: {
-      endpoint: 'asc',
-    },
-  });
+  // Get the most recent rate limit for each endpoint
+  // This includes expired ones so users can see their rate limit status
+  const rateLimits = await prisma.$queryRaw<any[]>`
+    SELECT DISTINCT ON (endpoint) *
+    FROM "RateLimit"
+    WHERE "hivemind_user_id" = ${hivemindUserId}
+    ORDER BY endpoint, "last_request_at" DESC
+  `;
 
   return formatRateLimits(rateLimits);
 }
@@ -212,45 +206,35 @@ export async function getHivemindUserRateLimits(hivemindUserId: string) {
  * Get all rate limits for Hivemind (all users)
  */
 export async function getAllHivemindRateLimits() {
-  const rateLimits = await prisma.rateLimit.findMany({
-    where: {
-      hivemindUserId: {
-        not: null,
-      },
-      reset: {
-        gte: new Date(), // Only show active rate limits
-      },
-    },
-    include: {
-      hivemindUser: {
-        select: {
-          username: true,
-          displayName: true,
-        },
-      },
-    },
-    orderBy: [
-      { accountUsername: 'asc' },
-      { endpoint: 'asc' },
-    ],
-  });
+  // Get the most recent rate limit for each user/endpoint combination
+  // This includes expired ones so users can see their rate limit status
+  const rateLimits = await prisma.$queryRaw<any[]>`
+    SELECT DISTINCT ON (r."account_id", r.endpoint)
+      r.*,
+      h.username as "hivemind_username",
+      h."display_name" as "hivemind_display_name"
+    FROM "RateLimit" r
+    LEFT JOIN "HivemindUser" h ON r."hivemind_user_id" = h."user_id"
+    WHERE r."hivemind_user_id" IS NOT NULL
+    ORDER BY r."account_id", r.endpoint, r."last_request_at" DESC
+  `;
 
-  return rateLimits.map((rl) => ({
+  return rateLimits.map((rl: any) => ({
     id: rl.id,
     account: {
-      id: rl.accountId,
-      username: rl.accountUsername,
-      displayName: rl.hivemindUser?.displayName,
+      id: rl.account_id,
+      username: rl.account_username,
+      displayName: rl.hivemind_display_name || rl.account_username,
     },
     endpoint: rl.endpoint,
-    endpointType: rl.endpointType,
+    endpointType: rl.endpoint_type,
     limit: rl.limit,
     remaining: rl.remaining,
     used: rl.limit - rl.remaining,
     percentageUsed: Math.round(((rl.limit - rl.remaining) / rl.limit) * 100),
     reset: rl.reset.toISOString(),
     resetIn: Math.max(0, Math.floor((rl.reset.getTime() - Date.now()) / 1000)), // seconds
-    lastRequestAt: rl.lastRequestAt.toISOString(),
+    lastRequestAt: rl.last_request_at.toISOString(),
   }));
 }
 
@@ -260,22 +244,31 @@ export async function getAllHivemindRateLimits() {
 function formatRateLimits(rateLimits: any[]) {
   const now = Date.now();
 
-  return rateLimits.map((rl) => ({
-    id: rl.id,
-    account: {
-      id: rl.accountId,
-      username: rl.accountUsername,
-    },
-    endpoint: rl.endpoint,
-    endpointType: rl.endpointType,
-    limit: rl.limit,
-    remaining: rl.remaining,
-    used: rl.limit - rl.remaining,
-    percentageUsed: Math.round(((rl.limit - rl.remaining) / rl.limit) * 100),
-    reset: rl.reset.toISOString(),
-    resetIn: Math.max(0, Math.floor((rl.reset.getTime() - now) / 1000)), // seconds
-    lastRequestAt: rl.lastRequestAt.toISOString(),
-  }));
+  return rateLimits.map((rl) => {
+    // Handle both Prisma objects and raw query results
+    const accountId = rl.accountId || rl.account_id;
+    const accountUsername = rl.accountUsername || rl.account_username;
+    const endpointType = rl.endpointType || rl.endpoint_type;
+    const lastRequestAt = rl.lastRequestAt || rl.last_request_at;
+    const resetTime = rl.reset instanceof Date ? rl.reset : new Date(rl.reset);
+
+    return {
+      id: rl.id,
+      account: {
+        id: accountId,
+        username: accountUsername,
+      },
+      endpoint: rl.endpoint,
+      endpointType: endpointType,
+      limit: rl.limit,
+      remaining: rl.remaining,
+      used: rl.limit - rl.remaining,
+      percentageUsed: Math.round(((rl.limit - rl.remaining) / rl.limit) * 100),
+      reset: resetTime.toISOString(),
+      resetIn: Math.max(0, Math.floor((resetTime.getTime() - now) / 1000)), // seconds
+      lastRequestAt: lastRequestAt instanceof Date ? lastRequestAt.toISOString() : lastRequestAt,
+    };
+  });
 }
 
 /**

@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
         displayName: user.displayName,
         totalEndpoints: rateLimits.length,
         mostUsedEndpoint: rateLimits.length > 0
-          ? rateLimits.reduce((prev, current) =>
+          ? rateLimits.reduce((prev: any, current: any) =>
               (prev.percentageUsed > current.percentageUsed) ? prev : current
             ).endpoint
           : null,
@@ -127,12 +127,12 @@ export async function GET(request: NextRequest) {
       rateLimits = await getAllHivemindRateLimits();
 
       // Create summary for all users
-      const uniqueUsers = new Set(rateLimits.map(rl => rl.account.username));
-      const uniqueEndpoints = new Set(rateLimits.map(rl => rl.endpoint));
+      const uniqueUsers = new Set(rateLimits.map((rl: any) => rl.account.username));
+      const uniqueEndpoints = new Set(rateLimits.map((rl: any) => rl.endpoint));
 
       // Find most used endpoint across all users
       const endpointUsage: Record<string, number> = {};
-      rateLimits.forEach(rl => {
+      rateLimits.forEach((rl: any) => {
         endpointUsage[rl.endpoint] = (endpointUsage[rl.endpoint] || 0) + rl.percentageUsed;
       });
       const mostUsedEndpoint = Object.entries(endpointUsage)
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
 
       // Find next reset time
       const nextReset = rateLimits
-        .map(rl => rl.reset)
+        .map((rl: any) => rl.reset)
         .sort()[0] || null;
 
       summary = {
