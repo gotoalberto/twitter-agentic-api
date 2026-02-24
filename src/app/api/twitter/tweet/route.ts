@@ -537,8 +537,9 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Twitter API v2 media upload is still in development
-        // For now, we use v1 endpoint which works with both OAuth methods
+        // IMPORTANT: Twitter's v1.1 media upload API currently requires OAuth 1.0a
+        // Even with media.write scope, OAuth 2.0 tokens get 403 errors on v1.1 media endpoint
+        // Twitter's v2 media upload API is not yet available in the SDK
         mediaId = await mediaUploadClient.v1.uploadMedia(mediaBuffer, {
           mimeType: mimeType,
         });
