@@ -512,23 +512,38 @@ async function handleOAuth1Callback(request: NextRequest, searchParams: URLSearc
 
     console.error('');
     console.error('================================================================================');
-    console.error('❌ WEBHOOK REGISTRATION FAILED');
+    console.error('⚠️ WEBHOOK REGISTRATION FAILED (NON-CRITICAL)');
     console.error('   Error:', webhookErrorMessage);
-    console.error('🔄 ROLLING BACK BOT CONNECTION');
 
-    try {
-      const { deleteBotByProjectId } = await import('@/lib/db/bots');
-      await deleteBotByProjectId(project.id);
-      console.error('   ✅ Bot deleted successfully');
-    } catch (deleteError: any) {
-      console.error('   ❌ Failed to delete bot:', deleteError.message);
+    // Check if this is a permissions error that should be shown to the user
+    const isPermissionsError = webhookErrorMessage.includes('write actions') ||
+                               webhookErrorMessage.includes('code 261') ||
+                               webhookErrorMessage.includes('No TAAS access');
+
+    if (isPermissionsError) {
+      console.error('');
+      console.error('📋 IMPORTANT: This is a Twitter App permissions issue');
+      console.error('   The bot has been connected successfully but without webhook support.');
+      console.error('   To enable webhooks (for mentions, DMs, etc.):');
+      console.error('   1. Go to Twitter Developer Portal');
+      console.error('   2. Update app permissions to "Read and Write"');
+      console.error('   3. Request TAAS access if needed');
     }
 
+    console.error('');
+    console.error('✅ Bot connection will continue without webhook support');
+    console.error('   The bot can still:');
+    console.error('   - Post tweets');
+    console.error('   - Like and retweet');
+    console.error('   - Use all OAuth features');
+    console.error('   But will NOT receive:');
+    console.error('   - Real-time mentions');
+    console.error('   - Direct messages');
+    console.error('   - Other webhook events');
     console.error('================================================================================');
 
-    throw new Error(
-      `Webhook registration failed: ${webhookErrorMessage}. Please try connecting the bot again.`
-    );
+    // Continue with the connection - don't throw error for projects
+    webhookRegistrationSucceeded = false;
   }
 
   // Clear cookies and redirect
