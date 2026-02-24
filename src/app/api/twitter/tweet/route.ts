@@ -322,18 +322,89 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const consumerKey = twitterApp.consumerKey;
-    const consumerSecret = twitterApp.consumerSecret;
     console.log('🔑 Using credentials from TwitterApp:', twitterApp.name);
 
-    // Create Twitter client with OAuth 1.0a
-    console.log('🔑 Initializing Twitter client...');
-    const client = new TwitterApi({
-      appKey: consumerKey,
-      appSecret: consumerSecret,
-      accessToken: bot.accessToken,
-      accessSecret: bot.accessTokenSecret,
-    } as any);
+    // Create Twitter client - prefer OAuth 2.0 if available
+    let client: TwitterApi;
+
+    if (bot.oauth2AccessToken) {
+      // Use OAuth 2.0 if available
+      console.log('🔐 Using OAuth 2.0 for tweet publishing');
+      console.log('   Has access token:', !!bot.oauth2AccessToken);
+      console.log('   Token expires at:', bot.expiresAt?.toISOString());
+
+      // Check if token is expired
+      if (bot.expiresAt && new Date() > new Date(bot.expiresAt)) {
+        console.log('⏰ OAuth 2.0 token expired, needs refresh');
+
+        // Try to refresh if we have refresh token and credentials
+        if (bot.refreshToken && twitterApp.clientId && twitterApp.clientSecret) {
+          console.log('🔄 Attempting to refresh OAuth 2.0 token...');
+
+          const { refreshAccessToken, calculateExpirationDate } = await import('@/lib/twitter/oauth2');
+
+          try {
+            const refreshedTokens = await refreshAccessToken({
+              refreshToken: bot.refreshToken,
+              clientId: twitterApp.clientId,
+              clientSecret: twitterApp.clientSecret,
+            });
+
+            // Update tokens in database
+            const newExpiresAt = calculateExpirationDate(refreshedTokens.expiresIn);
+            await prisma.bot.update({
+              where: { id: bot.id },
+              data: {
+                oauth2AccessToken: refreshedTokens.accessToken,
+                refreshToken: refreshedTokens.refreshToken || bot.refreshToken,
+                expiresAt: newExpiresAt,
+                scope: refreshedTokens.scope,
+              },
+            });
+
+            // Use the new token
+            bot.oauth2AccessToken = refreshedTokens.accessToken;
+            bot.expiresAt = newExpiresAt;
+            console.log('✅ Token refreshed successfully');
+          } catch (error) {
+            console.error('❌ Failed to refresh token:', error);
+            return NextResponse.json({ error: 'Failed to refresh authentication token' }, { status: 401 });
+          }
+        } else {
+          console.error('❌ Cannot refresh token - missing refresh token or OAuth 2.0 credentials');
+          return NextResponse.json({ error: 'Authentication token expired' }, { status: 401 });
+        }
+      }
+
+      client = new TwitterApi(bot.oauth2AccessToken);
+    } else if (bot.accessToken && bot.accessTokenSecret) {
+      // Fall back to OAuth 1.0a if no OAuth 2.0 token
+      console.log('🔑 Using OAuth 1.0a for tweet publishing');
+
+      const consumerKey = twitterApp.consumerKey;
+      const consumerSecret = twitterApp.consumerSecret;
+
+      if (!consumerKey || !consumerSecret) {
+        console.log('❌ TwitterApp missing OAuth 1.0a credentials');
+        return NextResponse.json(
+          { error: 'TwitterApp not configured for OAuth 1.0a' },
+          { status: 500 }
+        );
+      }
+
+      client = new TwitterApi({
+        appKey: consumerKey,
+        appSecret: consumerSecret,
+        accessToken: bot.accessToken,
+        accessSecret: bot.accessTokenSecret,
+      } as any);
+    } else {
+      console.log('❌ Bot has no valid authentication tokens');
+      return NextResponse.json(
+        { error: 'Bot not authenticated. Please reconnect the bot.' },
+        { status: 401 }
+      );
+    }
 
     // Handle media upload if provided
     let mediaId: string | undefined;
