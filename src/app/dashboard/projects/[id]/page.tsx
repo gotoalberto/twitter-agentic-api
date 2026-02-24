@@ -1789,7 +1789,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                 <div>
                   <p className="text-amber-800 font-semibold mb-2">Description</p>
                   <p className="text-gray-700">
-                    Upload images to AWS S3 and get a pre-signed URL back. Perfect for uploading images before posting tweets with media. URLs are valid for 7 days.
+                    Upload images to AWS S3 and get a public URL back. Perfect for uploading images before posting tweets with media.
                   </p>
                 </div>
 
@@ -1847,7 +1847,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
                   <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
                     <pre className="text-[10px]">{`{
   "success": true,
-  "url": "https://pepesdog-uploads.s3.us-east-1.amazonaws.com/images/1734567890123-abc123-pepesdog-logo.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&...",
+  "url": "https://pepesdog-uploads.s3.us-east-1.amazonaws.com/images/1734567890123-abc123-pepesdog-logo.png",
   "key": "images/1734567890123-abc123-pepesdog-logo.png"
 }`}</pre>
                   </div>

@@ -350,11 +350,9 @@ Body:
 Response:
 {
   "success": true,
-  "url": "https://pepesdog-uploads.s3.us-east-1.amazonaws.com/images/1734567890-abc123-pepesdog-logo.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&...",
+  "url": "https://pepesdog-uploads.s3.us-east-1.amazonaws.com/images/1734567890-abc123-pepesdog-logo.jpg",
   "key": "images/1734567890-abc123-pepesdog-logo.jpg"
-}
-
-Note: The URL is a pre-signed URL valid for 7 days`}
+}`}
                       </pre>
                       <div className="mt-3 text-xs text-gray-600">
                         <p className="font-semibold mb-1">Complete workflow example:</p>

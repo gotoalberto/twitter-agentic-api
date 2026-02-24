@@ -27,8 +27,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { getProjectByApiKey } from '@/lib/db/projects';
 import { getHivemindConfig } from '@/lib/db/hivemind';
 import crypto from 'crypto';
@@ -315,21 +314,11 @@ export async function POST(request: NextRequest) {
     const uploadDuration = Date.now() - startTime;
     console.log(`   ✅ Upload successful (${uploadDuration}ms)`);
 
-    // Generate a pre-signed URL that doesn't require public access
+    // Generate public URL (bucket has public read policy)
     const region = process.env.AWS_REGION || 'us-east-1';
+    const publicUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${filename}`;
 
-    // Create a pre-signed URL valid for 7 days
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: filename,
-    });
-
-    console.log('   🔗 Generating pre-signed URL...');
-    const presignedUrl = await getSignedUrl(s3Client, getObjectCommand, {
-      expiresIn: 604800, // 7 days in seconds
-    });
-
-    console.log('   Pre-signed URL generated (valid for 7 days)');
+    console.log('   🔗 Public URL:', publicUrl);
     console.log('');
     console.log('✅ IMAGE UPLOAD COMPLETE');
     console.log('================================================================================');
@@ -337,7 +326,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      url: presignedUrl,
+      url: publicUrl,
       key: filename,
     });
 
