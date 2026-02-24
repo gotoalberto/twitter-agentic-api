@@ -27,7 +27,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getProjectByApiKey } from '@/lib/db/projects';
 import { getHivemindConfig } from '@/lib/db/hivemind';
@@ -235,66 +235,15 @@ export async function POST(request: NextRequest) {
     try {
       await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
       console.log('   ✅ Bucket exists');
-
-      // Ensure bucket has public read policy
-      console.log('   📝 Ensuring bucket has public read policy...');
-      const bucketPolicy = {
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Sid: 'PublicReadGetObject',
-            Effect: 'Allow',
-            Principal: '*',
-            Action: 's3:GetObject',
-            Resource: `arn:aws:s3:::${bucketName}/*`
-          }
-        ]
-      };
-
-      try {
-        await s3Client.send(new PutBucketPolicyCommand({
-          Bucket: bucketName,
-          Policy: JSON.stringify(bucketPolicy)
-        }));
-        console.log('   ✅ Bucket policy updated');
-      } catch (policyError: any) {
-        console.log('   ℹ️ Bucket policy already configured or cannot be updated');
-      }
     } catch (error: any) {
       if (error.$metadata?.httpStatusCode === 404 || error.Code === 'NotFound') {
         console.log('   📦 Bucket does not exist, creating...');
         try {
           await s3Client.send(new CreateBucketCommand({
             Bucket: bucketName,
-            // ACL removed as it may not be supported
+            // Private bucket - we'll use pre-signed URLs
           }));
-          console.log('   ✅ Bucket created successfully');
-
-          // Configure bucket policy for public read access
-          console.log('   📝 Setting bucket policy for public access...');
-          const bucketPolicy = {
-            Version: '2012-10-17',
-            Statement: [
-              {
-                Sid: 'PublicReadGetObject',
-                Effect: 'Allow',
-                Principal: '*',
-                Action: 's3:GetObject',
-                Resource: `arn:aws:s3:::${bucketName}/*`
-              }
-            ]
-          };
-
-          try {
-            await s3Client.send(new PutBucketPolicyCommand({
-              Bucket: bucketName,
-              Policy: JSON.stringify(bucketPolicy)
-            }));
-            console.log('   ✅ Bucket policy configured for public access');
-          } catch (policyError: any) {
-            console.warn('   ⚠️ Could not set bucket policy:', policyError.message);
-            // Continue anyway, the bucket was created
-          }
+          console.log('   ✅ Bucket created successfully (private access)');
         } catch (createError: any) {
           console.error('   ❌ Failed to create bucket:', createError.message);
           return NextResponse.json(
@@ -366,12 +315,21 @@ export async function POST(request: NextRequest) {
     const uploadDuration = Date.now() - startTime;
     console.log(`   ✅ Upload successful (${uploadDuration}ms)`);
 
-    // Generate public URL
-    // Format: https://{bucket}.s3.{region}.amazonaws.com/{key}
+    // Generate a pre-signed URL that doesn't require public access
     const region = process.env.AWS_REGION || 'us-east-1';
-    const publicUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${filename}`;
 
-    console.log('   Public URL:', publicUrl);
+    // Create a pre-signed URL valid for 7 days
+    const getObjectCommand = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: filename,
+    });
+
+    console.log('   🔗 Generating pre-signed URL...');
+    const presignedUrl = await getSignedUrl(s3Client, getObjectCommand, {
+      expiresIn: 604800, // 7 days in seconds
+    });
+
+    console.log('   Pre-signed URL generated (valid for 7 days)');
     console.log('');
     console.log('✅ IMAGE UPLOAD COMPLETE');
     console.log('================================================================================');
@@ -379,7 +337,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      url: publicUrl,
+      url: presignedUrl,
       key: filename,
     });
 
