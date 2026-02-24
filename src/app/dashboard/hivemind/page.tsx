@@ -32,6 +32,7 @@ export default function HivemindAdminPage() {
   const [rateLimitsDocsOpen, setRateLimitsDocsOpen] = useState(false);
   const [checkRateLimitsDocsOpen, setCheckRateLimitsDocsOpen] = useState(false);
   const [rateLimitErrorDocsOpen, setRateLimitErrorDocsOpen] = useState(false);
+  const [uploadDocsOpen, setUploadDocsOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -303,6 +304,78 @@ Body:
                           <li>• URLs are appended to tweet text and count as 23 characters</li>
                           <li>• Only one media URL per tweet (image OR video)</li>
                         </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Image Upload Accordion */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg">
+                  <button
+                    onClick={() => setUploadDocsOpen(!uploadDocsOpen)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-amber-100 transition-colors"
+                  >
+                    <span className="flex items-center font-medium text-amber-900">
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                      </svg>
+                      Upload Image to S3 API
+                    </span>
+                    <svg
+                      className={`w-5 h-5 text-amber-600 transition-transform ${uploadDocsOpen ? 'rotate-180' : ''}`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    </svg>
+                  </button>
+
+                  {uploadDocsOpen && (
+                    <div className="p-4 border-t border-amber-200">
+                      <p className="text-sm text-gray-600 mb-3">
+                        Upload images to AWS S3 and get a public URL for tweeting:
+                      </p>
+                      <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/upload/image
+Headers:
+  X-API-Key: ${apiKey || '<your-api-key>'}
+  Content-Type: application/json
+
+Body:
+{
+  "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
+  "filename": "pepesdog-logo.jpg"  // Optional
+}
+
+Response:
+{
+  "success": true,
+  "url": "https://hivemind.s3.us-east-1.amazonaws.com/images/1734567890-abc123-pepesdog-logo.jpg",
+  "key": "images/1734567890-abc123-pepesdog-logo.jpg"
+}`}
+                      </pre>
+                      <div className="mt-3 text-xs text-gray-600">
+                        <p className="font-semibold mb-1">Complete workflow example:</p>
+                        <pre className="bg-gray-700 text-gray-100 p-2 rounded overflow-x-auto">
+{`# 1. Upload image
+IMAGE_URL=$(curl -X POST https://hive.pepes.dog/api/upload/image \\
+  -H "X-API-Key: ${apiKey || '<your-api-key>'}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"imageData":"data:image/jpeg;base64,..."}' | jq -r '.url')
+
+# 2. Post tweet with image
+curl -X POST https://hive.pepes.dog/api/twitter/tweet/v2 \\
+  -H "X-API-Key: ${apiKey || '<your-api-key>'}" \\
+  -H "Content-Type: application/json" \\
+  -d "{
+    \\"username\\": \\"zeuscoineth_\\",
+    \\"text\\": \\"Check out #PEPESDOG!\\",
+    \\"imageUrl\\": \\"$IMAGE_URL\\"
+  }"`}
+                        </pre>
+                        <p className="mt-2">
+                          <strong>Supported formats:</strong> JPEG, PNG, GIF, WebP (max 10MB)
+                        </p>
                       </div>
                     </div>
                   )}

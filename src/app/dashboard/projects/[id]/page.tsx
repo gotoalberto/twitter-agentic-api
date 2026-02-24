@@ -93,6 +93,7 @@ function ProjectDetailContent() {
   const [retweetDocsOpen, setRetweetDocsOpen] = useState(false);
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
   const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
+  const [uploadDocsOpen, setUploadDocsOpen] = useState(false);
   const [isFollowingDocsOpen, setIsFollowingDocsOpen] = useState(false);
   const [receivedTweetsDocsOpen, setReceivedTweetsDocsOpen] = useState(false);
   const [rateLimitDocsOpen, setRateLimitDocsOpen] = useState(false);
@@ -1747,6 +1748,159 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
     "recipientId": "1234567890",
     "text": "Hello from curl!"
   }'`}</pre>
+                  </div>
+                </div>
+                </div>
+              )}
+            </div>
+
+            {/* Image Upload API Documentation - Collapsible */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setUploadDocsOpen(!uploadDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-amber-900 hover:text-amber-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Image Upload to S3 API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${uploadDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {uploadDocsOpen && (
+                <div className="mt-3 space-y-3 text-xs">
+                {/* Endpoint URL */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Endpoint URL</p>
+                  <div className="bg-white rounded border border-amber-200 p-2 font-mono text-amber-900">
+                    POST {process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/upload/image
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Description</p>
+                  <p className="text-gray-700">
+                    Upload images to AWS S3 and get a public URL back. Perfect for uploading images before posting tweets with media.
+                  </p>
+                </div>
+
+                {/* Headers */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Headers</p>
+                  <div className="bg-white rounded border border-amber-200 p-2 space-y-1 font-mono text-amber-900">
+                    <div>Content-Type: application/json</div>
+                    {apiKeyConfig?.configured && (
+                      <div className="text-red-600 font-bold">X-API-Key: {apiKeyConfig.apiKey || 'your_api_key_here'}</div>
+                    )}
+                    {!apiKeyConfig?.configured && (
+                      <div className="text-amber-600 text-[10px]">// API key required</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Request Body */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Request Body</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "imageData": "data:image/jpeg;base64,/9j/4AAQ...",  // Base64 encoded image
+  // OR raw base64 with explicit MIME type:
+  "imageData": "/9j/4AAQ...",  // Raw base64 data
+  "imageMimeType": "image/jpeg",  // Required if raw base64
+  "filename": "my-image.jpg"  // Optional custom filename
+}`}</pre>
+                  </div>
+                  <div className="mt-2 bg-amber-100 border border-amber-300 rounded p-2">
+                    <p className="text-[10px] text-amber-800">
+                      <strong>Supported formats:</strong> JPEG, PNG, GIF, WebP (max 10MB)<br/>
+                      <strong>Note:</strong> Image data can be in data URL format or raw base64
+                    </p>
+                  </div>
+                </div>
+
+                {/* Example Request */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Example Request</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/upload/image
+Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') : ''}
+
+{
+  "imageData": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "filename": "pepesdog-logo.png"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Success Response */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-1">Success Response (200 OK)</p>
+                  <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`{
+  "success": true,
+  "url": "https://hivemind.s3.us-east-1.amazonaws.com/images/1734567890123-abc123-pepesdog-logo.png",
+  "key": "images/1734567890123-abc123-pepesdog-logo.png"
+}`}</pre>
+                  </div>
+                </div>
+
+                {/* Error Responses */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Error Responses</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-amber-700 text-[10px] mb-1">400 Bad Request - Invalid image data:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Invalid base64 data" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-amber-700 text-[10px] mb-1">400 Bad Request - File too large:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Image too large. Maximum size is 10MB" }`}</pre>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-amber-700 text-[10px] mb-1">401 Unauthorized - Invalid API key:</p>
+                      <div className="bg-gray-900 text-red-400 rounded p-2">
+                        <pre className="text-[10px]">{`{ "error": "Invalid API key" }`}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Usage Example with Tweet */}
+                <div>
+                  <p className="text-amber-800 font-semibold mb-2">Complete Example: Upload & Tweet</p>
+                  <div className="bg-gray-900 text-yellow-300 rounded p-3 overflow-x-auto">
+                    <pre className="text-[10px]">{`# Step 1: Upload image
+RESPONSE=$(curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/upload/image \\
+  -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
+  -d '{
+    "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
+    "filename": "pepesdog.jpg"
+  }')
+
+# Extract URL from response
+IMAGE_URL=$(echo $RESPONSE | jq -r '.url')
+
+# Step 2: Post tweet with image URL
+curl -X POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/twitter/tweet \\
+  -H "Content-Type: application/json" \\${apiKeyConfig?.configured ? '\n  -H "X-API-Key: ' + (apiKeyConfig.apiKey || 'your_api_key_here') + '" \\' : ''}
+  -d "{
+    \\"username\\": \\"${botStatus?.bot?.username || 'your_bot_handle'}\\",
+    \\"text\\": \\"Check out $PEPESDOG!\\",
+    \\"imageUrl\\": \\"$IMAGE_URL\\"
+  }"`}</pre>
                   </div>
                 </div>
                 </div>

@@ -82,6 +82,17 @@ export async function getProjectByName(name: string): Promise<ProjectWithRelatio
 }
 
 /**
+ * Get project by API key
+ */
+export async function getProjectByApiKey(apiKey: string): Promise<Project | null> {
+  const project = await prisma.project.findFirst({
+    where: { apiKey },
+  });
+
+  return project;
+}
+
+/**
  * Update project name
  */
 export async function updateProjectName(id: string, name: string): Promise<Project> {
