@@ -146,6 +146,12 @@ export async function exchangeCodeForTokens(params: {
   expiresIn: number;
   scope: string;
 }> {
+  console.log('📤 Exchanging code for tokens...');
+  console.log('   Client ID:', params.clientId);
+  console.log('   Redirect URI:', params.redirectUri);
+  console.log('   Code length:', params.code.length);
+  console.log('   Code verifier length:', params.codeVerifier.length);
+
   const response = await fetch(OAUTH2_ENDPOINTS.TOKEN, {
     method: 'POST',
     headers: {
@@ -162,11 +168,20 @@ export async function exchangeCodeForTokens(params: {
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('Token exchange failed:', error);
+    console.error('❌ Token exchange failed:');
+    console.error('   Status:', response.status);
+    console.error('   Status text:', response.statusText);
+    console.error('   Response body:', error);
     throw new Error(`Failed to exchange code for tokens: ${response.status} ${error}`);
   }
 
   const data = await response.json();
+
+  console.log('✅ Token exchange successful');
+  console.log('   Has access token:', !!data.access_token);
+  console.log('   Has refresh token:', !!data.refresh_token);
+  console.log('   Expires in:', data.expires_in);
+  console.log('   Scope:', data.scope);
 
   return {
     accessToken: data.access_token,

@@ -55,6 +55,9 @@ export async function GET(request: NextRequest) {
     const oauthVersion = request.cookies.get('oauth_version')?.value || '1.0a';
 
     console.log(`=== BOT TWITTER OAUTH ${oauthVersion} CALLBACK STARTED ===`);
+    console.log('Request URL:', request.url);
+    console.log('All cookies:', request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value })));
+    console.log('Query parameters:', Object.fromEntries(searchParams.entries()));
 
     // OAuth 2.0 flow
     if (oauthVersion === '2.0') {
@@ -65,7 +68,9 @@ export async function GET(request: NextRequest) {
     return handleOAuth1Callback(request, searchParams);
   } catch (error: any) {
     console.error('=== BOT OAUTH CALLBACK ERROR ===');
-    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error:', error);
 
     const projectIdFromCookie = request.cookies.get('oauth_project_id')?.value;
     const errorRedirectUrl = getRedirectUrl(request, projectIdFromCookie, 'error', error.message);
