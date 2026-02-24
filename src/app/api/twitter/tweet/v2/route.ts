@@ -25,31 +25,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/**
- * Download media from URL and return as Buffer
- */
-async function downloadMedia(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download media: ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 interface TweetRequest {
   username: string;  // REQUIRED: Twitter username (bot or Hivemind user)
   text: string;
   replyToTweetId?: string;
   idempotencyKey?: string;
-  imageUrl?: string;  // Deprecated: Use imageData instead
-  videoUrl?: string;  // Deprecated: Use videoData instead
-  imageData?: string; // Base64 encoded image data
-  videoData?: string; // Base64 encoded video data
-  imageMimeType?: string; // MIME type for image (default: image/jpeg)
-  videoMimeType?: string; // MIME type for video (default: video/mp4)
+  imageUrl?: string;  // URL of image to include in tweet (will be appended to text for auto-preview)
+  videoUrl?: string;  // URL of video to include in tweet (will be appended to text for auto-preview)
 }
 
 /**
@@ -61,22 +44,12 @@ interface TweetRequest {
  *   "text": "Tweet text",
  *   "replyToTweetId": "1234567890", // optional
  *   "idempotencyKey": "unique-key-123", // optional - prevents duplicate tweets on retry
- *
- *   // Option 1: Send image/video as base64 data (RECOMMENDED)
- *   "imageData": "data:image/jpeg;base64,/9j/4AAQ...", // Data URL format
- *   // OR raw base64 with explicit MIME type:
- *   "imageData": "/9j/4AAQ...", // Raw base64 data
- *   "imageMimeType": "image/jpeg", // MIME type for raw base64 (default: image/jpeg)
- *   // OR for video:
- *   "videoData": "data:video/mp4;base64,AAAAHGZ0...", // Data URL format
- *   // OR raw base64 with explicit MIME type:
- *   "videoData": "AAAAHGZ0...", // Raw base64 data
- *   "videoMimeType": "video/mp4", // MIME type for raw base64 (default: video/mp4)
- *
- *   // Option 2: Send image/video URLs (DEPRECATED - use base64 data instead)
- *   "imageUrl": "https://example.com/image.jpg", // deprecated - URL of image
- *   "videoUrl": "https://example.com/video.mp4" // deprecated - URL of video
+ *   "imageUrl": "https://example.com/image.jpg", // optional - URL of image (will be appended to text for auto-preview)
+ *   "videoUrl": "https://example.com/video.mp4" // optional - URL of video (will be appended to text for auto-preview)
  * }
+ *
+ * Note: Twitter automatically shows preview for URLs in tweets. URLs count as 23 characters
+ * regardless of actual length. Only one media URL (image OR video) can be included.
  *
  * Headers:
  * X-API-Key: <api_key> // Project API key OR Hivemind API key
@@ -115,9 +88,7 @@ export async function POST(request: NextRequest) {
     console.log('   Text length:', body?.text?.length || 0);
     console.log('   Reply to:', body?.replyToTweetId || 'N/A');
     console.log('   Idempotency key:', body?.idempotencyKey || 'N/A');
-    console.log('   Image data:', body?.imageData ? `${body.imageData.length} chars (base64)` : 'N/A');
     console.log('   Image URL:', body?.imageUrl || 'N/A');
-    console.log('   Video data:', body?.videoData ? `${body.videoData.length} chars (base64)` : 'N/A');
     console.log('   Video URL:', body?.videoUrl || 'N/A');
     console.log('');
 
@@ -152,38 +123,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate media parameters
-    const hasImage = body.imageUrl || body.imageData;
-    const hasVideo = body.videoUrl || body.videoData;
+    // Handle media URLs - append to tweet text for Twitter to auto-preview
+    let tweetText = body.text;
 
-    if (hasImage && hasVideo) {
-      console.log('❌ Cannot include both image and video');
-      console.log('================================================================================');
-      console.log('');
+    if (body.imageUrl && body.videoUrl) {
+      console.log('❌ Cannot include both image and video URL');
       return NextResponse.json(
-        { error: 'Cannot include both image and video - choose one' },
+        { error: 'Cannot include both imageUrl and videoUrl - choose one' },
         { status: 400 }
       );
     }
 
-    if (body.imageData && body.imageUrl) {
-      console.log('❌ Cannot include both imageData and imageUrl');
-      console.log('================================================================================');
-      console.log('');
-      return NextResponse.json(
-        { error: 'Cannot include both imageData and imageUrl - choose one' },
-        { status: 400 }
-      );
-    }
+    if (body.imageUrl || body.videoUrl) {
+      const mediaUrl = body.imageUrl || body.videoUrl;
+      console.log('🔗 Adding media URL to tweet text for auto-preview');
+      console.log('   Media URL:', mediaUrl);
 
-    if (body.videoData && body.videoUrl) {
-      console.log('❌ Cannot include both videoData and videoUrl');
-      console.log('================================================================================');
-      console.log('');
-      return NextResponse.json(
-        { error: 'Cannot include both videoData and videoUrl - choose one' },
-        { status: 400 }
-      );
+      // Check if we have space to add the URL (URLs take 23 characters in Twitter)
+      const urlLength = 23; // Twitter counts all URLs as 23 characters
+      const currentLength = tweetText.length;
+      const spaceNeeded = 1; // Space before URL
+
+      if (currentLength + spaceNeeded + urlLength > 280) {
+        console.log('❌ Tweet text + URL exceeds 280 character limit');
+        console.log('   Text length:', currentLength);
+        console.log('   URL will add:', spaceNeeded + urlLength, 'characters');
+        console.log('   Total would be:', currentLength + spaceNeeded + urlLength);
+        return NextResponse.json(
+          { error: 'Tweet text plus media URL exceeds 280 character limit. Please shorten the text.' },
+          { status: 400 }
+        );
+      }
+
+      // Append URL to tweet text (Twitter will show preview)
+      tweetText = `${tweetText} ${mediaUrl}`;
+      console.log('   Updated tweet text with URL');
+      console.log('   Final character count:', tweetText.length, '(Twitter counts as:', currentLength + spaceNeeded + urlLength + ')');
     }
 
     // Get API key from headers
@@ -562,152 +537,7 @@ export async function POST(request: NextRequest) {
       } as any);
     }
 
-    // Handle media upload if provided
-    let mediaId: string | undefined;
-
-    if (hasImage || hasVideo) {
-      // Check if OAuth 2.0 user has media.write scope
-      const hasMediaWriteScope = hivemindUser?.scope?.includes('media.write') || bot?.scope?.includes('media.write');
-
-      // Check if user is using OAuth 2.0 without media.write scope
-      if (oauth2Token && !hasMediaWriteScope && !userCredentials) {
-        console.log('❌ Media upload requires media.write scope for OAuth 2.0');
-        console.log('   Current scopes:', hivemindUser?.scope || bot?.scope || 'none');
-        console.log('   OAuth 2.0 users need media.write scope to upload media');
-        console.log('   Please reconnect your account to get the media.write scope');
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          {
-            error: 'Media upload requires the media.write scope. Please reconnect your account to enable media uploads.',
-            details: {
-              currentScopes: hivemindUser?.scope || bot?.scope || 'none',
-              requiredScope: 'media.write',
-              hasOAuth2: true,
-              hasMediaWriteScope: false
-            }
-          },
-          { status: 400 }
-        );
-      }
-
-      // If no OAuth 1.0a credentials and no OAuth 2.0 with media.write scope
-      if (!userCredentials && !hasMediaWriteScope) {
-        console.log('❌ Media upload not available');
-        console.log('   No OAuth 1.0a credentials and no OAuth 2.0 with media.write scope');
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          {
-            error: 'Media upload not available. Account needs either OAuth 1.0a credentials or OAuth 2.0 with media.write scope.',
-            details: 'Please reconnect your account to enable media uploads.'
-          },
-          { status: 400 }
-        );
-      }
-      let mediaBuffer: Buffer;
-      let mediaType: 'image' | 'video';
-      let mimeType: string;
-
-      // Handle base64 data
-      if (body.imageData || body.videoData) {
-        const isImage = !!body.imageData;
-        mediaType = isImage ? 'image' : 'video';
-
-        console.log(`📸 Processing ${mediaType} from base64 data...`);
-
-        try {
-          // Extract base64 data (handle data URL format if present)
-          let base64Data = isImage ? body.imageData! : body.videoData!;
-          if (base64Data.includes(',')) {
-            // Handle data URL format: "data:image/png;base64,..."
-            base64Data = base64Data.split(',')[1];
-          }
-
-          // Convert base64 to Buffer
-          mediaBuffer = Buffer.from(base64Data, 'base64');
-          console.log(`   Decoded ${mediaBuffer.length} bytes from base64`);
-
-          // Determine MIME type
-          if (isImage) {
-            mimeType = body.imageMimeType || 'image/jpeg';
-          } else {
-            mimeType = body.videoMimeType || 'video/mp4';
-          }
-          console.log(`   MIME type: ${mimeType}`);
-        } catch (error: any) {
-          console.error(`❌ Failed to decode base64 ${mediaType}:`, error.message);
-          console.log('================================================================================');
-          console.log('');
-          return NextResponse.json(
-            { error: `Failed to decode base64 ${mediaType}: ${error.message}` },
-            { status: 400 }
-          );
-        }
-      }
-      // Handle URL download (deprecated but still supported)
-      else {
-        const mediaUrl = body.imageUrl || body.videoUrl;
-        mediaType = body.imageUrl ? 'image' : 'video';
-
-        console.log(`📸 Downloading ${mediaType} from URL...`);
-        console.log('   URL:', mediaUrl);
-        console.log('   ⚠️ Note: URL media upload is deprecated. Please use base64 data instead.');
-
-        try {
-          mediaBuffer = await downloadMedia(mediaUrl!);
-          console.log(`   Downloaded ${mediaBuffer.length} bytes`);
-          mimeType = mediaType === 'image' ? 'image/jpeg' : 'video/mp4';
-        } catch (error: any) {
-          console.error(`❌ Failed to download ${mediaType}:`, error.message);
-          console.log('================================================================================');
-          console.log('');
-          return NextResponse.json(
-            { error: `Failed to download ${mediaType}: ${error.message}` },
-            { status: 500 }
-          );
-        }
-      }
-
-      // Upload to Twitter
-      console.log(`📤 Uploading ${mediaType} to Twitter...`);
-
-      // Log authentication method being used for media upload
-      if (oauth2Token && hasMediaWriteScope) {
-        console.log('   🔐 Using OAuth 2.0 with media.write scope');
-      } else if (userCredentials) {
-        console.log('   🔑 Using OAuth 1.0a credentials');
-      }
-
-      const uploadStartTime = Date.now();
-
-      try {
-        mediaId = await client.v1.uploadMedia(mediaBuffer, {
-          mimeType,
-        });
-
-        const uploadDuration = Date.now() - uploadStartTime;
-        console.log(`   ✅ ${mediaType} uploaded successfully`);
-        console.log('   Media ID:', mediaId);
-        console.log('   Duration:', `${uploadDuration}ms`);
-        console.log('   Auth method:', (oauth2Token && hasMediaWriteScope) ? 'OAuth 2.0' : 'OAuth 1.0a');
-        console.log('');
-      } catch (error: any) {
-        console.error(`❌ Failed to upload ${mediaType} to Twitter:`, error.message);
-
-        // Provide more helpful error message based on auth method
-        if (oauth2Token && error.code === 403) {
-          console.error('   💡 Hint: Even with media.write scope, some OAuth 2.0 tokens may have issues');
-          console.error('   Current scopes:', hivemindUser?.scope || bot?.scope || 'unknown');
-        }
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: `Failed to upload ${mediaType} to Twitter: ${error.message}` },
-          { status: 500 }
-        );
-      }
-    }
+    // Media upload removed - URLs are now appended to tweet text for auto-preview
 
     // Publish tweet
     console.log('📤 Publishing tweet...');
@@ -717,18 +547,12 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now();
 
     const tweetData: any = {
-      text: body.text,
+      text: tweetText, // Use modified text that includes media URL if provided
     };
 
     if (body.replyToTweetId) {
       tweetData.reply = {
         in_reply_to_tweet_id: body.replyToTweetId,
-      };
-    }
-
-    if (mediaId) {
-      tweetData.media = {
-        media_ids: [mediaId],
       };
     }
 

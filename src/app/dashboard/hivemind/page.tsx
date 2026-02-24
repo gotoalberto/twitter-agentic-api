@@ -292,15 +292,16 @@ Body:
 {
   "username": "user_handle",
   "text": "Check out #PEPESDOG - the next big thing!",
-  "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+  "imageUrl": "https://example.com/pepesdog-image.jpg"
 }`}
                       </pre>
                       <div className="mt-3 text-xs text-gray-600">
-                        <p className="font-semibold mb-1">Supported media types:</p>
+                        <p className="font-semibold mb-1">Media URL support:</p>
                         <ul className="ml-4 space-y-1">
-                          <li>• Images: JPEG, PNG, GIF (max 5MB)</li>
-                          <li>• Videos: MP4 (max 15MB)</li>
-                          <li>• Use imageData or videoData for base64 encoded media</li>
+                          <li>• Use imageUrl for image URLs (Twitter will show preview)</li>
+                          <li>• Use videoUrl for video URLs (Twitter will show preview)</li>
+                          <li>• URLs are appended to tweet text and count as 23 characters</li>
+                          <li>• Only one media URL per tweet (image OR video)</li>
                         </ul>
                       </div>
                     </div>
@@ -584,7 +585,7 @@ Body:
 {
   "username": "user_handle",
   "text": "Watch this epic #PEPESDOG moment!",
-  "videoData": "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAA..."
+  "videoUrl": "https://example.com/epic-video.mp4"
 }`}
                       </pre>
                     </div>
@@ -854,9 +855,9 @@ Response:
                           <li>• GET /api/hivemind/users returns all connected Zeus Army members</li>
                           <li>• Retweet and Like endpoints work with OAuth 2.0 and OAuth 1.0a</li>
                           <li>• Tweets containing "pepesdog" get automatic engagement from Zeus Army</li>
-                          <li>• Images/videos must be sent as base64-encoded data (data:mime/type;base64,... format)</li>
-                          <li>• Media upload requires OAuth 1.0a authentication (not available with OAuth 2.0)</li>
-                          <li>• Maximum file sizes: Images 5MB, Videos 15MB</li>
+                          <li>• Images/videos are included by passing URLs (imageUrl or videoUrl)</li>
+                          <li>• Twitter automatically shows preview cards for media URLs</li>
+                          <li>• URLs count as 23 characters in Twitter's character limit</li>
                           <li>• Users can disconnect anytime from their dashboard</li>
                           <li>• All credentials are encrypted with AES-256-GCM</li>
                         </ul>

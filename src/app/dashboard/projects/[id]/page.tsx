@@ -1291,8 +1291,8 @@ Content-Type: application/json
   "username": "your_bot_handle",
   "text": "Your tweet text here (max 280 chars)",
   "replyToTweetId": "1234567890", // OPTIONAL - omit for normal tweet
-  "imageData": "data:image/jpeg;base64,/9j/4AAQ...", // OPTIONAL - base64 image
-  "videoData": "data:video/mp4;base64,AAAAHGZ0...", // OPTIONAL - base64 video
+  "imageUrl": "https://example.com/image.jpg", // OPTIONAL - URL of image
+  "videoUrl": "https://example.com/video.mp4", // OPTIONAL - URL of video
   "idempotencyKey": "unique-key-123" // OPTIONAL - prevents duplicates on retry
 }`}</pre>
                   </div>
@@ -1302,14 +1302,15 @@ Content-Type: application/json
                     </p>
                     <ul className="text-[10px] text-purple-700 ml-4 space-y-1">
                       <li>• <strong>replyToTweetId:</strong> Tweet ID to reply to (omit for standalone tweet)</li>
-                      <li>• <strong>imageData:</strong> Base64-encoded image (data URL format or raw base64)</li>
-                      <li>• <strong>imageMimeType:</strong> MIME type for raw base64 (default: image/jpeg)</li>
-                      <li>• <strong>videoData:</strong> Base64-encoded video (data URL format or raw base64)</li>
-                      <li>• <strong>videoMimeType:</strong> MIME type for raw base64 (default: video/mp4)</li>
+                      <li>• <strong>imageUrl:</strong> URL of image to include (Twitter will show preview)</li>
+                      <li>• <strong>videoUrl:</strong> URL of video to include (Twitter will show preview)</li>
                       <li>• <strong>idempotencyKey:</strong> Unique key to prevent duplicate tweets on retry</li>
                     </ul>
                     <p className="text-[10px] text-purple-800 mt-2">
-                      <strong>Note:</strong> Only one media type allowed per tweet (image OR video, not both)
+                      <strong>Notes:</strong><br/>
+                      • Only one media URL allowed per tweet (image OR video, not both)<br/>
+                      • URLs are appended to the tweet text and count as 23 characters<br/>
+                      • Twitter automatically shows a preview card for the URL
                     </p>
                   </div>
                 </div>
@@ -1325,7 +1326,7 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
   "username": "${botStatus?.bot?.username || 'your_bot_handle'}",
   "text": "Check out this image!",
   "replyToTweetId": "1867517889123456789",
-  "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ..."
+  "imageUrl": "https://example.com/amazing-image.jpg"
 }`}</pre>
                   </div>
                 </div>
