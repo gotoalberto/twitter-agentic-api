@@ -238,8 +238,6 @@ export async function POST(request: NextRequest) {
       Key: filename,
       Body: imageBuffer,
       ContentType: mimeType,
-      // Make the object publicly readable
-      ACL: 'public-read',
       // Add metadata
       Metadata: {
         'uploaded-by': projectName || 'unknown',
