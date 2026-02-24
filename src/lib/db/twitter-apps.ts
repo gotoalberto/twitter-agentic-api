@@ -7,6 +7,7 @@
 
 import { prisma } from './prisma';
 import type { TwitterApp } from '@/generated/prisma';
+import { decrypt } from '@/lib/utils/encryption';
 
 export interface TwitterAppInput {
   name: string;
@@ -146,6 +147,57 @@ export async function updateTwitterApp(
   console.log('   OAuth 1.0a:', app.consumerKey && app.consumerSecret ? 'Configured' : 'Not configured');
   console.log('   OAuth 2.0:', app.clientId && app.clientSecret ? 'Configured' : 'Not configured');
   return app;
+}
+
+/**
+ * Get default Twitter App (first one created, typically used for Hivemind)
+ */
+export async function getDefaultTwitterApp(): Promise<TwitterApp | null> {
+  const app = await prisma.twitterApp.findFirst({
+    orderBy: { createdAt: 'asc' },
+  });
+
+  if (!app) return null;
+
+  // Decrypt credentials
+  const decryptedApp = { ...app };
+  if (app.consumerKey) {
+    try {
+      decryptedApp.consumerKey = decrypt(app.consumerKey);
+    } catch (error) {
+      console.error('Failed to decrypt Twitter App consumer key');
+    }
+  }
+  if (app.consumerSecret) {
+    try {
+      decryptedApp.consumerSecret = decrypt(app.consumerSecret);
+    } catch (error) {
+      console.error('Failed to decrypt Twitter App consumer secret');
+    }
+  }
+  if (app.bearerToken) {
+    try {
+      decryptedApp.bearerToken = decrypt(app.bearerToken);
+    } catch (error) {
+      console.error('Failed to decrypt Twitter App bearer token');
+    }
+  }
+  if (app.clientId) {
+    try {
+      decryptedApp.clientId = decrypt(app.clientId);
+    } catch (error) {
+      console.error('Failed to decrypt Twitter App client ID');
+    }
+  }
+  if (app.clientSecret) {
+    try {
+      decryptedApp.clientSecret = decrypt(app.clientSecret);
+    } catch (error) {
+      console.error('Failed to decrypt Twitter App client secret');
+    }
+  }
+
+  return decryptedApp;
 }
 
 /**

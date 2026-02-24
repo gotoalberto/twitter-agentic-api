@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { getBotByUsername } from '@/lib/db/bots';
 import { getProjectById } from '@/lib/db/projects';
-import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
+import { getTwitterAppByProjectId, getDefaultTwitterApp } from '@/lib/db/twitter-apps';
 import { getHivemindUserByUsername, getHivemindConfig, updateHivemindUserActivity } from '@/lib/db/hivemind';
 import { prisma } from '@/lib/db/prisma';
 import { isTokenExpired, refreshAccessToken, calculateExpirationDate } from '@/lib/twitter/oauth2';
@@ -123,9 +123,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle media URLs - append to tweet text for Twitter to auto-preview
+    // Keep original text for tweet
     let tweetText = body.text;
 
+    // Validate media URLs
     if (body.imageUrl && body.videoUrl) {
       console.log('❌ Cannot include both image and video URL');
       return NextResponse.json(
@@ -134,9 +135,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (body.imageUrl || body.videoUrl) {
+    // For non-S3 URLs (like Twitter URLs), append to text for preview
+    // For S3 URLs, we'll upload the media directly
+    if ((body.imageUrl || body.videoUrl) &&
+        !(body.imageUrl?.includes('s3') || body.videoUrl?.includes('s3'))) {
       const mediaUrl = body.imageUrl || body.videoUrl;
-      console.log('🔗 Adding media URL to tweet text for auto-preview');
+      console.log('🔗 Adding non-S3 URL to tweet text for auto-preview');
       console.log('   Media URL:', mediaUrl);
 
       // Check if we have space to add the URL (URLs take 23 characters in Twitter)
@@ -537,18 +541,117 @@ export async function POST(request: NextRequest) {
       } as any);
     }
 
-    // Media upload removed - URLs are now appended to tweet text for auto-preview
+    // Handle S3 image upload if provided
+    let mediaId: string | undefined;
+
+    if (body.imageUrl?.includes('s3')) {
+      console.log('🖼️ Downloading image from S3 for upload to Twitter...');
+      console.log('   S3 URL:', body.imageUrl);
+
+      try {
+        // Download image from S3
+        const imageResponse = await fetch(body.imageUrl);
+
+        if (!imageResponse.ok) {
+          console.log('❌ Failed to download image from S3');
+          console.log('   Status:', imageResponse.status);
+          return NextResponse.json(
+            { error: `Failed to download image from S3: ${imageResponse.status}` },
+            { status: 400 }
+          );
+        }
+
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        console.log('   Image size:', imageBuffer.length, 'bytes');
+
+        // Upload to Twitter using v1 API (OAuth 1.0a)
+        const hasOAuth1 = isHivemind
+          ? (userCredentials?.accessToken && userCredentials?.accessTokenSecret)
+          : (bot?.accessToken && bot?.accessTokenSecret);
+
+        if (hasOAuth1) {
+          console.log('📤 Uploading image to Twitter using OAuth 1.0a...');
+
+          // Get Twitter app credentials
+          let twitterApp;
+          if (isHivemind) {
+            // For Hivemind, use default Twitter app or specific app
+            const defaultApp = await getDefaultTwitterApp();
+            twitterApp = defaultApp;
+          } else {
+            // For project bots, use project's Twitter app
+            twitterApp = await getTwitterAppByProjectId(bot!.projectId);
+          }
+
+          if (!twitterApp || !twitterApp.consumerKey || !twitterApp.consumerSecret) {
+            console.log('⚠️ No Twitter app credentials for media upload');
+            console.log('   Falling back to URL append method');
+            if (tweetText.length + 24 > 280) {
+              return NextResponse.json(
+                { error: 'Tweet text plus image URL exceeds 280 character limit' },
+                { status: 400 }
+              );
+            }
+            tweetText = `${tweetText} ${body.imageUrl}`;
+          } else {
+            // Create OAuth 1.0a client for media upload
+            const v1Client = new TwitterApi({
+              appKey: twitterApp.consumerKey,
+              appSecret: twitterApp.consumerSecret,
+              accessToken: isHivemind ? userCredentials!.accessToken : bot!.accessToken,
+              accessSecret: isHivemind ? userCredentials!.accessTokenSecret : bot!.accessTokenSecret,
+            });
+
+            // Upload media
+            const uploadStartTime = Date.now();
+            mediaId = await v1Client.v1.uploadMedia(imageBuffer, {
+              mimeType: 'image/png', // Default to PNG, could be improved by detecting
+            });
+            const uploadDuration = Date.now() - uploadStartTime;
+
+            console.log('   ✅ Media uploaded successfully');
+            console.log('   Media ID:', mediaId);
+            console.log('   Upload duration:', `${uploadDuration}ms`);
+          }
+        } else {
+          console.log('⚠️ No OAuth 1.0a credentials for media upload');
+          console.log('   Falling back to URL append method');
+          // Fall back to appending URL
+          if (tweetText.length + 24 > 280) {
+            return NextResponse.json(
+              { error: 'Tweet text plus image URL exceeds 280 character limit' },
+              { status: 400 }
+            );
+          }
+          tweetText = `${tweetText} ${body.imageUrl}`;
+        }
+      } catch (error: any) {
+        console.error('❌ Error handling S3 image:', error.message);
+        // Fall back to appending URL
+        if (tweetText.length + 24 <= 280) {
+          tweetText = `${tweetText} ${body.imageUrl}`;
+        }
+      }
+    }
 
     // Publish tweet
     console.log('📤 Publishing tweet...');
     console.log('   Account type:', isHivemind ? 'Hivemind User' : 'Project Bot');
     console.log('   Tweet text preview:', body.text.substring(0, 100) + (body.text.length > 100 ? '...' : ''));
     console.log('   Tweet text length:', body.text.length);
+    console.log('   Has media:', !!mediaId);
     const startTime = Date.now();
 
     const tweetData: any = {
-      text: tweetText, // Use modified text that includes media URL if provided
+      text: tweetText,
     };
+
+    // Add media if uploaded
+    if (mediaId) {
+      tweetData.media = {
+        media_ids: [mediaId],
+      };
+    }
 
     if (body.replyToTweetId) {
       tweetData.reply = {
