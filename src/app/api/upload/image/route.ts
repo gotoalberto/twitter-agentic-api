@@ -27,7 +27,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand, PutBucketPolicyCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getProjectByApiKey } from '@/lib/db/projects';
 import { getHivemindConfig } from '@/lib/db/hivemind';
 import crypto from 'crypto';
@@ -234,6 +235,31 @@ export async function POST(request: NextRequest) {
     try {
       await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
       console.log('   ✅ Bucket exists');
+
+      // Ensure bucket has public read policy
+      console.log('   📝 Ensuring bucket has public read policy...');
+      const bucketPolicy = {
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Sid: 'PublicReadGetObject',
+            Effect: 'Allow',
+            Principal: '*',
+            Action: 's3:GetObject',
+            Resource: `arn:aws:s3:::${bucketName}/*`
+          }
+        ]
+      };
+
+      try {
+        await s3Client.send(new PutBucketPolicyCommand({
+          Bucket: bucketName,
+          Policy: JSON.stringify(bucketPolicy)
+        }));
+        console.log('   ✅ Bucket policy updated');
+      } catch (policyError: any) {
+        console.log('   ℹ️ Bucket policy already configured or cannot be updated');
+      }
     } catch (error: any) {
       if (error.$metadata?.httpStatusCode === 404 || error.Code === 'NotFound') {
         console.log('   📦 Bucket does not exist, creating...');
@@ -243,6 +269,32 @@ export async function POST(request: NextRequest) {
             // ACL removed as it may not be supported
           }));
           console.log('   ✅ Bucket created successfully');
+
+          // Configure bucket policy for public read access
+          console.log('   📝 Setting bucket policy for public access...');
+          const bucketPolicy = {
+            Version: '2012-10-17',
+            Statement: [
+              {
+                Sid: 'PublicReadGetObject',
+                Effect: 'Allow',
+                Principal: '*',
+                Action: 's3:GetObject',
+                Resource: `arn:aws:s3:::${bucketName}/*`
+              }
+            ]
+          };
+
+          try {
+            await s3Client.send(new PutBucketPolicyCommand({
+              Bucket: bucketName,
+              Policy: JSON.stringify(bucketPolicy)
+            }));
+            console.log('   ✅ Bucket policy configured for public access');
+          } catch (policyError: any) {
+            console.warn('   ⚠️ Could not set bucket policy:', policyError.message);
+            // Continue anyway, the bucket was created
+          }
         } catch (createError: any) {
           console.error('   ❌ Failed to create bucket:', createError.message);
           return NextResponse.json(
