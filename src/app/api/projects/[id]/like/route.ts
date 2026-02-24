@@ -45,8 +45,11 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  let params: { id: string } | undefined;
+  let body: LikeRequest | undefined;
+
   try {
-    const params = await context.params;
+    params = await context.params;
 
     console.log('');
     console.log('================================================================================');
@@ -57,15 +60,15 @@ export async function POST(
     console.log('');
 
     // Parse request body
-    const body: LikeRequest = await request.json();
+    body = await request.json();
 
     console.log('📋 Request details:');
-    console.log('   Tweet ID:', body.tweetId);
-    console.log('   Action:', body.action || 'like');
+    console.log('   Tweet ID:', body?.tweetId);
+    console.log('   Action:', body?.action || 'like');
     console.log('');
 
     // Validate request
-    if (!body.tweetId) {
+    if (!body?.tweetId) {
       console.log('❌ Missing tweetId');
       console.log('================================================================================');
       console.log('');
@@ -188,14 +191,19 @@ export async function POST(
 
     // Create Twitter client with OAuth 2.0
     if (!oauth2Token) {
+      console.error('❌ No OAuth 2.0 token available');
       return NextResponse.json({ error: 'No valid OAuth 2.0 token found' }, { status: 500 });
     }
 
     console.log('🔐 Using OAuth 2.0 for like operation');
+    console.log('   Token length:', oauth2Token.length);
+    console.log('   Bot user ID:', bot.userId);
+    console.log('   Tweet ID:', body?.tweetId);
+
     const client = new TwitterApi(oauth2Token);
 
     // Perform the like or unlike action
-    const action = body.action || 'like';
+    const action = body?.action || 'like';
     const startTime = Date.now();
 
     try {
@@ -203,12 +211,12 @@ export async function POST(
       const v2Client = client.v2;
 
       if (action === 'unlike') {
-        console.log('💔 Attempting to unlike tweet:', body.tweetId);
-        result = await v2Client.unlike(bot.userId, body.tweetId);
+        console.log('💔 Attempting to unlike tweet:', body!.tweetId);
+        result = await v2Client.unlike(bot.userId, body!.tweetId);
         console.log('✅ Unlike successful');
       } else {
-        console.log('❤️ Attempting to like tweet:', body.tweetId);
-        result = await v2Client.like(bot.userId, body.tweetId);
+        console.log('❤️ Attempting to like tweet:', body!.tweetId);
+        result = await v2Client.like(bot.userId, body!.tweetId);
         console.log('✅ Like successful');
       }
 
@@ -233,7 +241,7 @@ export async function POST(
       console.log('✅ LIKE OPERATION COMPLETED');
       console.log('────────────────────────────────────────────────────────────────────────────────');
       console.log('   Action:', action);
-      console.log('   Tweet ID:', body.tweetId);
+      console.log('   Tweet ID:', body!.tweetId);
       console.log('   Duration:', `${duration}ms`);
       console.log('────────────────────────────────────────────────────────────────────────────────');
       console.log('');
@@ -243,7 +251,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         action,
-        tweetId: body.tweetId,
+        tweetId: body!.tweetId,
         result: result.data,
       });
     } catch (twitterError: any) {
@@ -303,7 +311,7 @@ export async function POST(
             error: 'You have already liked this Tweet.',
             details: {
               message: 'This tweet has already been liked by this bot.',
-              tweetId: body.tweetId,
+              tweetId: body!.tweetId,
               action: action
             }
           }, { status: 400 });
@@ -318,10 +326,23 @@ export async function POST(
       throw twitterError;
     }
   } catch (error: any) {
-    console.error('❌ Error in project like endpoint:', error);
-    return NextResponse.json(
-      { error: 'Failed to process like action' },
-      { status: 500 }
-    );
+    console.error('❌ Error in project like endpoint:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      projectId: params?.id,
+      tweetId: body?.tweetId
+    });
+
+    // Return more detailed error in development
+    const errorResponse = {
+      error: 'Failed to process like action',
+      details: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        name: error.name
+      } : undefined
+    };
+
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
