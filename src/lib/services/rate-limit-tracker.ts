@@ -219,23 +219,38 @@ export async function getAllHivemindRateLimits() {
     ORDER BY r."account_id", r.endpoint, r."last_request_at" DESC
   `;
 
-  return rateLimits.map((rl: any) => ({
-    id: rl.id,
-    account: {
-      id: rl.account_id,
-      username: rl.account_username,
-      displayName: rl.hivemind_display_name || rl.account_username,
-    },
-    endpoint: rl.endpoint,
-    endpointType: rl.endpoint_type,
-    limit: rl.limit,
-    remaining: rl.remaining,
-    used: rl.limit - rl.remaining,
-    percentageUsed: Math.round(((rl.limit - rl.remaining) / rl.limit) * 100),
-    reset: rl.reset.toISOString(),
-    resetIn: Math.max(0, Math.floor((rl.reset.getTime() - Date.now()) / 1000)), // seconds
-    lastRequestAt: rl.last_request_at.toISOString(),
-  }));
+  return rateLimits.map((rl: any) => {
+    const now = Date.now();
+    const resetTime = rl.reset instanceof Date ? rl.reset : new Date(rl.reset);
+
+    // Check if rate limit has already reset (reset time is in the past)
+    const hasReset = resetTime.getTime() <= now;
+
+    // If reset time has passed, show limits as fully available
+    const remaining = hasReset ? rl.limit : rl.remaining;
+    const used = rl.limit - remaining;
+    const percentageUsed = Math.round((used / rl.limit) * 100);
+    const resetIn = hasReset ? 0 : Math.floor((resetTime.getTime() - now) / 1000);
+
+    return {
+      id: rl.id,
+      account: {
+        id: rl.account_id,
+        username: rl.account_username,
+        displayName: rl.hivemind_display_name || rl.account_username,
+      },
+      endpoint: rl.endpoint,
+      endpointType: rl.endpoint_type,
+      limit: rl.limit,
+      remaining: remaining,
+      used: used,
+      percentageUsed: percentageUsed,
+      reset: resetTime.toISOString(),
+      resetIn: resetIn,
+      lastRequestAt: rl.last_request_at.toISOString(),
+      status: hasReset ? 'reset' : (remaining === 0 ? 'exhausted' : 'active'),
+    };
+  });
 }
 
 /**
@@ -252,6 +267,15 @@ function formatRateLimits(rateLimits: any[]) {
     const lastRequestAt = rl.lastRequestAt || rl.last_request_at;
     const resetTime = rl.reset instanceof Date ? rl.reset : new Date(rl.reset);
 
+    // Check if rate limit has already reset (reset time is in the past)
+    const hasReset = resetTime.getTime() <= now;
+
+    // If reset time has passed, show limits as fully available
+    const remaining = hasReset ? rl.limit : rl.remaining;
+    const used = rl.limit - remaining;
+    const percentageUsed = Math.round((used / rl.limit) * 100);
+    const resetIn = hasReset ? 0 : Math.floor((resetTime.getTime() - now) / 1000);
+
     return {
       id: rl.id,
       account: {
@@ -261,12 +285,13 @@ function formatRateLimits(rateLimits: any[]) {
       endpoint: rl.endpoint,
       endpointType: endpointType,
       limit: rl.limit,
-      remaining: rl.remaining,
-      used: rl.limit - rl.remaining,
-      percentageUsed: Math.round(((rl.limit - rl.remaining) / rl.limit) * 100),
+      remaining: remaining,
+      used: used,
+      percentageUsed: percentageUsed,
       reset: resetTime.toISOString(),
-      resetIn: Math.max(0, Math.floor((resetTime.getTime() - now) / 1000)), // seconds
+      resetIn: resetIn, // seconds until reset (0 if already reset)
       lastRequestAt: lastRequestAt instanceof Date ? lastRequestAt.toISOString() : lastRequestAt,
+      status: hasReset ? 'reset' : (remaining === 0 ? 'exhausted' : 'active'),
     };
   });
 }
