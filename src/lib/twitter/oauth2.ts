@@ -44,6 +44,9 @@ export const OAUTH2_SCOPES = {
   BOOKMARK_READ: 'bookmark.read',
   BOOKMARK_WRITE: 'bookmark.write',
 
+  // Media scopes (required for v2 media upload)
+  MEDIA_WRITE: 'media.write',
+
   // Offline access for refresh tokens
   OFFLINE_ACCESS: 'offline.access',
 } as const;
@@ -59,6 +62,7 @@ export const DEFAULT_BOT_SCOPES = [
   OAUTH2_SCOPES.LIKE_WRITE,
   OAUTH2_SCOPES.DM_READ,
   OAUTH2_SCOPES.DM_WRITE,
+  OAUTH2_SCOPES.MEDIA_WRITE, // Required for media upload via v2 API
   OAUTH2_SCOPES.OFFLINE_ACCESS, // Required for refresh tokens
 ];
 

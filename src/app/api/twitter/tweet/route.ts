@@ -479,8 +479,67 @@ export async function POST(request: NextRequest) {
       console.log(`📤 Uploading ${mediaType} to Twitter...`);
       const uploadStartTime = Date.now();
 
+      // Check if bot has media.write scope for OAuth 2.0
+      const hasMediaWriteScope = bot.scope?.includes('media.write');
+
+      // Determine which authentication method to use for media upload
+      let mediaUploadClient: TwitterApi | null = null;
+      let useOAuth2ForMedia = false;
+
+      if (bot.oauth2AccessToken && hasMediaWriteScope) {
+        // Use OAuth 2.0 if we have the media.write scope
+        console.log('   🔐 Using OAuth 2.0 for media upload (has media.write scope)');
+        mediaUploadClient = client; // Use the already created client
+        useOAuth2ForMedia = true;
+      } else if (bot.accessToken && bot.accessTokenSecret) {
+        // Fall back to OAuth 1.0a for media upload
+        console.log('   ⚠️  Using OAuth 1.0a for media upload (OAuth 2.0 missing media.write scope)');
+
+        const consumerKey = twitterApp.consumerKey;
+        const consumerSecret = twitterApp.consumerSecret;
+
+        if (!consumerKey || !consumerSecret) {
+          console.log('❌ TwitterApp missing OAuth 1.0a credentials for media upload');
+          return NextResponse.json(
+            { error: 'TwitterApp not configured for OAuth 1.0a (required for media upload)' },
+            { status: 500 }
+          );
+        }
+
+        mediaUploadClient = new TwitterApi({
+          appKey: consumerKey,
+          appSecret: consumerSecret,
+          accessToken: bot.accessToken,
+          accessSecret: bot.accessTokenSecret,
+        } as any);
+
+        console.log('   🔑 Using OAuth 1.0a for media upload');
+      } else {
+        console.log('❌ Bot cannot upload media:');
+        if (bot.oauth2AccessToken && !hasMediaWriteScope) {
+          console.log('   - OAuth 2.0 token missing media.write scope');
+          console.log('   - Please reconnect bot with media.write scope enabled');
+        } else {
+          console.log('   - No OAuth 1.0a credentials available');
+          console.log('   - No OAuth 2.0 token with media.write scope');
+        }
+        return NextResponse.json(
+          {
+            error: 'Media upload not available. Bot needs either OAuth 1.0a credentials or OAuth 2.0 with media.write scope. Please reconnect the bot.',
+            details: {
+              hasOAuth2: !!bot.oauth2AccessToken,
+              hasMediaWriteScope: hasMediaWriteScope,
+              hasOAuth1: !!(bot.accessToken && bot.accessTokenSecret)
+            }
+          },
+          { status: 500 }
+        );
+      }
+
       try {
-        mediaId = await client.v1.uploadMedia(mediaBuffer, {
+        // Twitter API v2 media upload is still in development
+        // For now, we use v1 endpoint which works with both OAuth methods
+        mediaId = await mediaUploadClient.v1.uploadMedia(mediaBuffer, {
           mimeType: mimeType,
         });
 
@@ -488,9 +547,18 @@ export async function POST(request: NextRequest) {
         console.log(`   ✅ ${mediaType} uploaded successfully`);
         console.log('   Media ID:', mediaId);
         console.log('   Duration:', `${uploadDuration}ms`);
+        console.log('   Auth method:', useOAuth2ForMedia ? 'OAuth 2.0' : 'OAuth 1.0a');
         console.log('');
       } catch (error: any) {
         console.error(`❌ Failed to upload ${mediaType} to Twitter:`, error.message);
+        console.log('   Error details:', error);
+
+        // Provide more helpful error message based on auth method
+        if (useOAuth2ForMedia && error.code === 403) {
+          console.error('   💡 Hint: OAuth 2.0 media upload requires media.write scope');
+          console.error('   Current scopes:', bot.scope);
+        }
+
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
