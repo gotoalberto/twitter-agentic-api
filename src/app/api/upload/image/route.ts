@@ -27,7 +27,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { getProjectByApiKey } from '@/lib/db/projects';
 import { getHivemindConfig } from '@/lib/db/hivemind';
 import crypto from 'crypto';
@@ -227,6 +227,43 @@ export async function POST(request: NextRequest) {
     // Get S3 client
     const s3Client = getS3Client();
     const bucketName = process.env.S3_BUCKET_NAME || 'hivemind';
+
+    // Check if bucket exists, create if it doesn't
+    console.log('🔍 Checking if bucket exists:', bucketName);
+
+    try {
+      await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
+      console.log('   ✅ Bucket exists');
+    } catch (error: any) {
+      if (error.$metadata?.httpStatusCode === 404 || error.Code === 'NotFound') {
+        console.log('   📦 Bucket does not exist, creating...');
+        try {
+          await s3Client.send(new CreateBucketCommand({
+            Bucket: bucketName,
+            // ACL removed as it may not be supported
+          }));
+          console.log('   ✅ Bucket created successfully');
+        } catch (createError: any) {
+          console.error('   ❌ Failed to create bucket:', createError.message);
+          return NextResponse.json(
+            { error: `Failed to create S3 bucket: ${createError.message}` },
+            { status: 500 }
+          );
+        }
+      } else if (error.Code === 'Forbidden' || error.$metadata?.httpStatusCode === 403) {
+        console.error('   ❌ Access denied to bucket');
+        return NextResponse.json(
+          { error: 'Access denied to S3 bucket. Check permissions.' },
+          { status: 500 }
+        );
+      } else {
+        console.error('   ❌ Error checking bucket:', error.message);
+        return NextResponse.json(
+          { error: `S3 bucket error: ${error.message}` },
+          { status: 500 }
+        );
+      }
+    }
 
     // Upload to S3
     console.log('📤 Uploading to S3...');
