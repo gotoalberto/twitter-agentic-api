@@ -89,6 +89,8 @@ function ProjectDetailContent() {
   const [webhookDocsOpen, setWebhookDocsOpen] = useState(false);
   const [apiKeyDocsOpen, setApiKeyDocsOpen] = useState(false);
   const [dmDocsOpen, setDmDocsOpen] = useState(false);
+  const [likeDocsOpen, setLikeDocsOpen] = useState(false);
+  const [retweetDocsOpen, setRetweetDocsOpen] = useState(false);
   const [webhooksInfoDocsOpen, setWebhooksInfoDocsOpen] = useState(false);
   const [userLookupDocsOpen, setUserLookupDocsOpen] = useState(false);
   const [isFollowingDocsOpen, setIsFollowingDocsOpen] = useState(false);
@@ -1412,6 +1414,198 @@ Content-Type: application/json${apiKeyConfig?.configured ? '\nX-API-Key: ' + (ap
   }'`}</pre>
                   </div>
                 </div>
+                </div>
+              )}
+            </div>
+
+            {/* Like API Documentation - Collapsible */}
+            <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setLikeDocsOpen(!likeDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-pink-900 hover:text-pink-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/>
+                  </svg>
+                  Like/Unlike API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${likeDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
+
+              {likeDocsOpen && (
+                <div className="mt-3 space-y-3">
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs text-gray-600 mb-2">
+                      Like or unlike tweets using your bot account.
+                    </p>
+                    <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                      <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/like
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
+Content-Type: application/json
+
+{
+  "tweetId": "1234567890",
+  "action": "like"  // or "unlike" (default: "like")
+}`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Response */}
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Successful Response:</p>
+                    <div className="bg-gray-900 text-blue-400 rounded p-3 overflow-x-auto">
+                      <pre className="text-[10px]">{`{
+  "success": true,
+  "action": "like",
+  "tweetId": "1234567890",
+  "result": {
+    "liked": true
+  }
+}`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Error Responses */}
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Error Responses:</p>
+                    <div className="space-y-2">
+                      <div className="bg-gray-900 text-red-400 rounded p-2 overflow-x-auto">
+                        <pre className="text-[10px]">{`// Already liked
+{
+  "error": "You have already liked this Tweet.",
+  "details": {
+    "message": "This tweet has already been liked by this bot.",
+    "tweetId": "1234567890",
+    "action": "like"
+  }
+}`}</pre>
+                      </div>
+                      <div className="bg-gray-900 text-red-400 rounded p-2 overflow-x-auto">
+                        <pre className="text-[10px]">{`// Rate limit exceeded
+{
+  "error": "Rate limit exceeded. Too many like requests.",
+  "details": {
+    "message": "Twitter API rate limit reached for likes.",
+    "resetAt": "2024-02-23T10:00:00.000Z",
+    "limit": 50,
+    "remaining": 0,
+    "retryAfter": 900
+  }
+}`}</pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Best Practices */}
+                  <div className="bg-pink-100 border border-pink-300 rounded p-2">
+                    <p className="text-[10px] text-pink-800">
+                      <strong>Best Practices:</strong> Check rate limits before bulk operations.
+                      Implement error handling for already liked tweets. Use exponential backoff for rate limits.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Retweet API Documentation - Collapsible */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+              <button
+                onClick={() => setRetweetDocsOpen(!retweetDocsOpen)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-green-900 hover:text-green-700 transition"
+              >
+                <span className="flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd"/>
+                  </svg>
+                  Retweet/Unretweet API Documentation
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${retweetDocsOpen ? 'rotate-180' : ''}`}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
+
+              {retweetDocsOpen && (
+                <div className="mt-3 space-y-3">
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs text-gray-600 mb-2">
+                      Retweet or unretweet tweets using your bot account.
+                    </p>
+                    <div className="bg-gray-900 text-green-400 rounded p-3 overflow-x-auto">
+                      <pre className="text-[10px]">{`POST ${process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog'}/api/projects/${projectId}/retweet
+X-API-Key: ${apiKeyConfig?.apiKey || 'your_api_key_here'}
+Content-Type: application/json
+
+{
+  "tweetId": "1234567890",
+  "action": "retweet"  // or "unretweet" (default: "retweet")
+}`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Response */}
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Successful Response:</p>
+                    <div className="bg-gray-900 text-blue-400 rounded p-3 overflow-x-auto">
+                      <pre className="text-[10px]">{`{
+  "success": true,
+  "action": "retweet",
+  "tweetId": "1234567890",
+  "result": {
+    "retweeted": true
+  }
+}`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Error Responses */}
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Error Responses:</p>
+                    <div className="space-y-2">
+                      <div className="bg-gray-900 text-red-400 rounded p-2 overflow-x-auto">
+                        <pre className="text-[10px]">{`// Already retweeted
+{
+  "error": "You have already retweeted this Tweet.",
+  "details": {
+    "message": "This tweet has already been retweeted by this bot.",
+    "tweetId": "1234567890",
+    "action": "retweet"
+  }
+}`}</pre>
+                      </div>
+                      <div className="bg-gray-900 text-red-400 rounded p-2 overflow-x-auto">
+                        <pre className="text-[10px]">{`// Rate limit exceeded
+{
+  "error": "Rate limit exceeded. Too many retweet requests.",
+  "details": {
+    "message": "Twitter API rate limit reached for retweets.",
+    "resetAt": "2024-02-23T10:00:00.000Z",
+    "limit": 50,
+    "remaining": 0,
+    "retryAfter": 900
+  }
+}`}</pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Best Practices */}
+                  <div className="bg-green-100 border border-green-300 rounded p-2">
+                    <p className="text-[10px] text-green-800">
+                      <strong>Best Practices:</strong> Check rate limits before bulk operations.
+                      Implement error handling for already retweeted tweets. Use exponential backoff for rate limits.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
