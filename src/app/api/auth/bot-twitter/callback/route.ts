@@ -235,12 +235,31 @@ async function handleOAuth2Callback(request: NextRequest, searchParams: URLSearc
   console.log('   Username:', savedBot.username);
   console.log('   Expires at:', expiresAt.toISOString());
 
-  // Note: Webhook registration is handled the same way for both OAuth versions
-  // The webhook subscription will use OAuth 1.0a credentials if available
-  // For OAuth 2.0 only bots, webhook subscription may need to be handled differently
-
-  // For now, skip webhook registration for OAuth 2.0 bots
-  console.log('⚠️  Webhook registration skipped for OAuth 2.0 bot (not yet implemented)');
+  // Webhook registration for OAuth 2.0 (optional, non-critical)
+  try {
+    // Note: Webhooks currently require OAuth 1.0a credentials
+    // OAuth 2.0 doesn't support webhook subscriptions directly
+    console.log('');
+    console.log('================================================================================');
+    console.log('=== WEBHOOK REGISTRATION (OAuth 2.0) ===');
+    console.log('================================================================================');
+    console.log('⚠️  Note: Webhooks require OAuth 1.0a credentials');
+    console.log('   OAuth 2.0 bots cannot register webhooks directly');
+    console.log('   The bot can still:');
+    console.log('   - Post tweets');
+    console.log('   - Like and retweet');
+    console.log('   - Use all OAuth 2.0 features');
+    console.log('   But will NOT receive:');
+    console.log('   - Real-time mentions');
+    console.log('   - Direct messages');
+    console.log('   - Other webhook events');
+    console.log('');
+    console.log('   To enable webhooks: Connect OAuth 1.0a credentials as well');
+    console.log('================================================================================');
+  } catch (webhookError: any) {
+    // Webhook failures are non-critical for OAuth 2.0
+    console.error('⚠️  Webhook registration note logged (OAuth 2.0 doesn\'t support webhooks)');
+  }
 
   // Clear cookies and redirect
   const redirectUrl = getRedirectUrl(request, project.id, 'success', undefined, savedBot.username, project.name);
