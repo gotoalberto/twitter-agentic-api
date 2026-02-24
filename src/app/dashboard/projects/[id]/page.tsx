@@ -536,6 +536,26 @@ function ProjectDetailContent() {
     });
   };
 
+  const copyOAuth1Link = () => {
+    // Direct OAuth 1.0a authorization link
+    const authUrl = `${window.location.origin}/api/projects/${projectId}/bot/authorize-oauth1`;
+    navigator.clipboard.writeText(authUrl).then(() => {
+      setMessage({ type: 'success', text: 'OAuth 1.0a direct link copied! Share this for media upload capabilities.' });
+    }).catch(() => {
+      setMessage({ type: 'error', text: 'Failed to copy OAuth 1.0a link' });
+    });
+  };
+
+  const copyOAuth2Link = () => {
+    // Direct OAuth 2.0 authorization link
+    const authUrl = `${window.location.origin}/api/projects/${projectId}/bot/authorize-oauth2`;
+    navigator.clipboard.writeText(authUrl).then(() => {
+      setMessage({ type: 'success', text: 'OAuth 2.0 direct link copied! Share this for modern API access.' });
+    }).catch(() => {
+      setMessage({ type: 'error', text: 'Failed to copy OAuth 2.0 link' });
+    });
+  };
+
   const disconnectBot = async (type: 'oauth1' | 'oauth2' | 'all' = 'all') => {
     const typeText = type === 'all' ? 'the bot' : `OAuth ${type === 'oauth1' ? '1.0a' : '2.0'}`;
     if (!confirm(`Are you sure you want to disconnect ${typeText}?`)) {
@@ -801,6 +821,17 @@ function ProjectDetailContent() {
                       Connect OAuth 1.0a
                     </button>
                   )}
+
+                  <button
+                    onClick={copyOAuth1Link}
+                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded transition flex items-center justify-center gap-1"
+                    title="Copy OAuth 1.0a direct link - share to connect with media upload capabilities"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                    </svg>
+                    Share OAuth 1.0a Link
+                  </button>
                 </div>
 
                 {/* OAuth 2.0 Card */}
@@ -837,6 +868,17 @@ function ProjectDetailContent() {
                       Connect OAuth 2.0
                     </button>
                   )}
+
+                  <button
+                    onClick={copyOAuth2Link}
+                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded transition flex items-center justify-center gap-1"
+                    title="Copy OAuth 2.0 direct link - share to connect with modern API access"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                    </svg>
+                    Share OAuth 2.0 Link
+                  </button>
                 </div>
               </div>
 
@@ -886,25 +928,13 @@ function ProjectDetailContent() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => disconnectBot('all')}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
-                >
-                  Disconnect Bot Completely
-                </button>
-                <button
-                  onClick={copyProjectLink}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                  title="Copy project link - share with anyone to let them connect or update their bot"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
-                  </svg>
-                  Share Link
-                </button>
-              </div>
+              {/* Action Button */}
+              <button
+                onClick={() => disconnectBot('all')}
+                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
+              >
+                Disconnect Bot Completely
+              </button>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
@@ -947,6 +977,16 @@ function ProjectDetailContent() {
                   >
                     Connect OAuth 1.0a
                   </button>
+                  <button
+                    onClick={copyOAuth1Link}
+                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded transition flex items-center justify-center gap-1"
+                    title="Copy OAuth 1.0a direct link - share to connect with media upload capabilities"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                    </svg>
+                    Share OAuth 1.0a Link
+                  </button>
                 </div>
 
                 {/* OAuth 2.0 Card */}
@@ -964,20 +1004,18 @@ function ProjectDetailContent() {
                   >
                     Connect OAuth 2.0
                   </button>
+                  <button
+                    onClick={copyOAuth2Link}
+                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1.5 rounded transition flex items-center justify-center gap-1"
+                    title="Copy OAuth 2.0 direct link - share to connect with modern API access"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                    </svg>
+                    Share OAuth 2.0 Link
+                  </button>
                 </div>
               </div>
-
-              {/* Share Link Button */}
-              <button
-                onClick={copyProjectLink}
-                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                title="Copy project link - share with anyone to let them connect their Twitter bot"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
-                </svg>
-                Share Project Link
-              </button>
 
               <p className="text-xs text-gray-500 text-center">
                 <strong>Tip:</strong> Connect OAuth 1.0a for media uploads or OAuth 2.0 for modern API features. You can connect both!
