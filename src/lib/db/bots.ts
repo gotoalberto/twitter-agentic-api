@@ -105,3 +105,17 @@ export async function getAllBots(): Promise<Bot[]> {
 
   return bots;
 }
+
+/**
+ * Update bot credentials selectively
+ * Used for partial updates like removing OAuth 1.0a or OAuth 2.0 credentials
+ */
+export async function updateBot(botId: string, data: Partial<Bot>): Promise<Bot> {
+  const updatedBot = await prisma.bot.update({
+    where: { id: botId },
+    data,
+  });
+
+  console.log('✅ Bot updated:', updatedBot.username);
+  return updatedBot;
+}

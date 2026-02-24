@@ -59,12 +59,47 @@ export async function GET(
       registered: false
     };
 
+    // Check OAuth statuses
+    const oauth1Status = {
+      connected: !!(bot.accessToken && bot.accessTokenSecret),
+      hasAccessToken: !!bot.accessToken,
+      hasAccessTokenSecret: !!bot.accessTokenSecret,
+      capabilities: bot.accessToken && bot.accessTokenSecret ? [
+        'tweet_with_media',
+        'direct_messages',
+        'webhooks',
+        'all_v1_endpoints'
+      ] : []
+    };
+
+    const oauth2Status = {
+      connected: !!bot.oauth2AccessToken,
+      hasAccessToken: !!bot.oauth2AccessToken,
+      hasRefreshToken: !!bot.refreshToken,
+      expiresAt: bot.expiresAt,
+      isExpired: bot.expiresAt ? new Date() > new Date(bot.expiresAt) : false,
+      scopes: bot.scope?.split(' ') || [],
+      capabilities: bot.oauth2AccessToken ? [
+        'tweet_text_only',
+        'user_profile',
+        'modern_api'
+      ] : []
+    };
+
     return NextResponse.json({
       connected: true,
       bot: {
         userId: bot.userId,
         username: bot.username,
         connectedAt: bot.createdAt,
+      },
+      oauth: {
+        oauth1: oauth1Status,
+        oauth2: oauth2Status,
+        hasFullCapabilities: oauth1Status.connected && oauth2Status.connected,
+        recommendedAction: !oauth1Status.connected ? 'connect_oauth1_for_media' :
+                           !oauth2Status.connected ? 'connect_oauth2_for_modern_api' :
+                           null
       },
       webhookStatus
     });

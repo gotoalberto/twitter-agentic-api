@@ -11,6 +11,25 @@ interface BotStatus {
     username: string;
     connectedAt: string;
   } | null;
+  oauth?: {
+    oauth1: {
+      connected: boolean;
+      hasAccessToken: boolean;
+      hasAccessTokenSecret: boolean;
+      capabilities: string[];
+    };
+    oauth2: {
+      connected: boolean;
+      hasAccessToken: boolean;
+      hasRefreshToken: boolean;
+      expiresAt: string | null;
+      isExpired: boolean;
+      scopes: string[];
+      capabilities: string[];
+    };
+    hasFullCapabilities: boolean;
+    recommendedAction: string | null;
+  };
   webhookStatus?: {
     registered: boolean;
     webhookId?: string;
@@ -499,28 +518,35 @@ function ProjectDetailContent() {
     }
   };
 
-  const connectBot = () => {
-    window.location.href = `/api/projects/${projectId}/bot/authorize`;
+  const connectOAuth1 = () => {
+    window.location.href = `/api/projects/${projectId}/bot/authorize-oauth1`;
+  };
+
+  const connectOAuth2 = () => {
+    window.location.href = `/api/projects/${projectId}/bot/authorize-oauth2`;
   };
 
   const copyProjectLink = () => {
-    // Direct OAuth authorization link for the project
-    const authUrl = `${window.location.origin}/api/projects/${projectId}/bot/authorize`;
+    // Direct OAuth authorization link for the project (public page with both options)
+    const authUrl = `${window.location.origin}/project/${projectId}`;
     navigator.clipboard.writeText(authUrl).then(() => {
-      setMessage({ type: 'success', text: 'Bot authorization link copied! Share this with someone to let them connect their bot.' });
+      setMessage({ type: 'success', text: 'Project authorization link copied! Share this with someone to let them connect their bot.' });
     }).catch(() => {
       setMessage({ type: 'error', text: 'Failed to copy link' });
     });
   };
 
-  const disconnectBot = async () => {
-    if (!confirm('Are you sure you want to disconnect the bot?')) {
+  const disconnectBot = async (type: 'oauth1' | 'oauth2' | 'all' = 'all') => {
+    const typeText = type === 'all' ? 'the bot' : `OAuth ${type === 'oauth1' ? '1.0a' : '2.0'}`;
+    if (!confirm(`Are you sure you want to disconnect ${typeText}?`)) {
       return;
     }
 
     try {
       const res = await fetch(`/api/projects/${projectId}/bot/disconnect`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type })
       });
 
       if (res.ok) {
@@ -731,27 +757,102 @@ function ProjectDetailContent() {
 
           {botStatus?.connected && botStatus.bot ? (
             <div className="space-y-4">
+              {/* Bot Info */}
               <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
                 <div className="flex items-center">
                   <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                   </svg>
-                  <p className="text-green-800 font-medium">Bot configured and ready to receive webhooks</p>
+                  <p className="text-green-800 font-medium">Bot connected: @{botStatus.bot.username}</p>
                 </div>
               </div>
 
+              {/* OAuth Status Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Username</p>
-                  <p className="text-lg font-mono text-gray-900">@{botStatus.bot.username}</p>
+                {/* OAuth 1.0a Card */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">OAuth 1.0a</h4>
+                    {botStatus.oauth?.oauth1?.connected ? (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Connected</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Not Connected</span>
+                    )}
+                  </div>
+
+                  <ul className="text-xs text-gray-600 space-y-1 mb-3">
+                    <li>• Media uploads (images, videos)</li>
+                    <li>• Direct messages</li>
+                    <li>• Webhook subscriptions</li>
+                  </ul>
+
+                  {botStatus.oauth?.oauth1?.connected ? (
+                    <button
+                      onClick={() => disconnectBot('oauth1')}
+                      className="w-full bg-red-100 hover:bg-red-200 text-red-700 text-sm px-3 py-1.5 rounded transition"
+                    >
+                      Disconnect OAuth 1.0a
+                    </button>
+                  ) : (
+                    <button
+                      onClick={connectOAuth1}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded transition"
+                    >
+                      Connect OAuth 1.0a
+                    </button>
+                  )}
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">User ID</p>
-                  <p className="text-lg font-mono text-gray-900">{botStatus.bot.userId}</p>
+
+                {/* OAuth 2.0 Card */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">OAuth 2.0</h4>
+                    {botStatus.oauth?.oauth2?.connected ? (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {botStatus.oauth.oauth2.isExpired ? 'Expired' : 'Connected'}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Not Connected</span>
+                    )}
+                  </div>
+
+                  <ul className="text-xs text-gray-600 space-y-1 mb-3">
+                    <li>• Text-only tweets</li>
+                    <li>• Modern API v2</li>
+                    <li>• User profile access</li>
+                  </ul>
+
+                  {botStatus.oauth?.oauth2?.connected ? (
+                    <button
+                      onClick={() => disconnectBot('oauth2')}
+                      className="w-full bg-red-100 hover:bg-red-200 text-red-700 text-sm px-3 py-1.5 rounded transition"
+                    >
+                      Disconnect OAuth 2.0
+                    </button>
+                  ) : (
+                    <button
+                      onClick={connectOAuth2}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded transition"
+                    >
+                      Connect OAuth 2.0
+                    </button>
+                  )}
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500 mb-1">Connected</p>
-                  <p className="text-sm text-gray-900">{new Date(botStatus.bot.connectedAt).toLocaleString('en-US')}</p>
+              </div>
+
+              {/* Bot Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Username</p>
+                  <p className="text-sm font-mono text-gray-900">@{botStatus.bot.username}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">User ID</p>
+                  <p className="text-sm font-mono text-gray-900">{botStatus.bot.userId}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Connected</p>
+                  <p className="text-xs text-gray-900">{new Date(botStatus.bot.connectedAt).toLocaleString('en-US')}</p>
                 </div>
               </div>
 
@@ -786,10 +887,10 @@ function ProjectDetailContent() {
               )}
 
               <button
-                onClick={disconnectBot}
+                onClick={() => disconnectBot('all')}
                 className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg"
               >
-                Disconnect Bot
+                Disconnect Bot Completely
               </button>
             </div>
           ) : (
@@ -804,30 +905,61 @@ function ProjectDetailContent() {
               </div>
 
               <p className="text-gray-600 text-sm">
-                To start receiving mentions via webhooks, you need to connect a Twitter bot account using OAuth 1.0a.
+                Connect your Twitter bot account. Choose one or both authentication methods based on your needs.
               </p>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={connectBot}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-                  </svg>
-                  Connect Bot
-                </button>
-                <button
-                  onClick={copyProjectLink}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                  title="Copy direct authorization link - share with anyone to let them connect their Twitter bot"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
-                  </svg>
-                  Share Auth Link
-                </button>
+              {/* OAuth Connection Options */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* OAuth 1.0a Card */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-2">OAuth 1.0a</h4>
+                  <ul className="text-xs text-gray-600 space-y-1 mb-3">
+                    <li>✅ Media uploads (images, videos)</li>
+                    <li>✅ Direct messages</li>
+                    <li>✅ Webhook subscriptions</li>
+                    <li>✅ All v1.1 API features</li>
+                  </ul>
+                  <button
+                    onClick={connectOAuth1}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded transition duration-200"
+                  >
+                    Connect OAuth 1.0a
+                  </button>
+                </div>
+
+                {/* OAuth 2.0 Card */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-2">OAuth 2.0</h4>
+                  <ul className="text-xs text-gray-600 space-y-1 mb-3">
+                    <li>✅ Text-only tweets</li>
+                    <li>✅ Modern API v2</li>
+                    <li>✅ User profile access</li>
+                    <li>⚠️ No media uploads</li>
+                  </ul>
+                  <button
+                    onClick={connectOAuth2}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded transition duration-200"
+                  >
+                    Connect OAuth 2.0
+                  </button>
+                </div>
               </div>
+
+              {/* Share Link Button */}
+              <button
+                onClick={copyProjectLink}
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2.5 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                title="Copy project link - share with anyone to let them connect their Twitter bot"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.024a3 3 0 004.243 0m-4.243 0a3 3 0 110-6.364m0 6.364a9.944 9.944 0 01-4.432 1.292m4.432-1.292l-4.432 1.292m0 0a9.944 9.944 0 01-4.432-1.292m8.864 0a3 3 0 00-4.243 0M3.032 13.342a3 3 0 010-4.024" />
+                </svg>
+                Share Project Link
+              </button>
+
+              <p className="text-xs text-gray-500 text-center">
+                <strong>Tip:</strong> Connect OAuth 1.0a for media uploads or OAuth 2.0 for modern API features. You can connect both!
+              </p>
             </div>
           )}
         </div>

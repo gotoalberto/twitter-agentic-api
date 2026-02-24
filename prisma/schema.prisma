@@ -11,32 +11,22 @@ datasource db {
 /// TwitterApp stores the Twitter API credentials for a specific application
 /// Multiple projects can share the same Twitter App credentials
 model TwitterApp {
-  id             String          @id @default(cuid())
-  name           String          @unique
-
-  // OAuth 1.0a credentials (optional - needed for webhook subscriptions with projects)
-  consumerKey    String?         // Now optional - only needed for projects/webhooks
-  consumerSecret String?         // Now optional - only needed for projects/webhooks
-
-  // OAuth 2.0 credentials (optional - for user authentication)
-  clientId       String?         // OAuth 2.0 Client ID
-  clientSecret   String?         // OAuth 2.0 Client Secret
-
-  // Bearer Token for App-Only auth (OAuth 2.0)
-  bearerToken    String
-
-  webhookEnv     String          @default("production")
-
-  // Webhook configuration (one webhook per app)
-  webhookId         String?      // X webhook ID
-  webhookUrl        String?      // Full webhook URL for this app
-  webhookValid      Boolean      @default(false)
-  webhookCreatedAt  DateTime?    // When webhook was registered in X
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  projects       Project[]
-  hivemindConfig HivemindConfig?
+  id               String          @id @default(cuid())
+  name             String          @unique
+  consumerKey      String?
+  consumerSecret   String?
+  bearerToken      String
+  webhookEnv       String          @default("production")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  clientId         String?
+  clientSecret     String?
+  webhookCreatedAt DateTime?
+  webhookId        String?
+  webhookUrl       String?
+  webhookValid     Boolean         @default(false)
+  hivemindConfig   HivemindConfig?
+  projects         Project[]
 
   @@map("twitter_apps")
 }
@@ -55,9 +45,9 @@ model Project {
   forwardingConfig     ForwardingConfig?
   forwardingEndpoints  ForwardingEndpoint[]
   idempotentTweets     IdempotentTweet[]
-  receivedTweets       ReceivedTweet[]
-  rateLimits           RateLimit[]
   twitterApp           TwitterApp?           @relation(fields: [twitterAppId], references: [id])
+  rateLimits           RateLimit[]
+  receivedTweets       ReceivedTweet[]
   webhookDeliveries    WebhookDelivery[]
   webhookLogs          WebhookLog[]
   webhookRegistrations WebhookRegistration[]
@@ -69,24 +59,19 @@ model Project {
 /// Bot represents a Twitter/X bot account connected to a project
 /// Supports both OAuth 1.0a and OAuth 2.0 credentials during migration
 model Bot {
-  id                String   @id @default(cuid())
-  projectId         String   @unique
-  username          String   @unique
-  userId            String   @unique
-
-  // OAuth 1.0a credentials (to be removed after migration)
+  id                String    @id @default(cuid())
+  projectId         String    @unique
+  username          String    @unique
+  userId            String    @unique
   accessToken       String
   accessTokenSecret String
-
-  // OAuth 2.0 credentials (new)
-  oauth2AccessToken String?  // OAuth 2.0 access token
-  refreshToken      String?  // OAuth 2.0 refresh token (with offline.access scope)
-  expiresAt         DateTime? // Token expiration timestamp
-  scope             String?  // OAuth 2.0 scopes granted
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  oauth2AccessToken String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  scope             String?
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([username])
@@ -222,9 +207,9 @@ model HivemindConfig {
   id           String      @id @default(cuid())
   twitterAppId String?     @unique
   enabled      Boolean     @default(false)
-  apiKey       String?     @map("api_key") // API key for external apps to tweet via Hivemind users
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  apiKey       String?     @map("api_key")
   twitterApp   TwitterApp? @relation(fields: [twitterAppId], references: [id])
 
   @@map("hivemind_config")
@@ -234,32 +219,27 @@ model HivemindConfig {
 /// These are regular users (not bots) who authorize the app for tweet/DM access
 /// No webhooks are registered for these users
 model HivemindUser {
-  id                String   @id @default(cuid())
-  userId            String   @unique @map("user_id")
-  username          String   @unique
-  displayName       String   @map("display_name")
-  profileImageUrl   String?  @map("profile_image_url")
-
-  // OAuth 1.0a credentials (to be removed after migration)
-  accessToken       String   @map("access_token")
-  accessTokenSecret String   @map("access_token_secret")
-
-  // OAuth 2.0 credentials (new)
-  oauth2AccessToken String?  @map("oauth2_access_token") // OAuth 2.0 access token
-  refreshToken      String?  @map("refresh_token")       // OAuth 2.0 refresh token
-  expiresAt         DateTime? @map("expires_at")         // Token expiration timestamp
-  scope             String?  @map("scope")               // OAuth 2.0 scopes granted
-
-  connectedAt       DateTime @default(now()) @map("connected_at")
-  lastActiveAt      DateTime @default(now()) @map("last_active_at")
-  isActive          Boolean  @default(true) @map("is_active")
-
-  // Relations
+  id                String      @id @default(cuid())
+  userId            String      @unique @map("user_id")
+  username          String      @unique
+  displayName       String      @map("display_name")
+  profileImageUrl   String?     @map("profile_image_url")
+  accessToken       String      @map("access_token")
+  accessTokenSecret String      @map("access_token_secret")
+  connectedAt       DateTime    @default(now()) @map("connected_at")
+  lastActiveAt      DateTime    @default(now()) @map("last_active_at")
+  isActive          Boolean     @default(true) @map("is_active")
+  oauth2AccessToken String?     @map("oauth2_access_token")
+  refreshToken      String?     @map("refresh_token")
+  expiresAt         DateTime?   @map("expires_at")
+  scope             String?     @map("scope")
   rateLimits        RateLimit[]
 
   @@index([username])
   @@index([isActive])
   @@index([connectedAt])
+  @@index([isActive], map: "idx_hivemind_users_is_active")
+  @@index([username], map: "idx_hivemind_users_username")
   @@map("hivemind_users")
 }
 
@@ -268,87 +248,56 @@ model HivemindUser {
 model ReceivedTweet {
   id                String   @id @default(cuid())
   projectId         String   @map("project_id")
-
-  // Twitter identifiers
-  tweetId           String   @map("tweet_id")          // Twitter's tweet ID
-  userId            String   @map("user_id")           // ID of the user who posted the tweet
-  username          String                              // Username of the poster
-  userDisplayName   String?  @map("user_display_name") // Display name of the poster
-
-  // Tweet content
-  text              String                              // Full text of the tweet
-  truncated         Boolean  @default(false)           // Whether the tweet was truncated
-
-  // Reply information
-  inReplyToStatusId String?  @map("in_reply_to_status_id") // If this is a reply, the tweet it's replying to
-  inReplyToUserId   String?  @map("in_reply_to_user_id")   // If this is a reply, the user it's replying to
-
-  // Bot information
-  forUserId         String   @map("for_user_id")       // The bot user ID that received this tweet
-
-  // Metadata
-  lang              String?                            // Language of the tweet
+  tweetId           String   @map("tweet_id")
+  userId            String   @map("user_id")
+  username          String
+  userDisplayName   String?  @map("user_display_name")
+  text              String
+  truncated         Boolean  @default(false)
+  inReplyToStatusId String?  @map("in_reply_to_status_id")
+  inReplyToUserId   String?  @map("in_reply_to_user_id")
+  forUserId         String   @map("for_user_id")
+  lang              String?
   retweetCount      Int      @default(0) @map("retweet_count")
   favoriteCount     Int      @default(0) @map("favorite_count")
   replyCount        Int      @default(0) @map("reply_count")
   quoteCount        Int      @default(0) @map("quote_count")
-
-  // Media and entities (stored as JSON)
-  entities          Json?                              // Hashtags, mentions, URLs, etc.
-  extendedEntities  Json?    @map("extended_entities") // Media attachments
-
-  // Full raw payload for reference
-  rawPayload        Json     @map("raw_payload")       // Complete webhook payload
-
-  // Timestamps
-  tweetCreatedAt    DateTime @map("tweet_created_at")  // When the tweet was posted on Twitter
-  receivedAt        DateTime @default(now()) @map("received_at") // When we received the webhook
-
-  // Relations
+  entities          Json?
+  extendedEntities  Json?    @map("extended_entities")
+  rawPayload        Json     @map("raw_payload")
+  tweetCreatedAt    DateTime @map("tweet_created_at")
+  receivedAt        DateTime @default(now()) @map("received_at")
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, tweetId]) // Prevent duplicate tweets per project
-  @@index([projectId, receivedAt(sort: Desc)]) // For querying latest tweets
-  @@index([projectId, forUserId]) // For filtering by bot
-  @@index([projectId, userId]) // For filtering by sender
-  @@index([tweetId]) // For looking up specific tweets
+  @@unique([projectId, tweetId])
+  @@index([projectId, receivedAt(sort: Desc)])
+  @@index([projectId, forUserId])
+  @@index([projectId, userId])
+  @@index([tweetId])
   @@map("received_tweets")
 }
 
 /// RateLimit stores the current rate limit status for each endpoint and account
 model RateLimit {
-  id              String   @id @default(cuid())
-
-  // Owner identification (either project or hivemind)
-  projectId       String?  @map("project_id")       // For project bots
-  hivemindUserId  String?  @map("hivemind_user_id") // For Hivemind users
-
-  // Account that made the request
-  accountId       String   @map("account_id")       // Twitter user ID
-  accountUsername String   @map("account_username") // Twitter username
-
-  // Endpoint information
-  endpoint        String                            // e.g., "POST /2/tweets", "POST /2/users/:id/likes"
-  endpointType    String   @map("endpoint_type")    // e.g., "tweet", "like", "retweet", "search", "timeline"
-
-  // Rate limit values
-  limit           Int                               // Total requests allowed in window
-  remaining       Int                               // Requests remaining
-  reset           DateTime                          // When the rate limit resets
-
-  // Tracking
-  lastUpdated     DateTime @default(now()) @map("last_updated") // Last time this was updated
-  lastRequestAt   DateTime @default(now()) @map("last_request_at") // Last API call timestamp
-
-  // Relations
-  project         Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id              String        @id @default(cuid())
+  projectId       String?       @map("project_id")
+  hivemindUserId  String?       @map("hivemind_user_id")
+  accountId       String        @map("account_id")
+  accountUsername String        @map("account_username")
+  endpoint        String
+  endpointType    String        @map("endpoint_type")
+  limit           Int
+  remaining       Int
+  reset           DateTime
+  lastUpdated     DateTime      @default(now()) @map("last_updated")
+  lastRequestAt   DateTime      @default(now()) @map("last_request_at")
   hivemindUser    HivemindUser? @relation(fields: [hivemindUserId], references: [userId], onDelete: Cascade)
+  project         Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Unique constraint: one rate limit per endpoint per account
   @@unique([accountId, endpoint])
   @@index([projectId, endpoint])
   @@index([hivemindUserId, endpoint])
-  @@index([reset]) // For finding expired rate limits
+  @@index([reset])
   @@index([endpointType, accountId])
   @@map("rate_limits")
 }

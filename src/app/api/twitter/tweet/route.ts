@@ -294,12 +294,35 @@ export async function POST(request: NextRequest) {
 
     console.log('🔑 Using credentials from TwitterApp:', twitterApp.name);
 
-    // Create Twitter client - prefer OAuth 2.0 if available
-    let client: TwitterApi;
+    // Determine which OAuth to use based on media presence
+    const hasS3Media = !!(body.imageUrl?.includes('s3') || body.videoUrl?.includes('s3'));
+    const hasOAuth1 = !!(bot.accessToken && bot.accessTokenSecret && twitterApp.consumerKey && twitterApp.consumerSecret);
+    const hasOAuth2 = !!bot.oauth2AccessToken;
 
-    if (bot.oauth2AccessToken) {
-      // Use OAuth 2.0 if available
-      console.log('🔐 Using OAuth 2.0 for tweet publishing');
+    console.log('🔍 OAuth selection logic:');
+    console.log('   Has S3 media:', hasS3Media);
+    console.log('   Has OAuth 1.0a:', hasOAuth1);
+    console.log('   Has OAuth 2.0:', hasOAuth2);
+
+    // Create Twitter client - prioritize OAuth 1.0a for media uploads
+    let client: TwitterApi;
+    let usingOAuth1 = false;
+
+    if (hasS3Media && hasOAuth1) {
+      // PRIORITY: Use OAuth 1.0a for media uploads
+      console.log('🔑 Using OAuth 1.0a for tweet with media upload');
+      console.log('   Reason: Media upload requires OAuth 1.0a');
+
+      client = new TwitterApi({
+        appKey: twitterApp.consumerKey!,
+        appSecret: twitterApp.consumerSecret!,
+        accessToken: bot.accessToken!,
+        accessSecret: bot.accessTokenSecret!,
+      } as any);
+      usingOAuth1 = true;
+    } else if (bot.oauth2AccessToken && !hasS3Media) {
+      // Use OAuth 2.0 for text-only tweets if available
+      console.log('🔐 Using OAuth 2.0 for text-only tweet');
       console.log('   Has access token:', !!bot.oauth2AccessToken);
       console.log('   Token expires at:', bot.expiresAt?.toISOString());
 
@@ -347,9 +370,10 @@ export async function POST(request: NextRequest) {
       }
 
       client = new TwitterApi(bot.oauth2AccessToken);
-    } else if (bot.accessToken && bot.accessTokenSecret) {
-      // Fall back to OAuth 1.0a if no OAuth 2.0 token
+    } else if (hasOAuth1) {
+      // Fall back to OAuth 1.0a if no OAuth 2.0 token or if media present without OAuth 1.0a
       console.log('🔑 Using OAuth 1.0a for tweet publishing');
+      console.log('   Reason: OAuth 2.0 not available or media upload needed');
 
       const consumerKey = twitterApp.consumerKey;
       const consumerSecret = twitterApp.consumerSecret;
@@ -368,6 +392,7 @@ export async function POST(request: NextRequest) {
         accessToken: bot.accessToken,
         accessSecret: bot.accessTokenSecret,
       } as any);
+      usingOAuth1 = true;
     } else {
       console.log('❌ Bot has no valid authentication tokens');
       return NextResponse.json(
@@ -407,21 +432,13 @@ export async function POST(request: NextRequest) {
         console.log('   Image size:', imageBuffer.length, 'bytes');
 
         // Upload to Twitter using v1 API (OAuth 1.0a)
-        if (bot.accessToken && bot.accessTokenSecret && twitterApp.consumerKey && twitterApp.consumerSecret) {
+        if (usingOAuth1) {
           console.log('📤 Uploading image to Twitter using OAuth 1.0a...');
-          console.log('   All OAuth 1.0a credentials available ✅');
+          console.log('   OAuth 1.0a client already configured ✅');
 
-          // Create OAuth 1.0a client for media upload
-          const v1Client = new TwitterApi({
-            appKey: twitterApp.consumerKey,
-            appSecret: twitterApp.consumerSecret,
-            accessToken: bot.accessToken,
-            accessSecret: bot.accessTokenSecret,
-          });
-
-          // Upload media
+          // Upload media using the already-created OAuth 1.0a client
           const uploadStartTime = Date.now();
-          mediaId = await v1Client.v1.uploadMedia(imageBuffer, {
+          mediaId = await client.v1.uploadMedia(imageBuffer, {
             mimeType: 'image/png', // Default to PNG, could be improved by detecting
           });
           const uploadDuration = Date.now() - uploadStartTime;
@@ -430,20 +447,22 @@ export async function POST(request: NextRequest) {
           console.log('   Media ID:', mediaId);
           console.log('   Upload duration:', `${uploadDuration}ms`);
         } else {
-          console.log('⚠️ Missing OAuth 1.0a credentials for media upload');
-          console.log('   bot.accessToken:', bot.accessToken ? 'EXISTS' : 'MISSING');
-          console.log('   bot.accessTokenSecret:', bot.accessTokenSecret ? 'EXISTS' : 'MISSING');
-          console.log('   twitterApp.consumerKey:', twitterApp.consumerKey ? 'EXISTS' : 'MISSING');
-          console.log('   twitterApp.consumerSecret:', twitterApp.consumerSecret ? 'EXISTS' : 'MISSING');
-          console.log('   Falling back to URL append method');
-          // Fall back to appending URL
+          console.log('⚠️ OAuth 1.0a required for media upload but not available');
+          console.log('   Solution: Connect bot with OAuth 1.0a to enable media uploads');
+          console.log('   Falling back to URL append method (image will appear as link preview)');
+
+          // Fall back to appending URL for link preview
           if (tweetText.length + 24 > 280) {
             return NextResponse.json(
-              { error: 'Tweet text plus image URL exceeds 280 character limit' },
+              {
+                error: 'Cannot upload media: OAuth 1.0a required. Connect bot with OAuth 1.0a or shorten tweet text to include image URL.',
+                details: 'Media uploads require OAuth 1.0a authentication. Currently using OAuth 2.0 which only supports text tweets.'
+              },
               { status: 400 }
             );
           }
           tweetText = `${tweetText} ${body.imageUrl}`;
+          console.log('   Image URL appended to tweet text for preview');
         }
       } catch (error: any) {
         console.error('❌ Error handling S3 image:', error.message);
