@@ -75,6 +75,7 @@ export const DEFAULT_HIVEMIND_SCOPES = [
   OAUTH2_SCOPES.USERS_READ,
   OAUTH2_SCOPES.LIKE_READ,
   OAUTH2_SCOPES.LIKE_WRITE,
+  OAUTH2_SCOPES.MEDIA_WRITE, // Required for media upload via v2 API
   OAUTH2_SCOPES.OFFLINE_ACCESS, // Required for refresh tokens
 ];
 

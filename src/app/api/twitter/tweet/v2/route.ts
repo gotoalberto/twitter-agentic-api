@@ -566,17 +566,41 @@ export async function POST(request: NextRequest) {
     let mediaId: string | undefined;
 
     if (hasImage || hasVideo) {
-      // Check if user is using OAuth 2.0 - media upload requires OAuth 1.0a
-      if (isHivemind && oauth2Token && !userCredentials) {
-        console.log('❌ Media upload not supported with OAuth 2.0');
-        console.log('   OAuth 2.0 users cannot upload media at this time');
-        console.log('   Twitter API v1.1 (used for media upload) requires OAuth 1.0a');
+      // Check if OAuth 2.0 user has media.write scope
+      const hasMediaWriteScope = hivemindUser?.scope?.includes('media.write') || bot?.scope?.includes('media.write');
+
+      // Check if user is using OAuth 2.0 without media.write scope
+      if (oauth2Token && !hasMediaWriteScope && !userCredentials) {
+        console.log('❌ Media upload requires media.write scope for OAuth 2.0');
+        console.log('   Current scopes:', hivemindUser?.scope || bot?.scope || 'none');
+        console.log('   OAuth 2.0 users need media.write scope to upload media');
+        console.log('   Please reconnect your account to get the media.write scope');
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
           {
-            error: 'Media upload is not supported for OAuth 2.0 users. Please post text-only tweets or reconnect with OAuth 1.0a to upload media.',
-            details: 'Twitter API v1.1 media upload requires OAuth 1.0a authentication'
+            error: 'Media upload requires the media.write scope. Please reconnect your account to enable media uploads.',
+            details: {
+              currentScopes: hivemindUser?.scope || bot?.scope || 'none',
+              requiredScope: 'media.write',
+              hasOAuth2: true,
+              hasMediaWriteScope: false
+            }
+          },
+          { status: 400 }
+        );
+      }
+
+      // If no OAuth 1.0a credentials and no OAuth 2.0 with media.write scope
+      if (!userCredentials && !hasMediaWriteScope) {
+        console.log('❌ Media upload not available');
+        console.log('   No OAuth 1.0a credentials and no OAuth 2.0 with media.write scope');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          {
+            error: 'Media upload not available. Account needs either OAuth 1.0a credentials or OAuth 2.0 with media.write scope.',
+            details: 'Please reconnect your account to enable media uploads.'
           },
           { status: 400 }
         );
@@ -647,6 +671,14 @@ export async function POST(request: NextRequest) {
 
       // Upload to Twitter
       console.log(`📤 Uploading ${mediaType} to Twitter...`);
+
+      // Log authentication method being used for media upload
+      if (oauth2Token && hasMediaWriteScope) {
+        console.log('   🔐 Using OAuth 2.0 with media.write scope');
+      } else if (userCredentials) {
+        console.log('   🔑 Using OAuth 1.0a credentials');
+      }
+
       const uploadStartTime = Date.now();
 
       try {
@@ -658,9 +690,16 @@ export async function POST(request: NextRequest) {
         console.log(`   ✅ ${mediaType} uploaded successfully`);
         console.log('   Media ID:', mediaId);
         console.log('   Duration:', `${uploadDuration}ms`);
+        console.log('   Auth method:', (oauth2Token && hasMediaWriteScope) ? 'OAuth 2.0' : 'OAuth 1.0a');
         console.log('');
       } catch (error: any) {
         console.error(`❌ Failed to upload ${mediaType} to Twitter:`, error.message);
+
+        // Provide more helpful error message based on auth method
+        if (oauth2Token && error.code === 403) {
+          console.error('   💡 Hint: Even with media.write scope, some OAuth 2.0 tokens may have issues');
+          console.error('   Current scopes:', hivemindUser?.scope || bot?.scope || 'unknown');
+        }
         console.log('================================================================================');
         console.log('');
         return NextResponse.json(
