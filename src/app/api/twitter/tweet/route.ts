@@ -383,6 +383,13 @@ export async function POST(request: NextRequest) {
       console.log('🖼️ Downloading image from S3 for upload to Twitter...');
       console.log('   S3 URL:', body.imageUrl);
 
+      // Debug: Check OAuth 1.0a credentials
+      console.log('🔍 Checking OAuth 1.0a credentials for media upload:');
+      console.log('   bot.accessToken exists:', !!bot.accessToken);
+      console.log('   bot.accessTokenSecret exists:', !!bot.accessTokenSecret);
+      console.log('   twitterApp.consumerKey exists:', !!twitterApp.consumerKey);
+      console.log('   twitterApp.consumerSecret exists:', !!twitterApp.consumerSecret);
+
       try {
         // Download image from S3
         const imageResponse = await fetch(body.imageUrl);
@@ -400,13 +407,14 @@ export async function POST(request: NextRequest) {
         console.log('   Image size:', imageBuffer.length, 'bytes');
 
         // Upload to Twitter using v1 API (OAuth 1.0a)
-        if (bot.accessToken && bot.accessTokenSecret) {
+        if (bot.accessToken && bot.accessTokenSecret && twitterApp.consumerKey && twitterApp.consumerSecret) {
           console.log('📤 Uploading image to Twitter using OAuth 1.0a...');
+          console.log('   All OAuth 1.0a credentials available ✅');
 
           // Create OAuth 1.0a client for media upload
           const v1Client = new TwitterApi({
-            appKey: twitterApp.consumerKey!,
-            appSecret: twitterApp.consumerSecret!,
+            appKey: twitterApp.consumerKey,
+            appSecret: twitterApp.consumerSecret,
             accessToken: bot.accessToken,
             accessSecret: bot.accessTokenSecret,
           });
@@ -422,7 +430,11 @@ export async function POST(request: NextRequest) {
           console.log('   Media ID:', mediaId);
           console.log('   Upload duration:', `${uploadDuration}ms`);
         } else {
-          console.log('⚠️ No OAuth 1.0a credentials for media upload');
+          console.log('⚠️ Missing OAuth 1.0a credentials for media upload');
+          console.log('   bot.accessToken:', bot.accessToken ? 'EXISTS' : 'MISSING');
+          console.log('   bot.accessTokenSecret:', bot.accessTokenSecret ? 'EXISTS' : 'MISSING');
+          console.log('   twitterApp.consumerKey:', twitterApp.consumerKey ? 'EXISTS' : 'MISSING');
+          console.log('   twitterApp.consumerSecret:', twitterApp.consumerSecret ? 'EXISTS' : 'MISSING');
           console.log('   Falling back to URL append method');
           // Fall back to appending URL
           if (tweetText.length + 24 > 280) {

@@ -548,6 +548,20 @@ export async function POST(request: NextRequest) {
       console.log('🖼️ Downloading image from S3 for upload to Twitter...');
       console.log('   S3 URL:', body.imageUrl);
 
+      // Debug: Check OAuth 1.0a credentials
+      console.log('🔍 Checking OAuth 1.0a credentials for media upload:');
+      if (isHivemind) {
+        console.log('   Type: Hivemind user');
+        console.log('   userCredentials.accessToken exists:', !!userCredentials?.accessToken);
+        console.log('   userCredentials.accessTokenSecret exists:', !!userCredentials?.accessTokenSecret);
+      } else {
+        console.log('   Type: Project bot');
+        console.log('   bot.accessToken exists:', !!bot?.accessToken);
+        console.log('   bot.accessTokenSecret exists:', !!bot?.accessTokenSecret);
+      }
+      console.log('   consumerKey exists:', !!consumerKey);
+      console.log('   consumerSecret exists:', !!consumerSecret);
+
       try {
         // Download image from S3
         const imageResponse = await fetch(body.imageUrl);
@@ -569,8 +583,9 @@ export async function POST(request: NextRequest) {
           ? (userCredentials?.accessToken && userCredentials?.accessTokenSecret)
           : (bot?.accessToken && bot?.accessTokenSecret);
 
-        if (hasOAuth1) {
+        if (hasOAuth1 && consumerKey && consumerSecret) {
           console.log('📤 Uploading image to Twitter using OAuth 1.0a...');
+          console.log('   All OAuth 1.0a credentials available ✅');
 
           // Get Twitter app credentials
           let twitterApp;
