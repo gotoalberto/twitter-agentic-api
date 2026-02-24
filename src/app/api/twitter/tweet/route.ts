@@ -304,14 +304,29 @@ export async function POST(request: NextRequest) {
     console.log('   Has OAuth 1.0a:', hasOAuth1);
     console.log('   Has OAuth 2.0:', hasOAuth2);
 
-    // Create Twitter client - prioritize OAuth 1.0a for media uploads
+    // Create Twitter client with correct priority
     let client: TwitterApi;
     let usingOAuth1 = false;
 
-    if (hasS3Media && hasOAuth1) {
-      // PRIORITY: Use OAuth 1.0a for media uploads
+    // RULE 1: If there's media, MUST use OAuth 1.0a or fail
+    if (hasS3Media) {
+      if (!hasOAuth1) {
+        console.log('❌ Media upload requires OAuth 1.0a but it is not configured');
+        console.log('   Solution: Connect bot with OAuth 1.0a to enable media uploads');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          {
+            error: 'Media upload requires OAuth 1.0a authentication',
+            details: 'This bot only has OAuth 2.0 configured. Please connect OAuth 1.0a to upload images or videos.'
+          },
+          { status: 400 }
+        );
+      }
+
+      // Use OAuth 1.0a for media uploads
       console.log('🔑 Using OAuth 1.0a for tweet with media upload');
-      console.log('   Reason: Media upload requires OAuth 1.0a');
+      console.log('   Reason: Media upload REQUIRES OAuth 1.0a');
 
       client = new TwitterApi({
         appKey: twitterApp.consumerKey!,
@@ -320,8 +335,10 @@ export async function POST(request: NextRequest) {
         accessSecret: bot.accessTokenSecret!,
       } as any);
       usingOAuth1 = true;
-    } else if (bot.oauth2AccessToken && !hasS3Media) {
-      // Use OAuth 2.0 for text-only tweets if available
+
+    // RULE 2: For text-only tweets, prioritize OAuth 2.0, then OAuth 1.0a
+    } else if (hasOAuth2) {
+      // PRIORITY: Use OAuth 2.0 for text-only tweets if available
       console.log('🔐 Using OAuth 2.0 for text-only tweet');
       console.log('   Has access token:', !!bot.oauth2AccessToken);
       console.log('   Token expires at:', bot.expiresAt?.toISOString());
@@ -369,7 +386,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      client = new TwitterApi(bot.oauth2AccessToken);
+      client = new TwitterApi(bot.oauth2AccessToken!);
     } else if (hasOAuth1) {
       // Fall back to OAuth 1.0a if no OAuth 2.0 token or if media present without OAuth 1.0a
       console.log('🔑 Using OAuth 1.0a for tweet publishing');
@@ -447,29 +464,29 @@ export async function POST(request: NextRequest) {
           console.log('   Media ID:', mediaId);
           console.log('   Upload duration:', `${uploadDuration}ms`);
         } else {
-          console.log('⚠️ OAuth 1.0a required for media upload but not available');
-          console.log('   Solution: Connect bot with OAuth 1.0a to enable media uploads');
-          console.log('   Falling back to URL append method (image will appear as link preview)');
-
-          // Fall back to appending URL for link preview
-          if (tweetText.length + 24 > 280) {
-            return NextResponse.json(
-              {
-                error: 'Cannot upload media: OAuth 1.0a required. Connect bot with OAuth 1.0a or shorten tweet text to include image URL.',
-                details: 'Media uploads require OAuth 1.0a authentication. Currently using OAuth 2.0 which only supports text tweets.'
-              },
-              { status: 400 }
-            );
-          }
-          tweetText = `${tweetText} ${body.imageUrl}`;
-          console.log('   Image URL appended to tweet text for preview');
+          // This should never happen due to the check above, but just in case
+          console.log('❌ Critical error: Media upload attempted without OAuth 1.0a');
+          console.log('================================================================================');
+          console.log('');
+          return NextResponse.json(
+            {
+              error: 'Media upload requires OAuth 1.0a authentication',
+              details: 'This bot only has OAuth 2.0 configured. Please connect OAuth 1.0a to upload images or videos.'
+            },
+            { status: 400 }
+          );
         }
       } catch (error: any) {
         console.error('❌ Error handling S3 image:', error.message);
-        // Fall back to appending URL
-        if (tweetText.length + 24 <= 280) {
-          tweetText = `${tweetText} ${body.imageUrl}`;
-        }
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          {
+            error: 'Failed to upload media to Twitter',
+            details: error.message
+          },
+          { status: 500 }
+        );
       }
     }
 
