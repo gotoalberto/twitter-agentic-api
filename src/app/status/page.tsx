@@ -367,7 +367,7 @@ export default function StatusPage() {
                           <span className={`inline-flex items-center space-x-1 ${
                             action.type === 'like' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                           }`}>
-                            <span>{action.type === 'like' ? '❤️ Liked' : '🔄 Retweeted'}</span>
+                            <span>{action.type === 'like' ? '❤️ Liked via Hivemind' : '🔄 Retweeted via Hivemind'}</span>
                           </span>
                           <span className="text-gray-500 dark:text-gray-400 ml-1">
                             a post by @{action.tweet.author}
