@@ -724,6 +724,32 @@ These endpoints use the default "goodboy" project:
 - `GET /api/webhooks/twitter?crc_token=XXX` - CRC validation
 - `POST /api/webhooks/twitter` - Receive and forward webhook events
 
+## UI Pages
+
+### Hivemind Status Page
+
+The application includes a public status page at `/status` that displays real-time activity from the Hivemind network.
+
+**URL**: `https://hive.pepes.dog/status`
+
+**Features**:
+- **Real-time Statistics**: Displays total users, likes, retweets, and actions with formatted numbers (1K, 2M, etc.)
+- **Connected Accounts List**: Shows all connected bot accounts with:
+  - Profile images and usernames (linked to X profiles)
+  - Individual like and retweet counts
+  - Last active timestamp
+- **Activity Feed**: Live stream of Hivemind actions with:
+  - User who performed the action
+  - Action type (Like or Retweet)
+  - Original tweet author
+  - Link to view tweet on Twitter/X
+  - Infinite scroll for loading more activities
+- **Filtering**: Filter activities by All, Likes, or Retweets
+- **Join Now Button**: Quick access button to join the Hivemind network at `https://hive.pepes.dog`
+- **Responsive Design**: Mobile-optimized layout with dark mode support
+
+The status page provides transparency into the Hivemind network's collective activity and makes it easy for new users to join.
+
 ## Database Schema
 
 ### Projects

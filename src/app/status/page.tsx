@@ -206,12 +206,22 @@ export default function StatusPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Hivemind Status
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Real-time activity from the Hivemind network
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 sm:mb-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Hivemind Status
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Real-time activity from the Hivemind network
+              </p>
+            </div>
+            <a
+              href="https://hive.pepes.dog"
+              className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+            >
+              Join Now
+            </a>
+          </div>
         </div>
 
         {/* Summary Stats */}
