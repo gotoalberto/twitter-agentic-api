@@ -276,12 +276,19 @@ export default function StatusPage() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">
-                          {user.displayName}
-                        </div>
-                        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                          @{user.username}
-                        </div>
+                        <a
+                          href={`https://x.com/${user.username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group"
+                        >
+                          <div className="font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {user.displayName}
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            @{user.username}
+                          </div>
+                        </a>
                       </div>
                       <div className="text-right">
                         <div className="flex items-center space-x-2 sm:space-x-3 text-xs">
@@ -370,12 +377,19 @@ export default function StatusPage() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-1 text-xs sm:text-sm">
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {action.user.displayName}
-                          </span>
-                          <span className="text-gray-500 dark:text-gray-400">
-                            @{action.user.username}
-                          </span>
+                          <a
+                            href={`https://x.com/${action.user.username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-x-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          >
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {action.user.displayName}
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              @{action.user.username}
+                            </span>
+                          </a>
                           <span className="text-gray-400 dark:text-gray-500">•</span>
                           <span className="text-gray-400 dark:text-gray-500">
                             {formatDate(action.performedAt)}
@@ -388,7 +402,15 @@ export default function StatusPage() {
                             <span>{action.type === 'like' ? '❤️ Liked via Hivemind' : '🔄 Retweeted via Hivemind'}</span>
                           </span>
                           <span className="text-gray-500 dark:text-gray-400 ml-1">
-                            a post by @{action.tweet.author}
+                            a post by{' '}
+                            <a
+                              href={`https://x.com/${action.tweet.author}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            >
+                              @{action.tweet.author}
+                            </a>
                           </span>
                         </div>
                         {action.tweet.text && (
