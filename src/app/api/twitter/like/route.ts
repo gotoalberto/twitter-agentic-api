@@ -114,6 +114,50 @@ export async function POST(request: NextRequest) {
         console.log('❤️ Attempting to like tweet:', tweetId);
         result = await v2Client.like(userId, tweetId);
         console.log('✅ Like successful');
+
+        // Log the like action to HivemindAction table
+        if (result.data?.liked) {
+          try {
+            // Try to get tweet details for logging
+            let tweetText = '';
+            let tweetAuthor = '';
+            let tweetUrl = `https://twitter.com/i/status/${tweetId}`;
+
+            try {
+              const tweet = await v2Client.singleTweet(tweetId, {
+                'tweet.fields': ['author_id', 'text'],
+                'user.fields': ['username'],
+                expansions: ['author_id']
+              });
+
+              if (tweet.data) {
+                tweetText = tweet.data.text || '';
+                const author = tweet.includes?.users?.find(u => u.id === tweet.data.author_id);
+                tweetAuthor = author?.username || 'unknown';
+                tweetUrl = `https://twitter.com/${tweetAuthor}/status/${tweetId}`;
+              }
+            } catch (error) {
+              console.log('⚠️ Could not fetch tweet details for logging');
+            }
+
+            await prisma.hivemindAction.create({
+              data: {
+                userId: hivemindUser.userId,
+                username: hivemindUser.username,
+                displayName: hivemindUser.displayName,
+                actionType: 'like',
+                tweetId,
+                tweetAuthor,
+                tweetText: tweetText.substring(0, 280), // Limit to 280 chars
+                tweetUrl,
+              },
+            });
+            console.log('📝 Like action logged to HivemindAction');
+          } catch (error) {
+            console.error('⚠️ Failed to log like action:', error);
+            // Continue even if logging fails
+          }
+        }
       }
 
       // Save rate limit information
