@@ -234,6 +234,7 @@ model HivemindUser {
   expiresAt         DateTime?   @map("expires_at")
   scope             String?     @map("scope")
   rateLimits        RateLimit[]
+  actions           HivemindAction[]
 
   @@index([username])
   @@index([isActive])
@@ -300,4 +301,26 @@ model RateLimit {
   @@index([reset])
   @@index([endpointType, accountId])
   @@map("rate_limits")
+}
+
+/// HivemindAction stores all likes and retweets performed by Hivemind users
+/// Used for public activity feed and stats tracking
+model HivemindAction {
+  id              String       @id @default(cuid())
+  userId          String       @map("user_id")
+  username        String
+  displayName     String       @map("display_name")
+  actionType      String       @map("action_type") // "like" or "retweet"
+  tweetId         String       @map("tweet_id")
+  tweetAuthor     String       @map("tweet_author")
+  tweetText       String?      @map("tweet_text")
+  tweetUrl        String       @map("tweet_url")
+  performedAt     DateTime     @default(now()) @map("performed_at")
+  hivemindUser    HivemindUser @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([actionType])
+  @@index([performedAt(sort: Desc)])
+  @@index([userId, actionType])
+  @@map("hivemind_actions")
 }
