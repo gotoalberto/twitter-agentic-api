@@ -25,42 +25,31 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // For each user, get their like/RT counts from rate limits
+    // For each user, get their like/RT counts from HivemindAction table
     const usersWithStats = await Promise.all(
       users.map(async (user) => {
-        // Get the latest rate limit entries for this user to estimate activity
-        const rateLimits = await prisma.rateLimit.findMany({
-          where: {
-            hivemindUserId: user.userId,
-            endpointType: {
-              in: ['likes', 'retweets'],
+        // Count actual likes and retweets from HivemindAction table
+        const [likesCount, retweetsCount] = await Promise.all([
+          prisma.hivemindAction.count({
+            where: {
+              userId: user.userId,
+              actionType: 'like',
             },
-          },
-          orderBy: {
-            lastUpdated: 'desc',
-          },
-          take: 2,
-        });
-
-        // Calculate approximate likes and RTs based on rate limit usage
-        let likesGiven = 0;
-        let retweetsGiven = 0;
-
-        rateLimits.forEach(limit => {
-          const used = limit.limit - limit.remaining;
-          if (limit.endpointType === 'likes') {
-            likesGiven = used;
-          } else if (limit.endpointType === 'retweets') {
-            retweetsGiven = used;
-          }
-        });
+          }),
+          prisma.hivemindAction.count({
+            where: {
+              userId: user.userId,
+              actionType: 'retweet',
+            },
+          }),
+        ]);
 
         return {
           ...user,
           stats: {
-            likes: likesGiven,
-            retweets: retweetsGiven,
-            total: likesGiven + retweetsGiven,
+            likes: likesCount,
+            retweets: retweetsCount,
+            total: likesCount + retweetsCount,
           },
         };
       })
