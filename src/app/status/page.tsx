@@ -47,6 +47,24 @@ export default function StatusPage() {
 
   const observerTarget = useRef(null);
 
+  // Format numbers to K, M, B notation
+  const formatNumber = (num: number): string => {
+    if (num < 1000) return num.toString();
+    if (num >= 1000 && num < 1000000) {
+      const formatted = (num / 1000).toFixed(num < 10000 ? 1 : 0);
+      return formatted.replace(/\.0$/, '') + 'K';
+    }
+    if (num >= 1000000 && num < 1000000000) {
+      const formatted = (num / 1000000).toFixed(num < 10000000 ? 1 : 0);
+      return formatted.replace(/\.0$/, '') + 'M';
+    }
+    if (num >= 1000000000) {
+      const formatted = (num / 1000000000).toFixed(num < 10000000000 ? 1 : 0);
+      return formatted.replace(/\.0$/, '') + 'B';
+    }
+    return num.toString();
+  };
+
   // Format date to user's local timezone
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -201,25 +219,25 @@ export default function StatusPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {stats.totalUsers}
+                {formatNumber(stats.totalUsers)}
               </div>
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Active Users</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">
-                {stats.totalLikes}
+                {formatNumber(stats.totalLikes)}
               </div>
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Likes</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
-                {stats.totalRetweets}
+                {formatNumber(stats.totalRetweets)}
               </div>
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total RTs</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
               <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
-                {stats.totalActions}
+                {formatNumber(stats.totalActions)}
               </div>
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Total Actions</div>
             </div>
@@ -268,10 +286,10 @@ export default function StatusPage() {
                       <div className="text-right">
                         <div className="flex items-center space-x-2 sm:space-x-3 text-xs">
                           <span className="text-red-600 dark:text-red-400">
-                            ❤️ {user.stats.likes}
+                            ❤️ {formatNumber(user.stats.likes)}
                           </span>
                           <span className="text-green-600 dark:text-green-400">
-                            🔄 {user.stats.retweets}
+                            🔄 {formatNumber(user.stats.retweets)}
                           </span>
                         </div>
                         <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
