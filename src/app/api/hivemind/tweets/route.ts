@@ -5,6 +5,7 @@ import { isAdmin } from '@/lib/utils/admin';
 import { TwitterApi } from 'twitter-api-v2';
 import { decrypt } from '@/lib/utils/encryption';
 import { prisma } from '@/lib/db/prisma';
+import { getTwitterApiIoClient, TwitterApiIoClient } from '@/lib/twitter-api-io/client';
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,86 +69,158 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Check if the bot has valid credentials
-    if (!bot.accessToken || !bot.accessTokenSecret) {
-      return NextResponse.json(
-        { error: 'User has not authorized Zeus Army access' },
-        { status: 400 }
-      );
-    }
+    // Use TwitterAPI.io to fetch tweets
+    try {
+      const twitterApiIoClient = getTwitterApiIoClient();
 
-    // Decrypt the credentials
-    const accessToken = await decrypt(bot.accessToken);
-    const accessTokenSecret = await decrypt(bot.accessTokenSecret);
+      console.log(`📚 Fetching tweets for ${targetUsername} via TwitterAPI.io...`);
 
-    // Initialize Twitter client with user credentials
-    const client = new TwitterApi({
-      appKey: process.env.TWITTER_OAUTH_API_KEY!,
-      appSecret: process.env.TWITTER_OAUTH_API_SECRET!,
-      accessToken: accessToken,
-      accessSecret: accessTokenSecret,
-    });
+      // Get user's recent tweets using TwitterAPI.io
+      const tweetsResponse = await twitterApiIoClient.getUserTweets(targetUsername, count);
 
-    // Get user's timeline (including replies but not retweets)
-    const timeline = await client.v2.userTimeline(bot.userId, {
-      max_results: count,
-      'tweet.fields': ['created_at', 'public_metrics', 'entities', 'referenced_tweets', 'in_reply_to_user_id'],
-      exclude: ['retweets'] // Exclude retweets but include replies
-    });
+      // Format the response
+      const tweets = tweetsResponse.tweets?.map((tweet: any) => {
+        const convertedTweet = TwitterApiIoClient.convertTweetToApiFormat(tweet);
 
-    // Format the response
-    const tweets = timeline.data?.data?.map((tweet: any) => {
-      // Check if this is a reply to another tweet
-      const isReply = tweet.referenced_tweets?.some((ref: any) => ref.type === 'replied_to') ||
-                      tweet.in_reply_to_user_id !== undefined;
+        // Check if this is a reply to another tweet
+        const isReply = convertedTweet.referenced_tweets?.some((ref: any) => ref.type === 'replied_to') ||
+                        convertedTweet.in_reply_to_user_id !== undefined;
 
-      // Get the ID of the tweet being replied to (if it's a reply)
-      const replyToId = tweet.referenced_tweets?.find((ref: any) => ref.type === 'replied_to')?.id;
+        // Get the ID of the tweet being replied to (if it's a reply)
+        const replyToId = convertedTweet.referenced_tweets?.find((ref: any) => ref.type === 'replied_to')?.id;
 
-      return {
-        id: tweet.id,
-        text: tweet.text,
-        created_at: tweet.created_at,
-        type: isReply ? 'reply' : 'tweet', // Indicate if it's a reply or a normal tweet
-        is_reply: isReply,
-        reply_to_id: replyToId || null, // ID of the tweet being replied to
-        in_reply_to_user_id: tweet.in_reply_to_user_id || null,
-        metrics: {
-          likes: tweet.public_metrics?.like_count || 0,
-          retweets: tweet.public_metrics?.retweet_count || 0,
-          replies: tweet.public_metrics?.reply_count || 0,
-          impressions: tweet.public_metrics?.impression_count || 0
-        },
-        url: `https://twitter.com/${targetUsername}/status/${tweet.id}`,
-        is_pepesdog: tweet.text.toLowerCase().includes('pepesdog')
+        return {
+          id: convertedTweet.id,
+          text: convertedTweet.text,
+          created_at: convertedTweet.created_at,
+          type: isReply ? 'reply' : 'tweet',
+          is_reply: isReply,
+          reply_to_id: replyToId || null,
+          in_reply_to_user_id: convertedTweet.in_reply_to_user_id || null,
+          metrics: {
+            likes: convertedTweet.public_metrics?.like_count || 0,
+            retweets: convertedTweet.public_metrics?.retweet_count || 0,
+            replies: convertedTweet.public_metrics?.reply_count || 0,
+            impressions: convertedTweet.public_metrics?.impression_count || 0
+          },
+          url: `https://twitter.com/${targetUsername}/status/${convertedTweet.id}`,
+          is_pepesdog: convertedTweet.text?.toLowerCase().includes('pepesdog') || false
+        };
+      }) || [];
+
+      console.log(`✅ Successfully fetched ${tweets.length} tweets via TwitterAPI.io`);
+
+      // Calculate stats
+      const stats = {
+        total_tweets: tweets.length,
+        original_tweets: tweets.filter((t: any) => !t.is_reply).length,
+        replies: tweets.filter((t: any) => t.is_reply).length,
+        pepesdog_tweets: tweets.filter((t: any) => t.is_pepesdog).length,
+        total_engagement: tweets.reduce((sum: number, t: any) =>
+          sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0
+        ),
+        average_engagement: tweets.length > 0
+          ? Math.round(tweets.reduce((sum: number, t: any) =>
+              sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0) / tweets.length)
+          : 0
       };
-    }) || [];
 
-    // Calculate stats
-    const stats = {
-      total_tweets: tweets.length,
-      original_tweets: tweets.filter((t: any) => !t.is_reply).length,
-      replies: tweets.filter((t: any) => t.is_reply).length,
-      pepesdog_tweets: tweets.filter((t: any) => t.is_pepesdog).length,
-      total_engagement: tweets.reduce((sum: number, t: any) =>
-        sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0
-      ),
-      average_engagement: tweets.length > 0
-        ? Math.round(tweets.reduce((sum: number, t: any) =>
-            sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0) / tweets.length)
-        : 0
-    };
+      return NextResponse.json({
+        success: true,
+        user: {
+          username: bot.username,
+          userId: bot.userId,
+          connectedAt: bot.createdAt
+        },
+        stats,
+        tweets
+      });
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        username: bot.username,
-        userId: bot.userId,
-        connectedAt: bot.createdAt
-      },
-      stats,
-      tweets
-    });
+    } catch (twitterApiIoError: any) {
+      console.log('⚠️ TwitterAPI.io failed, falling back to Twitter API...');
+      console.error('   TwitterAPI.io error:', twitterApiIoError.message);
+
+      // Fallback to Twitter API if TwitterAPI.io fails
+      // Check if the bot has valid credentials for Twitter API
+      if (!bot.accessToken || !bot.accessTokenSecret) {
+        throw new Error('User has not authorized Zeus Army access');
+      }
+
+      // Decrypt the credentials
+      const accessToken = await decrypt(bot.accessToken);
+      const accessTokenSecret = await decrypt(bot.accessTokenSecret);
+
+      // Initialize Twitter client with user credentials
+      const client = new TwitterApi({
+        appKey: process.env.TWITTER_OAUTH_API_KEY!,
+        appSecret: process.env.TWITTER_OAUTH_API_SECRET!,
+        accessToken: accessToken,
+        accessSecret: accessTokenSecret,
+      });
+
+      // Get user's timeline (including replies but not retweets)
+      const timeline = await client.v2.userTimeline(bot.userId, {
+        max_results: count,
+        'tweet.fields': ['created_at', 'public_metrics', 'entities', 'referenced_tweets', 'in_reply_to_user_id'],
+        exclude: ['retweets'] // Exclude retweets but include replies
+      });
+
+      // Format the response
+      const tweets = timeline.data?.data?.map((tweet: any) => {
+        // Check if this is a reply to another tweet
+        const isReply = tweet.referenced_tweets?.some((ref: any) => ref.type === 'replied_to') ||
+                        tweet.in_reply_to_user_id !== undefined;
+
+        // Get the ID of the tweet being replied to (if it's a reply)
+        const replyToId = tweet.referenced_tweets?.find((ref: any) => ref.type === 'replied_to')?.id;
+
+        return {
+          id: tweet.id,
+          text: tweet.text,
+          created_at: tweet.created_at,
+          type: isReply ? 'reply' : 'tweet', // Indicate if it's a reply or a normal tweet
+          is_reply: isReply,
+          reply_to_id: replyToId || null, // ID of the tweet being replied to
+          in_reply_to_user_id: tweet.in_reply_to_user_id || null,
+          metrics: {
+            likes: tweet.public_metrics?.like_count || 0,
+            retweets: tweet.public_metrics?.retweet_count || 0,
+            replies: tweet.public_metrics?.reply_count || 0,
+            impressions: tweet.public_metrics?.impression_count || 0
+          },
+          url: `https://twitter.com/${targetUsername}/status/${tweet.id}`,
+          is_pepesdog: tweet.text.toLowerCase().includes('pepesdog')
+        };
+      }) || [];
+
+      // Calculate stats
+      const stats = {
+        total_tweets: tweets.length,
+        original_tweets: tweets.filter((t: any) => !t.is_reply).length,
+        replies: tweets.filter((t: any) => t.is_reply).length,
+        pepesdog_tweets: tweets.filter((t: any) => t.is_pepesdog).length,
+        total_engagement: tweets.reduce((sum: number, t: any) =>
+          sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0
+        ),
+        average_engagement: tweets.length > 0
+          ? Math.round(tweets.reduce((sum: number, t: any) =>
+              sum + t.metrics.likes + t.metrics.retweets + t.metrics.replies, 0) / tweets.length)
+          : 0
+      };
+
+      console.log('✅ Fallback to Twitter API successful');
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          username: bot.username,
+          userId: bot.userId,
+          connectedAt: bot.createdAt
+        },
+        stats,
+        tweets
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching user tweets:', error);

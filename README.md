@@ -65,6 +65,57 @@ This is useful when:
 - 🔒 Encrypted OAuth tokens (AES-256-GCM)
 - 🔗 Cascade deletion (deleting project cleans up all resources)
 
+## TwitterAPI.io Integration
+
+### Overview
+
+To reduce consumption of the official Twitter API and avoid rate limits, this application integrates **TwitterAPI.io** as an alternative data source for read-only operations. TwitterAPI.io provides access to Twitter data without using your official API rate limits.
+
+### Features
+
+- **Automatic Fallback**: If TwitterAPI.io fails, the system automatically falls back to the official Twitter API
+- **Transparent Integration**: API responses maintain the same format regardless of the data source
+- **Optimized Performance**: Reduced latency for common operations like user lookups and following checks
+
+### Endpoints Using TwitterAPI.io
+
+The following endpoints now use TwitterAPI.io as the primary data source:
+
+1. **User Information** (`/api/twitter/user`)
+   - Fetches user profile data
+   - Retrieves following list
+   - Falls back to Twitter API if needed
+
+2. **Following Check** (`/api/twitter/is-following`)
+   - Checks if userA follows userB
+   - Direct API call instead of pagination
+   - Much faster than iterating through following lists
+
+3. **User Tweets** (`/api/hivemind/tweets`)
+   - Fetches user timeline
+   - Retrieves tweet metrics
+   - Maintains same response format
+
+### Configuration
+
+Add your TwitterAPI.io API key to environment variables:
+
+```bash
+TWITTERAPI_IO_API_KEY=your_api_key_here
+```
+
+For Vercel deployment:
+```bash
+printf "your_api_key" | vercel env add TWITTERAPI_IO_API_KEY production --token YOUR_TOKEN
+```
+
+### Benefits
+
+- **Reduced API Costs**: Lower consumption of official Twitter API rate limits
+- **Better Performance**: Optimized endpoints for specific operations
+- **High Availability**: Fallback mechanism ensures service continuity
+- **Cost-Effective**: Pay-per-use pricing model for TwitterAPI.io
+
 ## Idempotency Implementation
 
 ### Overview
@@ -326,6 +377,7 @@ if (result.idempotent) {
 - **Database:** PostgreSQL 15.15 (AWS RDS)
 - **ORM:** Prisma 7.1.0
 - **Twitter API:** API v2 (webhooks, subscriptions, tweets)
+- **Twitter Data:** TwitterAPI.io (alternative API to reduce official API consumption)
 - **Idempotency:** HTTP idempotency pattern with 24h cache
 - **Styling:** Tailwind CSS
 - **Deployment:** Vercel
@@ -398,6 +450,7 @@ See `.env.example` for all required variables. Key variables include:
 - `X_API_BEARER_TOKEN` - Twitter Bearer token (for webhook registration)
 - `ALLOWED_ADMIN_USERS` - Comma-separated list of admin usernames (e.g., `"user1,user2"`)
 - `TWITTER_WEBHOOK_ENV` - Webhook environment name (e.g., `"production"`)
+- `TWITTERAPI_IO_API_KEY` - TwitterAPI.io API key for reducing Twitter API consumption
 
 ### Database Connection String Format
 

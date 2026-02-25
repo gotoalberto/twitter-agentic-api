@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { prisma } from '@/lib/db/prisma';
+import { getTwitterApiIoClient, TwitterApiIoClient } from '@/lib/twitter-api-io/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -173,159 +174,196 @@ export async function GET(request: NextRequest) {
     console.log('✅ Bot found:', project.bot.username);
     console.log('');
 
-    // Get Twitter API credentials from the project's TwitterApp
-    const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
-    const twitterApp = await getTwitterAppByProjectId(project.id);
+    // Use TwitterAPI.io instead of official Twitter API to reduce consumption
+    console.log('🔑 Using TwitterAPI.io for user data...');
 
-    if (!twitterApp) {
-      console.log('❌ Project has no TwitterApp configured');
+    try {
+      const twitterApiIoClient = getTwitterApiIoClient();
+
+      // Fetch user information from TwitterAPI.io
+      console.log('🔍 Fetching user information from TwitterAPI.io...');
+      const startTime = Date.now();
+
+      const twitterApiUser = await twitterApiIoClient.getUserByUsername(handle);
+      const duration = Date.now() - startTime;
+
+      if (!twitterApiUser) {
+        console.log('❌ User not found');
+        console.log('================================================================================');
+        console.log('');
+        return NextResponse.json(
+          { error: `User not found: ${handle}` },
+          { status: 404 }
+        );
+      }
+
+      // Convert to our API format
+      const user = TwitterApiIoClient.convertUserToApiFormat(twitterApiUser);
+
+      // Calculate account age in days
+      const accountAgeDays = user.account_age_days;
+
+      console.log('');
+      console.log('✅ USER INFORMATION RETRIEVED');
+      console.log('────────────────────────────────────────────────────────────────────────────────');
+      console.log('   User ID:', user.id);
+      console.log('   Username:', user.username);
+      console.log('   Name:', user.name);
+      console.log('   Created:', user.created_at || 'N/A');
+      console.log('   Account age:', accountAgeDays ? `${accountAgeDays} days` : 'N/A');
+      console.log('   Followers:', user.followers_count || 0);
+      console.log('   Following:', user.following_count || 0);
+      console.log('   Tweets:', user.tweet_count || 0);
+      console.log('   Verified:', user.verified || false);
+      console.log('   Protected:', user.protected || false);
+      console.log('   Duration:', `${duration}ms`);
+      console.log('────────────────────────────────────────────────────────────────────────────────');
+      console.log('');
+
+      // Fetch following list from TwitterAPI.io
+      console.log('🔍 Fetching following list from TwitterAPI.io...');
+      const followingStartTime = Date.now();
+
+      const followingResponse = await twitterApiIoClient.getUserFollowing(handle);
+      const followingDuration = Date.now() - followingStartTime;
+
+      const followingList = followingResponse.users?.map(followedUser => {
+        const convertedUser = TwitterApiIoClient.convertUserToApiFormat(followedUser);
+        return {
+          id: convertedUser.id,
+          username: convertedUser.username,
+          name: convertedUser.name,
+          description: convertedUser.description || null,
+          followers_count: convertedUser.followers_count || 0,
+          following_count: convertedUser.following_count || 0,
+          tweet_count: convertedUser.tweet_count || 0,
+          verified: convertedUser.verified || false,
+          verified_type: convertedUser.verified_type || null,
+          profile_image_url: convertedUser.profile_image_url || null,
+        };
+      }) || [];
+
+      console.log('');
+      console.log('✅ FOLLOWING LIST RETRIEVED');
+      console.log('────────────────────────────────────────────────────────────────────────────────');
+      console.log('   Total following retrieved:', followingList.length);
+      console.log('   Pagination available:', !!followingResponse.next_cursor);
+      console.log('   Duration:', `${followingDuration}ms`);
+      console.log('────────────────────────────────────────────────────────────────────────────────');
+      console.log('');
+
       console.log('================================================================================');
       console.log('');
-      return NextResponse.json(
-        { error: 'Project TwitterApp not configured. Please assign a Twitter App to this project.' },
-        { status: 500 }
-      );
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          description: user.description || null,
+          created_at: user.created_at || null,
+          account_age_days: accountAgeDays,
+          followers_count: user.followers_count || 0,
+          following_count: user.following_count || 0,
+          tweet_count: user.tweet_count || 0,
+          verified: user.verified || false,
+          verified_type: user.verified_type || null,
+          protected: user.protected || false,
+          profile_image_url: user.profile_image_url || null,
+          url: `https://twitter.com/${user.username}`,
+          following: followingList,
+          total_following: followingList.length,
+          following_next_token: followingResponse.next_cursor || null,
+        },
+      });
+    } catch (innerError: any) {
+      // Try fallback to Twitter API if TwitterAPI.io fails
+      console.log('⚠️ TwitterAPI.io failed, falling back to Twitter API...');
+      console.error('   TwitterAPI.io error:', innerError.message);
+
+      // Get Twitter API credentials from the project's TwitterApp
+      const { getTwitterAppByProjectId } = await import('@/lib/db/twitter-apps');
+      const twitterApp = await getTwitterAppByProjectId(project.id);
+
+      if (!twitterApp) {
+        throw new Error('Project TwitterApp not configured');
+      }
+
+      // Create Twitter client with OAuth 1.0a
+      const client = new TwitterApi({
+        appKey: twitterApp.consumerKey,
+        appSecret: twitterApp.consumerSecret,
+        accessToken: project.bot.accessToken,
+        accessSecret: project.bot.accessTokenSecret,
+      } as any);
+
+      // Fetch from Twitter API as fallback
+      const userResponse = await client.v2.userByUsername(handle, {
+        'user.fields': [
+          'id', 'name', 'username', 'created_at', 'description',
+          'public_metrics', 'verified', 'verified_type', 'protected',
+          'profile_image_url', 'url',
+        ],
+      });
+
+      if (!userResponse.data) {
+        throw new Error(`User not found: ${handle}`);
+      }
+
+      const user = userResponse.data;
+      const createdAt = user.created_at ? new Date(user.created_at) : null;
+      const accountAgeDays = createdAt
+        ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      // Fetch following list from Twitter API
+      const followingResponse = await client.v2.following(user.id, {
+        max_results: 100,
+        'user.fields': [
+          'id', 'username', 'name', 'description', 'public_metrics',
+          'verified', 'verified_type', 'profile_image_url',
+        ],
+      });
+
+      const followingList = followingResponse.data?.map(followedUser => ({
+        id: followedUser.id,
+        username: followedUser.username,
+        name: followedUser.name,
+        description: followedUser.description || null,
+        followers_count: followedUser.public_metrics?.followers_count || 0,
+        following_count: followedUser.public_metrics?.following_count || 0,
+        tweet_count: followedUser.public_metrics?.tweet_count || 0,
+        verified: followedUser.verified || false,
+        verified_type: followedUser.verified_type || null,
+        profile_image_url: followedUser.profile_image_url || null,
+      })) || [];
+
+      console.log('✅ Fallback to Twitter API successful');
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          description: user.description || null,
+          created_at: user.created_at || null,
+          account_age_days: accountAgeDays,
+          followers_count: user.public_metrics?.followers_count || 0,
+          following_count: user.public_metrics?.following_count || 0,
+          tweet_count: user.public_metrics?.tweet_count || 0,
+          verified: user.verified || false,
+          verified_type: user.verified_type || null,
+          protected: user.protected || false,
+          profile_image_url: user.profile_image_url || null,
+          url: `https://twitter.com/${user.username}`,
+          following: followingList,
+          total_following: followingList.length,
+          following_next_token: followingResponse.meta.next_token || null,
+        },
+      });
     }
-
-    const consumerKey = twitterApp.consumerKey;
-    const consumerSecret = twitterApp.consumerSecret;
-    console.log('🔑 Using credentials from TwitterApp:', twitterApp.name);
-
-    // Create Twitter client with OAuth 1.0a using the bot's credentials
-    console.log('🔑 Initializing Twitter client...');
-
-    // Bot credentials are stored in plain text
-    const client = new TwitterApi({
-      appKey: consumerKey,
-      appSecret: consumerSecret,
-      accessToken: project.bot.accessToken,
-      accessSecret: project.bot.accessTokenSecret,
-    } as any);
-
-    // Fetch user information from Twitter API
-    console.log('🔍 Fetching user information from Twitter...');
-    const startTime = Date.now();
-
-    const userResponse = await client.v2.userByUsername(handle, {
-      'user.fields': [
-        'id',
-        'name',
-        'username',
-        'created_at',
-        'description',
-        'public_metrics',
-        'verified',
-        'verified_type',
-        'protected',
-        'profile_image_url',
-        'url',
-      ],
-    });
-
-    const duration = Date.now() - startTime;
-
-    if (!userResponse.data) {
-      console.log('❌ User not found');
-      console.log('================================================================================');
-      console.log('');
-      return NextResponse.json(
-        { error: `User not found: ${handle}` },
-        { status: 404 }
-      );
-    }
-
-    const user = userResponse.data;
-
-    // Calculate account age in days
-    const createdAt = user.created_at ? new Date(user.created_at) : null;
-    const accountAgeDays = createdAt
-      ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
-      : null;
-
-    console.log('');
-    console.log('✅ USER INFORMATION RETRIEVED');
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('   User ID:', user.id);
-    console.log('   Username:', user.username);
-    console.log('   Name:', user.name);
-    console.log('   Created:', user.created_at || 'N/A');
-    console.log('   Account age:', accountAgeDays ? `${accountAgeDays} days` : 'N/A');
-    console.log('   Followers:', user.public_metrics?.followers_count || 0);
-    console.log('   Following:', user.public_metrics?.following_count || 0);
-    console.log('   Tweets:', user.public_metrics?.tweet_count || 0);
-    console.log('   Verified:', user.verified || false);
-    console.log('   Protected:', user.protected || false);
-    console.log('   Duration:', `${duration}ms`);
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('');
-
-    // Fetch following list
-    console.log('🔍 Fetching following list...');
-    const followingStartTime = Date.now();
-
-    const followingResponse = await client.v2.following(user.id, {
-      max_results: 100, // Maximum allowed by API
-      'user.fields': [
-        'id',
-        'username',
-        'name',
-        'description',
-        'public_metrics',
-        'verified',
-        'verified_type',
-        'profile_image_url',
-      ],
-    });
-
-    const followingDuration = Date.now() - followingStartTime;
-
-    const followingList = followingResponse.data?.map(followedUser => ({
-      id: followedUser.id,
-      username: followedUser.username,
-      name: followedUser.name,
-      description: followedUser.description || null,
-      followers_count: followedUser.public_metrics?.followers_count || 0,
-      following_count: followedUser.public_metrics?.following_count || 0,
-      tweet_count: followedUser.public_metrics?.tweet_count || 0,
-      verified: followedUser.verified || false,
-      verified_type: followedUser.verified_type || null,
-      profile_image_url: followedUser.profile_image_url || null,
-    })) || [];
-
-    console.log('');
-    console.log('✅ FOLLOWING LIST RETRIEVED');
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('   Total following retrieved:', followingList.length);
-    console.log('   Pagination available:', !!followingResponse.meta.next_token);
-    console.log('   Duration:', `${followingDuration}ms`);
-    console.log('────────────────────────────────────────────────────────────────────────────────');
-    console.log('');
-
-    console.log('================================================================================');
-    console.log('');
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        description: user.description || null,
-        created_at: user.created_at || null,
-        account_age_days: accountAgeDays,
-        followers_count: user.public_metrics?.followers_count || 0,
-        following_count: user.public_metrics?.following_count || 0,
-        tweet_count: user.public_metrics?.tweet_count || 0,
-        verified: user.verified || false,
-        verified_type: user.verified_type || null,
-        protected: user.protected || false,
-        profile_image_url: user.profile_image_url || null,
-        url: `https://twitter.com/${user.username}`,
-        following: followingList,
-        total_following: followingList.length,
-        following_next_token: followingResponse.meta.next_token || null,
-      },
-    });
   } catch (error: any) {
     console.error('❌ USER LOOKUP ERROR');
     console.error('   Error message:', error.message);
