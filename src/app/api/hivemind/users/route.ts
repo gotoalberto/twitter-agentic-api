@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { isAdmin } from '@/lib/utils/admin';
-import { getAllHivemindUsers } from '@/lib/db/hivemind';
+import { getActiveHivemindUsers } from '@/lib/db/hivemind';
 import { prisma } from '@/lib/db/prisma';
 
 export async function GET(request: NextRequest) {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       isAuthorized = true;
     }
 
-    const users = await getAllHivemindUsers();
+    const users = await getActiveHivemindUsers();
 
     return NextResponse.json(users);
 
