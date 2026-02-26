@@ -33,6 +33,7 @@ export default function HivemindAdminPage() {
   const [checkRateLimitsDocsOpen, setCheckRateLimitsDocsOpen] = useState(false);
   const [rateLimitErrorDocsOpen, setRateLimitErrorDocsOpen] = useState(false);
   const [uploadDocsOpen, setUploadDocsOpen] = useState(false);
+  const [raidsDocsOpen, setRaidsDocsOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -713,6 +714,141 @@ Response:
   }
 }`}
                       </pre>
+                    </div>
+                  )}
+                </div>
+
+                {/* Promoted Tweets (Raids) Accordion */}
+                <div className="bg-red-50 border border-red-200 rounded-lg">
+                  <button
+                    onClick={() => setRaidsDocsOpen(!raidsDocsOpen)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-red-100 transition-colors"
+                  >
+                    <span className="flex items-center font-medium text-red-900">
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
+                      </svg>
+                      Hivemind Raids API (Promoted Tweets)
+                    </span>
+                    <svg
+                      className={`w-5 h-5 text-red-600 transition-transform ${raidsDocsOpen ? 'rotate-180' : ''}`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    </svg>
+                  </button>
+
+                  {raidsDocsOpen && (
+                    <div className="p-4 border-t border-red-200">
+                      <p className="text-sm text-gray-600 mb-3">
+                        Submit tweets for promotion and retrieve promoted tweets with pagination:
+                      </p>
+
+                      <div className="space-y-4">
+                        {/* GET Endpoint */}
+                        <div>
+                          <h4 className="font-semibold text-sm text-gray-800 mb-2">📖 GET - Fetch Promoted Tweets</h4>
+                          <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`GET https://hive.pepes.dog/api/hivemind/raids?limit=20&cursor=<cursor>&status=<status>
+
+Query Parameters:
+  - limit: Number of raids to fetch (default: 20, max: 100)
+  - cursor: Cursor for pagination (optional)
+  - status: Filter by status (optional: pending, processing, completed, failed)
+
+Headers:
+  None required (public endpoint)
+
+Response:
+{
+  "success": true,
+  "raids": [
+    {
+      "id": "raid_123",
+      "tweetUrl": "https://x.com/user/status/1234567890",
+      "tweetId": "1234567890",
+      "tweetAuthor": "username",
+      "tweetText": "Tweet content here...",
+      "submittedBy": "192.168.1.1",
+      "submittedAt": "2024-01-01T12:00:00Z",
+      "status": "completed",
+      "processedAt": "2024-01-01T12:00:05Z",
+      "completedAt": "2024-01-01T12:01:00Z",
+      "stats": {
+        "likes": 150,
+        "retweets": 100,
+        "total": 250
+      }
+    }
+  ],
+  "nextCursor": "raid_122",
+  "hasMore": true,
+  "pagination": {
+    "limit": 20,
+    "cursor": null,
+    "total": 20
+  }
+}`}
+                          </pre>
+                        </div>
+
+                        {/* POST Endpoint */}
+                        <div>
+                          <h4 className="font-semibold text-sm text-gray-800 mb-2">🚀 POST - Submit Tweet for Promotion</h4>
+                          <pre className="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto">
+{`POST https://hive.pepes.dog/api/hivemind/raids
+
+Headers:
+  Content-Type: application/json
+
+Body:
+{
+  "tweetUrl": "https://x.com/username/status/1234567890",
+  "tweetId": "1234567890"
+}
+
+Response:
+{
+  "success": true,
+  "raid": {
+    "id": "raid_124",
+    "tweetUrl": "https://x.com/username/status/1234567890",
+    "tweetId": "1234567890",
+    "tweetAuthor": "username",
+    "status": "pending",
+    "submittedAt": "2024-01-01T12:00:00Z",
+    "stats": {
+      "likes": 0,
+      "retweets": 0,
+      "total": 0
+    }
+  },
+  "raidId": "raid_124",
+  "message": "Tweet submitted for raid. 250 members will engage with it."
+}`}
+                          </pre>
+                        </div>
+
+                        <div className="mt-3 text-xs text-gray-600">
+                          <p className="font-semibold mb-1">Important Notes:</p>
+                          <ul className="ml-4 space-y-1">
+                            <li>• GET endpoint always returns the most recent raids first</li>
+                            <li>• Use cursor-based pagination for large result sets</li>
+                            <li>• Each tweet can only be raided once per 24 hours</li>
+                            <li>• All connected Hivemind members will automatically engage</li>
+                            <li>• Status transitions: pending → processing → completed/failed</li>
+                            <li>• Check the /raid page for a user-friendly interface</li>
+                          </ul>
+                        </div>
+
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <p className="text-xs text-yellow-800">
+                            <strong>Rate Limiting:</strong> This endpoint triggers actions for all Hivemind members.
+                            Use responsibly to avoid hitting Twitter rate limits. Maximum 10 raids per hour recommended.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

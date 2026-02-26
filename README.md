@@ -777,6 +777,97 @@ These endpoints use the default "goodboy" project:
 - `GET /api/webhooks/twitter?crc_token=XXX` - CRC validation
 - `POST /api/webhooks/twitter` - Receive and forward webhook events
 
+### Hivemind Raid API
+
+#### Submit Tweet for Raid
+`POST /api/hivemind/raids`
+
+Submit a tweet URL for promotion by the Hivemind network.
+
+**Request Body:**
+```json
+{
+  "tweetUrl": "https://x.com/username/status/1234567890",
+  "tweetId": "1234567890"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "raid": {
+    "id": "raid_id",
+    "tweetUrl": "https://x.com/username/status/1234567890",
+    "tweetId": "1234567890",
+    "tweetAuthor": "username",
+    "status": "pending",
+    "stats": {
+      "likes": 0,
+      "retweets": 0,
+      "total": 0
+    }
+  },
+  "raidId": "raid_id",
+  "message": "Tweet submitted for raid. 42 members will engage with it."
+}
+```
+
+#### Get Promoted Tweets (Raids)
+`GET /api/hivemind/raids`
+
+Fetch promoted tweets with pagination support. Always returns most recent first.
+
+**Query Parameters:**
+- `cursor` - Cursor for pagination (optional)
+- `limit` - Number of results to return (default: 20, max: 100)
+- `status` - Filter by status: pending, processing, completed, failed (optional)
+
+**Response:**
+```json
+{
+  "success": true,
+  "raids": [
+    {
+      "id": "raid_id",
+      "tweetUrl": "https://x.com/username/status/1234567890",
+      "tweetId": "1234567890",
+      "tweetAuthor": "username",
+      "tweetText": "Tweet content...",
+      "submittedAt": "2025-12-11T10:30:00.000Z",
+      "status": "completed",
+      "stats": {
+        "likes": 42,
+        "retweets": 38,
+        "total": 80
+      }
+    }
+  ],
+  "nextCursor": "next_cursor_value",
+  "hasMore": true,
+  "pagination": {
+    "limit": 20,
+    "cursor": null,
+    "total": 20
+  }
+}
+```
+
+#### Execute Raid
+`POST /api/hivemind/raids/[id]/execute`
+
+Trigger the execution of a pending raid. This endpoint is called internally after raid submission.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Raid started. 42 members will engage with the tweet.",
+  "raidId": "raid_id",
+  "membersCount": 42
+}
+```
+
 ## UI Pages
 
 ### Hivemind Status Page
@@ -802,6 +893,34 @@ The application includes a public status page at `/status` that displays real-ti
 - **Responsive Design**: Mobile-optimized layout with dark mode support
 
 The status page provides transparency into the Hivemind network's collective activity and makes it easy for new users to join.
+
+### Hivemind Raid Page
+
+The application includes a Raid feature that allows tweets to be promoted and amplified by all Hivemind network members.
+
+**URL**: `https://hive.pepes.dog/raid`
+
+**Features**:
+- **Tweet Submission**: Submit any Twitter/X tweet URL for collective promotion
+- **Automatic Engagement**: All connected Hivemind members automatically like and retweet the submitted tweet
+- **Real-time Statistics**: Shows number of active members ready to engage
+- **Recent Raids List**: Displays recently promoted tweets with:
+  - Tweet URL and author
+  - Engagement metrics (likes and retweets achieved)
+  - Processing status (pending, processing, completed)
+  - Submission timestamp with relative time display
+  - Infinite scroll for browsing raid history
+- **Duplicate Prevention**: Prevents same tweet from being raided within 24 hours
+- **Responsive Design**: Mobile-optimized layout matching the status page style
+
+**How it Works**:
+1. User submits a tweet URL for promotion
+2. System validates the URL and checks for recent duplicates
+3. Raid request is queued and processed asynchronously
+4. Each connected Hivemind member automatically likes and retweets the tweet
+5. Real-time progress tracking and completion statistics
+
+This feature leverages the collective power of the Hivemind network to amplify important tweets and messages.
 
 ## Database Schema
 

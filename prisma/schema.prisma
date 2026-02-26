@@ -324,3 +324,30 @@ model HivemindAction {
   @@index([userId, actionType])
   @@map("hivemind_actions")
 }
+
+/// HivemindRaid stores tweets submitted for promotion/raiding
+/// These tweets will be liked and retweeted by all Hivemind members
+model HivemindRaid {
+  id              String       @id @default(cuid())
+  tweetUrl        String       @map("tweet_url")
+  tweetId         String       @map("tweet_id")
+  tweetAuthor     String?      @map("tweet_author")
+  tweetText       String?      @map("tweet_text") @db.Text
+  submittedBy     String?      @map("submitted_by") // Username or IP of submitter
+  submittedAt     DateTime     @default(now()) @map("submitted_at")
+  status          String       @default("pending") // pending, processing, completed, failed
+  processedAt     DateTime?    @map("processed_at")
+  completedAt     DateTime?    @map("completed_at")
+  likesCount      Int          @default(0) @map("likes_count")
+  retweetsCount   Int          @default(0) @map("retweets_count")
+  failedCount     Int          @default(0) @map("failed_count")
+  totalMembers    Int          @default(0) @map("total_members") // Total members at time of raid
+  errorMessage    String?      @map("error_message")
+  metadata        Json?        // Additional data like tweet metrics, media, etc.
+
+  @@unique([tweetId])
+  @@index([status])
+  @@index([submittedAt(sort: Desc)])
+  @@index([tweetId])
+  @@map("hivemind_raids")
+}
