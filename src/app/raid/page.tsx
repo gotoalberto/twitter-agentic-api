@@ -189,13 +189,6 @@ export default function RaidPage() {
         if (data.raid) {
           setRecentPromotions(prev => [data.raid, ...prev]);
         }
-
-        // Trigger the raid actions
-        if (data.raidId) {
-          fetch(`/api/hivemind/raids/${data.raidId}/execute`, {
-            method: 'POST',
-          }).catch(console.error);
-        }
       } else {
         setError(data.error || 'Failed to submit tweet for promotion');
       }

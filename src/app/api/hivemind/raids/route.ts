@@ -20,6 +20,36 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   try {
+    // Get API key from headers
+    const apiKey = req.headers.get('x-api-key');
+
+    // Check if request is from the web interface (no API key) or programmatic access (with API key)
+    if (apiKey) {
+      // If API key is provided, it must be valid
+      if (!apiKey.startsWith('hm_')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid Hivemind API key'
+          },
+          { status: 401 }
+        );
+      }
+
+      // Verify Hivemind API key
+      const hivemindConfig = await prisma.hivemindConfig.findFirst();
+      if (!hivemindConfig || hivemindConfig.apiKey !== apiKey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid API key'
+          },
+          { status: 401 }
+        );
+      }
+    }
+    // If no API key, allow access (for web interface)
+
     const searchParams = req.nextUrl.searchParams;
     const cursor = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
@@ -119,6 +149,36 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    // Get API key from headers
+    const apiKey = req.headers.get('x-api-key');
+
+    // Check if request is from the web interface (no API key) or programmatic access (with API key)
+    if (apiKey) {
+      // If API key is provided, it must be valid
+      if (!apiKey.startsWith('hm_')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid Hivemind API key'
+          },
+          { status: 401 }
+        );
+      }
+
+      // Verify Hivemind API key
+      const hivemindConfig = await prisma.hivemindConfig.findFirst();
+      if (!hivemindConfig || hivemindConfig.apiKey !== apiKey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Invalid API key'
+          },
+          { status: 401 }
+        );
+      }
+    }
+    // If no API key, allow access (for web interface)
+
     const body = await req.json();
     const { tweetUrl, tweetId } = body;
 
@@ -208,6 +268,16 @@ export async function POST(req: NextRequest) {
     });
 
     console.log('✅ Raid created:', raid.id);
+
+    // Trigger raid execution asynchronously
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hive.pepes.dog';
+
+    // Execute raid in the background (don't await)
+    fetch(`${baseUrl}/api/hivemind/raids/${raid.id}/execute`, {
+      method: 'POST',
+    }).catch(error => {
+      console.error('❌ Failed to trigger raid execution:', error);
+    });
 
     // Format response
     const formattedRaid = {

@@ -758,7 +758,7 @@ Query Parameters:
   - status: Filter by status (optional: pending, processing, completed, failed)
 
 Headers:
-  None required (public endpoint)
+  X-API-Key: ${apiKey || '<your-api-key>'}  // Required for programmatic access
 
 Response:
 {
@@ -801,6 +801,7 @@ Response:
 
 Headers:
   Content-Type: application/json
+  X-API-Key: ${apiKey || '<your-api-key>'}  // Required for programmatic access
 
 Body:
 {
@@ -833,6 +834,8 @@ Response:
                         <div className="mt-3 text-xs text-gray-600">
                           <p className="font-semibold mb-1">Important Notes:</p>
                           <ul className="ml-4 space-y-1">
+                            <li>• API key required for programmatic access (use X-API-Key header)</li>
+                            <li>• Web interface at /raid does not require API key</li>
                             <li>• GET endpoint always returns the most recent raids first</li>
                             <li>• Use cursor-based pagination for large result sets</li>
                             <li>• Each tweet can only be raided once per 24 hours</li>
