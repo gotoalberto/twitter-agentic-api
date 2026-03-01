@@ -1,18 +1,57 @@
-# Hivemind API Reference Guide
+# Hivemind & Projects API Reference Guide
 
 ## Overview
 
-The Hivemind API provides comprehensive access to Twitter/X data and collective action capabilities through a distributed network of connected bot accounts. This guide helps Claude agents implement Hivemind skills.
+This guide covers two distinct API systems:
+1. **Hivemind API** - Global network-wide operations for collective actions
+2. **Projects API** - Project-specific Twitter data access with isolated API keys
 
-## Base URL
+Both APIs provide comprehensive access to Twitter/X data through TwitterAPI.io backend, but with different scopes and authentication methods.
+
+## API Systems Comparison
+
+| Feature | Hivemind API | Projects API |
+|---------|--------------|--------------|
+| **Base URL** | `/api/hivemind/*` | `/api/projects/{projectId}/*` |
+| **Authentication** | `X-API-Key: <key>` | `Authorization: Bearer <token>` |
+| **Scope** | Network-wide | Project-specific |
+| **Isolation** | Global | Per-project |
+| **Use Case** | Collective actions, raids | Isolated Twitter data access |
+
+## Projects API
+
+### Base URL
+
+Production: `https://hive.pepes.dog/api/projects/{projectId}`
+
+**IMPORTANT:** The `{projectId}` is a **required path parameter** that must be included in the URL path, not as a query parameter.
+
+### Authentication
+
+Projects API uses Bearer token authentication.
+
+```
+Authorization: Bearer <your-project-api-key>
+```
+
+### Example Request
+
+```bash
+curl -X GET "https://hive.pepes.dog/api/projects/cmj4h4o5y0000gy04oss0g3o9/twitter/users/elonmusk" \
+  -H "Authorization: Bearer bta_0fdd9a3a057ef1c474079a93b04e2515d2ef000e568d80d71e69f0ec57ce4d03"
+```
+
+Note how `cmj4h4o5y0000gy04oss0g3o9` is part of the URL path, not a query parameter.
+
+## Hivemind API
+
+### Base URL
 
 Production: `https://hive.pepes.dog/api/hivemind`
 
-## Authentication
+### Authentication
 
-All Hivemind API endpoints require authentication via API key.
-
-### API Key Header
+Hivemind API uses API key authentication.
 
 ```
 X-API-Key: <your-hivemind-api-key>
@@ -27,11 +66,11 @@ curl -X GET "https://hive.pepes.dog/api/hivemind/twitter/users/elonmusk" \
 
 ## Core Concepts
 
-### 1. Hivemind Network
-- Distributed network of Twitter bot accounts
-- Collective action capabilities (likes, retweets, follows)
-- Real-time status monitoring
-- Coordinated tweet promotion (raids)
+### 1. Project Isolation
+- Each project has its own API key
+- Data access is isolated per project
+- No cross-project data leakage
+- Independent rate limiting
 
 ### 2. TwitterAPI.io Backend
 - All Twitter data queries use TwitterAPI.io
@@ -44,13 +83,28 @@ curl -X GET "https://hive.pepes.dog/api/hivemind/twitter/users/elonmusk" \
 - Default page size: 20-200 items (varies by endpoint)
 - Always returns newest items first
 
-## API Endpoints
+---
 
-### 1. Search Tweets
+# PROJECTS API ENDPOINTS
 
-Search for tweets by keyword or query.
+## Important: projectId Parameter
 
-**Endpoint:** `GET /twitter/search`
+**The `projectId` is a REQUIRED path parameter for all Projects API endpoints.**
+
+- **Location**: In the URL path, not as a query parameter
+- **Format**: `/api/projects/{projectId}/...`
+- **Example**: `/api/projects/cmj4h4o5y0000gy04oss0g3o9/twitter/users/elonmusk`
+
+## Projects API Endpoints
+
+### 1. Search Tweets (Project)
+
+Search for tweets by keyword or query within a specific project context.
+
+**Endpoint:** `GET /api/projects/{projectId}/twitter/search`
+
+**Path Parameters:**
+- `projectId` (string, required): Your project ID (e.g., `cmj4h4o5y0000gy04oss0g3o9`)
 
 **Headers:**
 - `X-API-Key`: Your Hivemind API key (required)
