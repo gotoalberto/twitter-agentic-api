@@ -51,6 +51,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate tweet ID format (Twitter Snowflake IDs are 64-bit integers)
+    // Valid range is roughly from 2006 (Twitter's founding) to ~2150
+    const tweetIdNum = BigInt(body.tweetId);
+    const minValidId = BigInt("1000000000000000"); // ~2010
+    const maxValidId = BigInt("9999999999999999999"); // Max 19 digits
+    const currentMaxId = BigInt("1900000000000000000"); // Approximate max ID as of 2026
+
+    if (tweetIdNum < minValidId || tweetIdNum > currentMaxId) {
+      console.error(`❌ Invalid tweet ID: ${body.tweetId} (out of valid range)`);
+      return NextResponse.json(
+        {
+          error: 'Invalid tweet ID',
+          details: `Tweet ID ${body.tweetId} appears to be invalid. Valid Twitter IDs are between ${minValidId} and ~${currentMaxId}`
+        },
+        { status: 400 }
+      );
+    }
+
     // Get API key from headers
     const apiKey = request.headers.get('x-api-key');
 
