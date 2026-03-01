@@ -139,7 +139,7 @@ export class TwitterApiIoClient {
    * Get users that a user is following
    */
   async getUserFollowing(username: string, cursor?: string): Promise<FollowingResponse> {
-    const url = new URL(`${this.baseUrl}/twitter/user/following`);
+    const url = new URL(`${this.baseUrl}/twitter/user/followings`); // Note: plural 'followings'
     url.searchParams.append('userName', username); // TwitterAPI.io uses 'userName' not 'username'
     if (cursor) {
       url.searchParams.append('cursor', cursor);
@@ -188,15 +188,16 @@ export class TwitterApiIoClient {
 
   /**
    * Get user's recent tweets
+   * Note: TwitterAPI.io always returns 20 tweets per page, count parameter is ignored
    */
   async getUserTweets(username: string, count: number = 20, cursor?: string): Promise<{
     tweets: TwitterApiIoTweet[];
     next_cursor?: string;
     has_more: boolean;
   }> {
-    const url = new URL(`${this.baseUrl}/twitter/user/tweets`);
-    url.searchParams.append('username', username);
-    url.searchParams.append('count', count.toString());
+    const url = new URL(`${this.baseUrl}/twitter/user/last_tweets`); // Correct endpoint path
+    url.searchParams.append('userName', username); // TwitterAPI.io uses 'userName' not 'username'
+    // Note: TwitterAPI.io doesn't support count parameter, always returns 20 items
     if (cursor) {
       url.searchParams.append('cursor', cursor);
     }
@@ -219,6 +220,7 @@ export class TwitterApiIoClient {
 
   /**
    * Search tweets with advanced filters
+   * Note: TwitterAPI.io requires queryType parameter (Latest or Top)
    */
   async searchTweets(query: string, options?: {
     count?: number;
@@ -232,15 +234,14 @@ export class TwitterApiIoClient {
     next_cursor?: string;
     has_more: boolean;
   }> {
-    const url = new URL(`${this.baseUrl}/twitter/search/tweets`);
-    url.searchParams.append('q', query);
+    const url = new URL(`${this.baseUrl}/twitter/tweet/advanced_search`); // Correct endpoint path
+    url.searchParams.append('query', query); // TwitterAPI.io uses 'query' not 'q'
+    url.searchParams.append('queryType', 'Latest'); // Required parameter, default to Latest
 
-    if (options?.count) url.searchParams.append('count', options.count.toString());
+    // Note: TwitterAPI.io advanced_search doesn't support these parameters directly
+    // They should be included in the query string using Twitter's advanced search syntax
+    // e.g., "from:username" or "to:username" in the query itself
     if (options?.cursor) url.searchParams.append('cursor', options.cursor);
-    if (options?.from) url.searchParams.append('from', options.from);
-    if (options?.to) url.searchParams.append('to', options.to);
-    if (options?.lang) url.searchParams.append('lang', options.lang);
-    if (options?.filter) url.searchParams.append('filter', options.filter);
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -269,10 +270,10 @@ export class TwitterApiIoClient {
     next_cursor?: string;
     has_more: boolean;
   }> {
-    const url = new URL(`${this.baseUrl}/twitter/search/users`);
-    url.searchParams.append('q', query);
+    const url = new URL(`${this.baseUrl}/twitter/user/search`); // Correct endpoint path
+    url.searchParams.append('query', query); // TwitterAPI.io uses 'query' not 'q'
 
-    if (options?.count) url.searchParams.append('count', options.count.toString());
+    // Note: TwitterAPI.io doesn't support count parameter for user search
     if (options?.cursor) url.searchParams.append('cursor', options.cursor);
 
     const response = await fetch(url.toString(), {
@@ -295,7 +296,8 @@ export class TwitterApiIoClient {
    * Get tweet by ID
    */
   async getTweetById(tweetId: string): Promise<TwitterApiIoTweet> {
-    const response = await fetch(`${this.baseUrl}/twitter/tweet/info?tweetId=${tweetId}`, {
+    // Use the batch endpoint with a single ID as the single tweet endpoint doesn't exist
+    const response = await fetch(`${this.baseUrl}/twitter/tweets?tweet_ids=${tweetId}`, {
       method: 'GET',
       headers: {
         'X-API-Key': this.apiKey,
@@ -310,20 +312,20 @@ export class TwitterApiIoClient {
 
     const data = await response.json();
 
-    // TwitterAPI.io returns null for non-existent tweets
-    if (!data || data === null) {
+    // TwitterAPI.io returns an array of tweets
+    if (!data.tweets || data.tweets.length === 0) {
       throw new Error('Tweet not found');
     }
 
-    return data;
+    return data.tweets[0];
   }
 
   /**
    * Get multiple tweets by IDs
    */
   async getTweetsByIds(tweetIds: string[]): Promise<TwitterApiIoTweet[]> {
-    const idsParam = tweetIds.join(',');
-    const response = await fetch(`${this.baseUrl}/twitter/tweet/batch_info?tweetIds=${idsParam}`, {
+    const idsParam = tweetIds.join(','); // No spaces between IDs
+    const response = await fetch(`${this.baseUrl}/twitter/tweets?tweet_ids=${idsParam}`, {
       method: 'GET',
       headers: {
         'X-API-Key': this.apiKey,
@@ -337,7 +339,7 @@ export class TwitterApiIoClient {
     }
 
     const data = await response.json();
-    return data.tweets || data;
+    return data.tweets || [];
   }
 
   /**
