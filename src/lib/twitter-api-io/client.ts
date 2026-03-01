@@ -218,6 +218,178 @@ export class TwitterApiIoClient {
   }
 
   /**
+   * Search tweets with advanced filters
+   */
+  async searchTweets(query: string, options?: {
+    count?: number;
+    cursor?: string;
+    from?: string;
+    to?: string;
+    lang?: string;
+    filter?: string;
+  }): Promise<{
+    tweets: TwitterApiIoTweet[];
+    next_cursor?: string;
+    has_more: boolean;
+  }> {
+    const url = new URL(`${this.baseUrl}/twitter/search/tweets`);
+    url.searchParams.append('q', query);
+
+    if (options?.count) url.searchParams.append('count', options.count.toString());
+    if (options?.cursor) url.searchParams.append('cursor', options.cursor);
+    if (options?.from) url.searchParams.append('from', options.from);
+    if (options?.to) url.searchParams.append('to', options.to);
+    if (options?.lang) url.searchParams.append('lang', options.lang);
+    if (options?.filter) url.searchParams.append('filter', options.filter);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Search users by keyword
+   */
+  async searchUsers(query: string, options?: {
+    count?: number;
+    cursor?: string;
+  }): Promise<{
+    users: TwitterApiIoUser[];
+    next_cursor?: string;
+    has_more: boolean;
+  }> {
+    const url = new URL(`${this.baseUrl}/twitter/search/users`);
+    url.searchParams.append('q', query);
+
+    if (options?.count) url.searchParams.append('count', options.count.toString());
+    if (options?.cursor) url.searchParams.append('cursor', options.cursor);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get tweet by ID
+   */
+  async getTweetById(tweetId: string): Promise<TwitterApiIoTweet> {
+    const response = await fetch(`${this.baseUrl}/twitter/tweet/info?tweetId=${tweetId}`, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get multiple tweets by IDs
+   */
+  async getTweetsByIds(tweetIds: string[]): Promise<TwitterApiIoTweet[]> {
+    const idsParam = tweetIds.join(',');
+    const response = await fetch(`${this.baseUrl}/twitter/tweet/batch_info?tweetIds=${idsParam}`, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return data.tweets || data;
+  }
+
+  /**
+   * Get tweet replies
+   */
+  async getTweetReplies(tweetId: string, cursor?: string): Promise<{
+    tweets: TwitterApiIoTweet[];
+    next_cursor?: string;
+    has_more: boolean;
+  }> {
+    const url = new URL(`${this.baseUrl}/twitter/tweet/replies`);
+    url.searchParams.append('tweetId', tweetId);
+    if (cursor) url.searchParams.append('cursor', cursor);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Get tweet quotes
+   */
+  async getTweetQuotes(tweetId: string, cursor?: string): Promise<{
+    tweets: TwitterApiIoTweet[];
+    next_cursor?: string;
+    has_more: boolean;
+  }> {
+    const url = new URL(`${this.baseUrl}/twitter/tweet/quotes`);
+    url.searchParams.append('tweetId', tweetId);
+    if (cursor) url.searchParams.append('cursor', cursor);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * Convert TwitterAPI.io user format to our API format
    */
   static convertUserToApiFormat(user: TwitterApiIoUser): any {
