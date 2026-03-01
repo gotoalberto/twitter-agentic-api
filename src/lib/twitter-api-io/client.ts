@@ -114,7 +114,7 @@ export class TwitterApiIoClient {
    */
   async getUserFollowers(username: string, cursor?: string): Promise<FollowingResponse> {
     const url = new URL(`${this.baseUrl}/twitter/user/followers`);
-    url.searchParams.append('username', username);
+    url.searchParams.append('userName', username); // TwitterAPI.io uses 'userName' not 'username'
     if (cursor) {
       url.searchParams.append('cursor', cursor);
     }
@@ -140,7 +140,7 @@ export class TwitterApiIoClient {
    */
   async getUserFollowing(username: string, cursor?: string): Promise<FollowingResponse> {
     const url = new URL(`${this.baseUrl}/twitter/user/following`);
-    url.searchParams.append('username', username);
+    url.searchParams.append('userName', username); // TwitterAPI.io uses 'userName' not 'username'
     if (cursor) {
       url.searchParams.append('cursor', cursor);
     }
@@ -308,7 +308,14 @@ export class TwitterApiIoClient {
       throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
     }
 
-    return response.json();
+    const data = await response.json();
+
+    // TwitterAPI.io returns null for non-existent tweets
+    if (!data || data === null) {
+      throw new Error('Tweet not found');
+    }
+
+    return data;
   }
 
   /**

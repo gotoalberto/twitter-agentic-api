@@ -1,0 +1,725 @@
+================================================================================
+                    PROJECT API REFERENCE - X FORWARDER
+                 Complete Guide for Claude Agent Implementation
+================================================================================
+
+OVERVIEW
+--------
+X Forwarder provides a comprehensive API for Twitter/X operations including
+tweet publishing, user data retrieval, engagement actions (like/retweet),
+direct messaging, and advanced search capabilities. All endpoints require
+authentication via API key and are scoped to individual projects.
+
+BASE URL: https://hive.pepes.dog (or your deployment URL)
+API KEY: Required in X-API-Key header for all requests
+PROJECT ID: Each project has a unique ID used in the endpoint paths
+
+================================================================================
+                              AUTHENTICATION
+================================================================================
+
+All API requests require:
+- Header: X-API-Key: your-project-api-key
+- Project must have apiEnabled: true
+- API key is unique per project
+
+Example:
+--------
+curl -X GET \
+  "https://hive.pepes.dog/api/projects/PROJECT_ID/endpoint" \
+  -H "X-API-Key: your-api-key"
+
+================================================================================
+                            TWEET OPERATIONS
+================================================================================
+
+1. PUBLISH TWEET
+----------------
+POST /api/projects/{projectId}/twitter/tweet
+
+Description: Publish a new tweet or reply to an existing tweet
+Rate Limit: Depends on Twitter account limits
+Idempotency: Supports idempotencyKey to prevent duplicates (24hr cache)
+
+Request Body:
+{
+  "text": "Hello from X Forwarder!",          // Required, max 280 chars
+  "replyToTweetId": "1234567890",            // Optional, for replies
+  "idempotencyKey": "unique-key-123"         // Optional, prevents duplicates
+}
+
+Response:
+{
+  "success": true,
+  "tweet": {
+    "id": "1234567890123456789",
+    "text": "Hello from X Forwarder!",
+    "url": "https://twitter.com/username/status/1234567890123456789"
+  },
+  "idempotent": false                        // true if cached response
+}
+
+Error Responses:
+- 400: Invalid request (text too long, etc.)
+- 401: Invalid API key
+- 403: API access disabled for project
+- 404: Project not found
+- 429: Rate limit exceeded
+- 500: Twitter API error
+
+Example Usage:
+-------------
+# Simple tweet
+curl -X POST \
+  "https://hive.pepes.dog/api/projects/proj_123/twitter/tweet" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world!"}'
+
+# Reply with idempotency
+curl -X POST \
+  "https://hive.pepes.dog/api/projects/proj_123/twitter/tweet" \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Great point!",
+    "replyToTweetId": "1234567890",
+    "idempotencyKey": "reply_to_1234567890"
+  }'
+
+================================================================================
+                         ENGAGEMENT ACTIONS
+================================================================================
+
+2. LIKE/UNLIKE TWEET
+--------------------
+POST /api/projects/{projectId}/like
+
+Description: Like or unlike a tweet
+Rate Limit: ~1000 per day
+
+Request Body:
+{
+  "tweetId": "1234567890123456789",         // Required
+  "action": "like"                          // "like" or "unlike"
+}
+
+Response:
+{
+  "success": true,
+  "action": "like",
+  "tweetId": "1234567890123456789"
+}
+
+3. RETWEET/UNRETWEET
+--------------------
+POST /api/projects/{projectId}/retweet
+
+Description: Retweet or unretweet a tweet
+Rate Limit: ~2400 per day
+
+Request Body:
+{
+  "tweetId": "1234567890123456789",         // Required
+  "action": "retweet"                       // "retweet" or "unretweet"
+}
+
+Response:
+{
+  "success": true,
+  "action": "retweet",
+  "tweetId": "1234567890123456789"
+}
+
+================================================================================
+                         DIRECT MESSAGES
+================================================================================
+
+4. SEND DIRECT MESSAGE
+----------------------
+POST /api/projects/{projectId}/twitter/dm
+
+Description: Send a direct message to a Twitter user
+Note: Recipient must have open DMs or be following the bot
+
+Request Body:
+{
+  "recipientId": "1234567890",              // Required: Twitter user ID
+  "text": "Hello! This is a DM.",           // Required: Message text
+  "mediaId": "1234567890123456789"          // Optional: Attached media ID
+}
+
+Response:
+{
+  "success": true,
+  "message": {
+    "id": "1234567890123456789",
+    "text": "Hello! This is a DM.",
+    "recipientId": "1234567890"
+  }
+}
+
+================================================================================
+                      TWITTER DATA API (READ)
+================================================================================
+
+5. SEARCH TWEETS
+----------------
+GET /api/projects/{projectId}/twitter/search
+
+Description: Search tweets with advanced filters
+No rate limits (uses TwitterAPI.io)
+
+Query Parameters:
+- q: Search query (required) - e.g., "bitcoin OR ethereum"
+- count: Number of results (default: 20, max: 100)
+- cursor: Pagination cursor for next page
+- from: Filter tweets from specific user
+- to: Filter tweets to specific user
+- lang: Language filter (e.g., "en", "es")
+- filter: Additional filters ("verified", "images", "videos")
+
+Response:
+{
+  "success": true,
+  "data": {
+    "tweets": [
+      {
+        "id": "1234567890",
+        "text": "Tweet content...",
+        "created_at": "2024-01-01T12:00:00Z",
+        "author_id": "987654321",
+        "public_metrics": {
+          "retweet_count": 100,
+          "like_count": 500,
+          "reply_count": 20,
+          "quote_count": 10
+        }
+      }
+    ],
+    "next_cursor": "cursor_abc123",
+    "has_more": true
+  },
+  "meta": {
+    "query": "bitcoin",
+    "count": 20,
+    "filters": {
+      "from": null,
+      "to": null,
+      "lang": "en",
+      "filter": null
+    }
+  }
+}
+
+Example:
+-------
+curl -X GET \
+  "https://hive.pepes.dog/api/projects/proj_123/twitter/search?q=bitcoin&count=10&lang=en" \
+  -H "X-API-Key: your-api-key"
+
+6. GET USER PROFILE
+-------------------
+GET /api/projects/{projectId}/twitter/users/{username}
+
+Description: Get detailed user profile information
+No rate limits (uses TwitterAPI.io)
+
+Response:
+{
+  "success": true,
+  "data": {
+    "id": "44196397",
+    "username": "elonmusk",
+    "name": "Elon Musk",
+    "description": "Bio text...",
+    "created_at": "2009-06-02T20:12:29.000Z",
+    "followers_count": 150000000,
+    "following_count": 500,
+    "tweet_count": 25000,
+    "verified": true,
+    "protected": false,
+    "profile_image_url": "https://...",
+    "account_age_days": 5000
+  }
+}
+
+7. GET USER TWEETS
+------------------
+GET /api/projects/{projectId}/twitter/users/{username}/tweets
+
+Description: Get a user's recent tweets
+No rate limits (uses TwitterAPI.io)
+
+Query Parameters:
+- count: Number of tweets (default: 20, max: 100)
+- cursor: Pagination cursor
+- exclude_replies: Exclude reply tweets (default: false)
+- include_rts: Include retweets (default: true)
+
+Response:
+{
+  "success": true,
+  "data": {
+    "tweets": [...],
+    "next_cursor": "cursor_xyz",
+    "has_more": true
+  },
+  "meta": {
+    "username": "elonmusk",
+    "count": 20,
+    "filters": {
+      "exclude_replies": false,
+      "include_rts": true
+    }
+  }
+}
+
+8. GET USER FOLLOWERS
+---------------------
+GET /api/projects/{projectId}/twitter/users/{username}/followers
+
+Description: Get a user's followers (200 per page)
+No rate limits (uses TwitterAPI.io)
+
+Query Parameters:
+- cursor: Pagination cursor
+
+Response:
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "id": "123456",
+        "username": "follower1",
+        "name": "Follower Name",
+        "followers_count": 1000,
+        "following_count": 500
+      }
+    ],
+    "next_cursor": "cursor_abc",
+    "has_more": true
+  },
+  "meta": {
+    "username": "elonmusk",
+    "count": 200
+  }
+}
+
+9. GET USER FOLLOWING
+---------------------
+GET /api/projects/{projectId}/twitter/users/{username}/following
+
+Description: Get users that a user is following (200 per page)
+Same format as followers endpoint
+
+10. GET TWEET DETAILS
+--------------------
+GET /api/projects/{projectId}/twitter/tweets/{tweetId}
+
+Description: Get detailed information about a specific tweet
+No rate limits (uses TwitterAPI.io)
+
+Query Parameters:
+- include_replies: Include reply tweets (default: false)
+- include_quotes: Include quote tweets (default: false)
+
+Response:
+{
+  "success": true,
+  "data": {
+    "tweet": {
+      "id": "1234567890",
+      "text": "Tweet content...",
+      "created_at": "2024-01-01T12:00:00Z",
+      "author_id": "44196397",
+      "public_metrics": {
+        "retweet_count": 1000,
+        "like_count": 5000,
+        "reply_count": 200,
+        "quote_count": 50
+      }
+    },
+    "replies": {
+      "tweets": [...],
+      "next_cursor": "cursor_123",
+      "has_more": true
+    },
+    "quotes": {
+      "tweets": [...],
+      "next_cursor": "cursor_456",
+      "has_more": true
+    }
+  }
+}
+
+11. SEARCH USERS
+----------------
+GET /api/projects/{projectId}/twitter/users/search
+
+Description: Search for Twitter users by keyword
+No rate limits (uses TwitterAPI.io)
+
+Query Parameters:
+- q: Search query (required)
+- count: Number of results (default: 20, max: 100)
+- cursor: Pagination cursor
+
+Response:
+{
+  "success": true,
+  "data": {
+    "users": [...],
+    "next_cursor": "cursor_789",
+    "has_more": true
+  },
+  "meta": {
+    "query": "crypto",
+    "count": 20
+  }
+}
+
+================================================================================
+                         UTILITY ENDPOINTS
+================================================================================
+
+12. CHECK IF USER A FOLLOWS USER B
+-----------------------------------
+GET /api/projects/{projectId}/twitter/is-following
+
+Description: Check if one user follows another
+
+Query Parameters:
+- userA: Username of the potential follower
+- userB: Username of the potentially followed user
+
+Response:
+{
+  "success": true,
+  "isFollowing": true,
+  "details": {
+    "userA": "user1",
+    "userB": "user2"
+  }
+}
+
+13. UPLOAD IMAGE TO S3
+----------------------
+POST /api/projects/{projectId}/upload/image
+
+Description: Upload an image to S3 for use in tweets
+Max size: 5MB
+Supported formats: JPG, PNG, GIF, WEBP
+
+Request: multipart/form-data
+- file: Image file (required)
+
+Response:
+{
+  "success": true,
+  "url": "https://s3.amazonaws.com/bucket/image.jpg",
+  "key": "uploads/proj_123/image.jpg"
+}
+
+14. GET RECEIVED TWEETS (WEBHOOKS)
+----------------------------------
+GET /api/projects/{projectId}/tweets
+
+Description: Get tweets received via webhooks
+Used for monitoring mentions, replies, etc.
+
+Query Parameters:
+- limit: Number of tweets (default: 20, max: 100)
+- offset: Pagination offset
+- forUserId: Filter by recipient user ID
+
+Response:
+{
+  "success": true,
+  "tweets": [
+    {
+      "id": "tweet_123",
+      "tweetId": "1234567890",
+      "userId": "987654321",
+      "username": "sender",
+      "text": "Hey @yourbot!",
+      "createdAt": "2024-01-01T12:00:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 100,
+    "limit": 20,
+    "offset": 0,
+    "hasMore": true
+  }
+}
+
+15. GET RATE LIMITS
+-------------------
+GET /api/projects/{projectId}/rate-limits
+
+Description: Get current Twitter API rate limit status
+
+Response:
+{
+  "success": true,
+  "rateLimits": [
+    {
+      "endpoint": "/statuses/update",
+      "limit": 300,
+      "remaining": 250,
+      "reset": "2024-01-01T13:00:00Z",
+      "percentageUsed": 16.67,
+      "minutesUntilReset": 45
+    }
+  ]
+}
+
+================================================================================
+                      ERROR HANDLING
+================================================================================
+
+All endpoints return consistent error responses:
+
+{
+  "error": "Error message",
+  "details": "Additional context",
+  "code": "ERROR_CODE"
+}
+
+Common HTTP Status Codes:
+- 200: Success
+- 400: Bad Request (invalid parameters)
+- 401: Unauthorized (invalid/missing API key)
+- 403: Forbidden (API access disabled)
+- 404: Not Found (project/resource not found)
+- 429: Too Many Requests (rate limited)
+- 500: Internal Server Error
+- 502: Bad Gateway (Twitter API error)
+
+================================================================================
+                     IMPLEMENTATION TIPS
+================================================================================
+
+1. AUTHENTICATION
+-----------------
+Always include the X-API-Key header:
+```javascript
+const headers = {
+  'X-API-Key': process.env.PROJECT_API_KEY,
+  'Content-Type': 'application/json'
+};
+```
+
+2. IDEMPOTENCY
+--------------
+Use idempotency keys for critical operations:
+```javascript
+const idempotencyKey = `tweet_${Date.now()}_${userId}`;
+await postTweet({
+  text: "Hello",
+  idempotencyKey
+});
+```
+
+3. PAGINATION
+-------------
+Handle paginated responses:
+```javascript
+async function getAllFollowers(username) {
+  let followers = [];
+  let cursor = null;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await getFollowers(username, cursor);
+    followers = followers.concat(response.data.users);
+    cursor = response.data.next_cursor;
+    hasMore = response.data.has_more;
+  }
+
+  return followers;
+}
+```
+
+4. RATE LIMITING
+----------------
+Check rate limits before bulk operations:
+```javascript
+const limits = await getRateLimits();
+const tweetLimit = limits.rateLimits.find(
+  l => l.endpoint === '/statuses/update'
+);
+
+if (tweetLimit.remaining < 10) {
+  await wait(tweetLimit.minutesUntilReset * 60 * 1000);
+}
+```
+
+5. ERROR HANDLING
+-----------------
+Implement exponential backoff for retries:
+```javascript
+async function retryWithBackoff(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      if (error.status === 429 || error.status >= 500) {
+        await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
+6. WEBHOOKS
+-----------
+Process received tweets for mentions:
+```javascript
+const tweets = await getReceivedTweets();
+for (const tweet of tweets.tweets) {
+  if (tweet.text.includes('@yourbot')) {
+    // Handle mention
+    await replyToTweet(tweet.tweetId, 'Thanks for the mention!');
+  }
+}
+```
+
+================================================================================
+                        USAGE EXAMPLES
+================================================================================
+
+EXAMPLE 1: Post a thread
+------------------------
+```javascript
+async function postThread(messages) {
+  let lastTweetId = null;
+
+  for (const message of messages) {
+    const response = await fetch(`${API_URL}/api/projects/${PROJECT_ID}/twitter/tweet`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text: message,
+        replyToTweetId: lastTweetId,
+        idempotencyKey: `thread_${Date.now()}_${messages.indexOf(message)}`
+      })
+    });
+
+    const data = await response.json();
+    lastTweetId = data.tweet.id;
+  }
+}
+```
+
+EXAMPLE 2: Monitor and respond to mentions
+------------------------------------------
+```javascript
+async function monitorMentions() {
+  setInterval(async () => {
+    const tweets = await getReceivedTweets();
+
+    for (const tweet of tweets.tweets) {
+      if (!processedTweets.has(tweet.tweetId)) {
+        if (tweet.text.toLowerCase().includes('help')) {
+          await replyToTweet(tweet.tweetId,
+            'How can I assist you today?');
+        }
+        processedTweets.add(tweet.tweetId);
+      }
+    }
+  }, 60000); // Check every minute
+}
+```
+
+EXAMPLE 3: Analyze user engagement
+-----------------------------------
+```javascript
+async function analyzeUser(username) {
+  // Get user profile
+  const profile = await getUserProfile(username);
+
+  // Get recent tweets
+  const tweets = await getUserTweets(username, 100);
+
+  // Calculate engagement rate
+  const totalEngagement = tweets.data.tweets.reduce((sum, tweet) => {
+    return sum + tweet.public_metrics.like_count +
+           tweet.public_metrics.retweet_count;
+  }, 0);
+
+  const avgEngagement = totalEngagement / tweets.data.tweets.length;
+  const engagementRate = (avgEngagement / profile.data.followers_count) * 100;
+
+  return {
+    username,
+    followers: profile.data.followers_count,
+    avgEngagement,
+    engagementRate: engagementRate.toFixed(2) + '%'
+  };
+}
+```
+
+EXAMPLE 4: Search and engage with tweets
+----------------------------------------
+```javascript
+async function engageWithTopic(topic, maxEngagements = 10) {
+  // Search for recent tweets about the topic
+  const searchResults = await searchTweets(topic, { count: 50 });
+
+  let engagements = 0;
+  for (const tweet of searchResults.data.tweets) {
+    // Skip if already engaged
+    if (engagements >= maxEngagements) break;
+
+    // Like tweets with high engagement
+    if (tweet.public_metrics.like_count > 100) {
+      await likeTweet(tweet.id);
+      engagements++;
+
+      // Add delay to avoid rate limiting
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  return engagements;
+}
+```
+
+================================================================================
+                          BEST PRACTICES
+================================================================================
+
+1. Always validate input parameters before making API calls
+2. Implement proper error handling with retries for network issues
+3. Use idempotency keys for all tweet publishing operations
+4. Cache user data when possible to reduce API calls
+5. Monitor rate limits and implement backoff strategies
+6. Log all API interactions for debugging
+7. Use pagination properly - don't load all data at once
+8. Implement webhook signature validation for security
+9. Store sensitive data (API keys) in environment variables
+10. Use TypeScript interfaces for type safety
+
+================================================================================
+                            NOTES
+================================================================================
+
+- TwitterAPI.io endpoints have no rate limits and 700ms average response time
+- Twitter native endpoints follow Twitter's rate limiting rules
+- All timestamps are in ISO 8601 format (UTC)
+- User IDs are strings to prevent JavaScript number precision issues
+- Webhook delivery is automatic with retry logic
+- Projects must have a connected bot account for write operations
+- API keys are project-specific and should be kept secure
+
+For more information or support, refer to the main documentation at:
+https://hive.pepes.dog/dashboard/projects/[your-project-id]
