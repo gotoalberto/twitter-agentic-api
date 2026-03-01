@@ -132,7 +132,14 @@ export class TwitterApiIoClient {
       throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
     }
 
-    return response.json();
+    const result = await response.json();
+
+    // TwitterAPI.io returns { followers: [...], ... } not { users: [...] }
+    return {
+      users: result.followers || [],
+      next_cursor: result.next_cursor,
+      has_more: result.has_more || false
+    };
   }
 
   /**
@@ -158,7 +165,14 @@ export class TwitterApiIoClient {
       throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
     }
 
-    return response.json();
+    const result = await response.json();
+
+    // TwitterAPI.io returns { followings: [...], ... } not { users: [...] }
+    return {
+      users: result.followings || [],
+      next_cursor: result.next_cursor,
+      has_more: result.has_more || false
+    };
   }
 
   /**
@@ -215,7 +229,23 @@ export class TwitterApiIoClient {
       throw new Error(`TwitterAPI.io error: ${response.status} - ${error}`);
     }
 
-    return response.json();
+    const result = await response.json();
+
+    // TwitterAPI.io returns data in a nested structure: { status, code, msg, data: { tweets, has_next_page, next_cursor } }
+    if (result.status === 'success' && result.data) {
+      return {
+        tweets: result.data.tweets || [],
+        next_cursor: result.data.next_cursor,
+        has_more: result.data.has_next_page || false
+      };
+    }
+
+    // Fallback for unexpected response structure
+    return {
+      tweets: result.tweets || [],
+      next_cursor: result.next_cursor,
+      has_more: result.has_more || false
+    };
   }
 
   /**
@@ -430,26 +460,57 @@ export class TwitterApiIoClient {
   /**
    * Convert TwitterAPI.io tweet format to our API format
    */
-  static convertTweetToApiFormat(tweet: TwitterApiIoTweet): any {
+  static convertTweetToApiFormat(tweet: any): any {
+    // Handle new TwitterAPI.io response structure from /last_tweets endpoint
+    if (tweet.type === 'tweet') {
+      return {
+        id: tweet.id,
+        text: tweet.text,
+        created_at: tweet.createdAt,
+        author_id: tweet.author?.id,
+        public_metrics: {
+          retweet_count: tweet.retweetCount || 0,
+          like_count: tweet.likeCount || 0,
+          reply_count: tweet.replyCount || 0,
+          quote_count: tweet.quoteCount || 0,
+          impression_count: tweet.viewCount || 0
+        },
+        in_reply_to_user_id: tweet.inReplyToUserId,
+        referenced_tweets: tweet.inReplyToId ? [{
+          type: 'replied_to',
+          id: tweet.inReplyToId
+        }] : undefined,
+        entities: tweet.entities,
+        attachments: tweet.extendedEntities,
+        // Additional fields
+        url: tweet.url,
+        is_reply: tweet.isReply || false,
+        conversation_id: tweet.conversationId,
+        lang: tweet.lang,
+        source: tweet.source
+      };
+    }
+
+    // Handle legacy TwitterAPI.io tweet format (from other endpoints)
     return {
       id: tweet.id_str || tweet.id,
       text: tweet.text,
-      created_at: tweet.created_at,
-      author_id: tweet.user?.id_str || tweet.user?.id,
+      created_at: tweet.created_at || tweet.createdAt,
+      author_id: tweet.user?.id_str || tweet.user?.id || tweet.author?.id,
       public_metrics: {
-        retweet_count: tweet.retweet_count || 0,
-        like_count: tweet.favorite_count || 0,
-        reply_count: tweet.reply_count || 0,
-        quote_count: tweet.quote_count || 0,
-        impression_count: tweet.impression_count || 0
+        retweet_count: tweet.retweet_count || tweet.retweetCount || 0,
+        like_count: tweet.favorite_count || tweet.likeCount || 0,
+        reply_count: tweet.reply_count || tweet.replyCount || 0,
+        quote_count: tweet.quote_count || tweet.quoteCount || 0,
+        impression_count: tweet.impression_count || tweet.viewCount || 0
       },
-      in_reply_to_user_id: tweet.in_reply_to_user_id_str,
-      referenced_tweets: tweet.in_reply_to_status_id_str ? [{
+      in_reply_to_user_id: tweet.in_reply_to_user_id_str || tweet.inReplyToUserId,
+      referenced_tweets: (tweet.in_reply_to_status_id_str || tweet.inReplyToId) ? [{
         type: 'replied_to',
-        id: tweet.in_reply_to_status_id_str
+        id: tweet.in_reply_to_status_id_str || tweet.inReplyToId
       }] : undefined,
       entities: tweet.entities,
-      attachments: tweet.extended_entities
+      attachments: tweet.extended_entities || tweet.extendedEntities
     };
   }
 }
