@@ -57,7 +57,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Allow ALL users to sign in
-      // Hivemind users need to be able to connect their accounts
       // Admin checks should be done at the page/API level
       return true;
     },
