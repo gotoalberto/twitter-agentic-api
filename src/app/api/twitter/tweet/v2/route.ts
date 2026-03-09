@@ -15,10 +15,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { getBotByUsername } from '@/lib/db/bots';
 import { getProjectById } from '@/lib/db/projects';
-import { getTwitterAppByProjectId, getDefaultTwitterApp } from '@/lib/db/twitter-apps';
-import { getHivemindUserByUsername, getHivemindConfig, updateHivemindUserActivity } from '@/lib/db/hivemind';
+import { getTwitterAppByProjectId } from '@/lib/db/twitter-apps';
 import { prisma } from '@/lib/db/prisma';
-import { isTokenExpired, refreshAccessToken, calculateExpirationDate } from '@/lib/twitter/oauth2';
 import { saveRateLimit, extractRateLimit, EndpointType } from '@/lib/services/rate-limit-tracker';
 
 export const runtime = 'nodejs';
@@ -67,9 +65,7 @@ interface TweetRequest {
  */
 export async function POST(request: NextRequest) {
   let body: TweetRequest = {} as TweetRequest; // Initialize with empty object to avoid TypeScript errors
-  let isHivemind = false;
   let projectId: string | null = null;
-  let hivemindUser: any = null;
   let bot: any = null;
 
   try {
@@ -178,186 +174,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine if this is a Hivemind or Project API request
+    // Determine Project API credentials
     let userCredentials: { accessToken: string; accessTokenSecret: string } | null = null;
-    let oauth2Token: string | null = null; // For OAuth 2.0 support
     let consumerKey: string | undefined;
     let consumerSecret: string | undefined;
 
-    // Check if it's a Hivemind API key (starts with 'hm_')
-    if (apiKey.startsWith('hm_')) {
-      console.log('🌐 Hivemind API key detected');
-
-      // Validate Hivemind API key
-      const hivemindConfig = await getHivemindConfig();
-
-      console.log('📊 Hivemind Config Check:', {
-        configExists: !!hivemindConfig,
-        enabled: hivemindConfig?.enabled,
-        hasApiKey: !!hivemindConfig?.apiKey,
-        apiKeyMatch: hivemindConfig?.apiKey === apiKey
-      });
-
-      if (!hivemindConfig || !hivemindConfig.enabled) {
-        console.log('❌ Hivemind is not enabled');
-        console.log('   Config exists:', !!hivemindConfig);
-        console.log('   Enabled:', hivemindConfig?.enabled);
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: 'Hivemind is not enabled' },
-          { status: 403 }
-        );
-      }
-
-      if (hivemindConfig.apiKey !== apiKey) {
-        console.log('❌ Invalid Hivemind API key');
-        console.log('   Expected:', hivemindConfig.apiKey?.substring(0, 10) + '...');
-        console.log('   Received:', apiKey?.substring(0, 10) + '...');
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: 'Invalid API key' },
-          { status: 401 }
-        );
-      }
-
-      // Get Hivemind user credentials
-      console.log('📦 Fetching Hivemind user credentials for:', body.username);
-      hivemindUser = await getHivemindUserByUsername(body.username);
-
-      console.log('👤 Hivemind User Check:', {
-        username: body.username,
-        userFound: !!hivemindUser,
-        isActive: hivemindUser?.isActive,
-        hasTokens: !!(hivemindUser?.accessToken && hivemindUser?.accessTokenSecret)
-      });
-
-      if (!hivemindUser) {
-        console.log('❌ Hivemind user not found:', body.username);
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: `No Hivemind user found with username: ${body.username}` },
-          { status: 404 }
-        );
-      }
-
-      if (!hivemindUser.isActive) {
-        console.log('❌ Hivemind user is inactive:', body.username);
-        console.log('   User exists but isActive:', hivemindUser.isActive);
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: 'User has disconnected from Hivemind' },
-          { status: 403 }
-        );
-      }
-
-      console.log('✅ Hivemind user found:', hivemindUser.username);
-
-      // Check if user has OAuth 2.0 tokens
-      let useOAuth2 = false;
-
-      if (hivemindUser.oauth2AccessToken) {
-        console.log('🔐 User has OAuth 2.0 tokens');
-
-        // Check if token is expired
-        if (isTokenExpired(hivemindUser.expiresAt)) {
-          console.log('⏰ OAuth 2.0 token expired, attempting refresh...');
-
-          if (hivemindUser.refreshToken && hivemindConfig.twitterApp?.clientId && hivemindConfig.twitterApp?.clientSecret) {
-            try {
-              const refreshedTokens = await refreshAccessToken({
-                refreshToken: hivemindUser.refreshToken,
-                clientId: hivemindConfig.twitterApp.clientId,
-                clientSecret: hivemindConfig.twitterApp.clientSecret
-              });
-
-              // Update tokens in database
-              const newExpiresAt = calculateExpirationDate(refreshedTokens.expiresIn);
-              await prisma.hivemindUser.update({
-                where: { userId: hivemindUser.userId },
-                data: {
-                  oauth2AccessToken: refreshedTokens.accessToken,
-                  refreshToken: refreshedTokens.refreshToken || hivemindUser.refreshToken,
-                  expiresAt: newExpiresAt,
-                  scope: refreshedTokens.scope
-                }
-              });
-
-              console.log('✅ Token refreshed successfully');
-              console.log('   New expiration:', newExpiresAt.toISOString());
-
-              oauth2Token = refreshedTokens.accessToken;
-              useOAuth2 = true;
-            } catch (error: any) {
-              console.error('❌ Failed to refresh OAuth 2.0 token:', error.message);
-              console.log('   User needs to re-authenticate');
-              return NextResponse.json(
-                { error: 'OAuth 2.0 token expired and refresh failed. Please reconnect to Hivemind.' },
-                { status: 401 }
-              );
-            }
-          } else {
-            console.log('❌ Cannot refresh token - missing refresh token or OAuth 2.0 credentials');
-            return NextResponse.json(
-              { error: 'OAuth 2.0 token expired. Please reconnect to Hivemind.' },
-              { status: 401 }
-            );
-          }
-        } else {
-          console.log('✅ OAuth 2.0 token is still valid');
-          oauth2Token = hivemindUser.oauth2AccessToken;
-          useOAuth2 = true;
-        }
-      } else if (hivemindUser.accessToken && hivemindUser.accessTokenSecret) {
-        console.log('🔐 User has OAuth 1.0a tokens');
-        userCredentials = {
-          accessToken: hivemindUser.accessToken,
-          accessTokenSecret: hivemindUser.accessTokenSecret
-        };
-      } else {
-        console.log('❌ User has no valid authentication tokens');
-        return NextResponse.json(
-          { error: 'User has no authentication tokens. Please reconnect to Hivemind.' },
-          { status: 401 }
-        );
-      }
-
-      // Update user activity
-      await updateHivemindUserActivity(hivemindUser.userId);
-
-      // Get Twitter API credentials from Hivemind config
-      if (!hivemindConfig.twitterAppId || !hivemindConfig.twitterApp) {
-        console.log('❌ Hivemind has no TwitterApp configured');
-        console.log('================================================================================');
-        console.log('');
-        return NextResponse.json(
-          { error: 'Hivemind TwitterApp not configured' },
-          { status: 500 }
-        );
-      }
-
-      // For OAuth 1.0a, we need consumer key/secret
-      if (!useOAuth2) {
-        if (!hivemindConfig.twitterApp.consumerKey || !hivemindConfig.twitterApp.consumerSecret) {
-          console.error('❌ Hivemind TwitterApp missing OAuth 1.0a credentials');
-          return NextResponse.json({
-            success: false,
-            error: 'Hivemind TwitterApp does not have OAuth 1.0a credentials configured'
-          }, { status: 500 });
-        }
-        consumerKey = hivemindConfig.twitterApp.consumerKey;
-        consumerSecret = hivemindConfig.twitterApp.consumerSecret;
-      }
-
-      console.log('🔑 Using credentials from Hivemind TwitterApp:', hivemindConfig.twitterApp.name);
-      console.log('   Auth method:', useOAuth2 ? 'OAuth 2.0' : 'OAuth 1.0a');
-
-      isHivemind = true;
-    } else {
-      // It's a project API key
+    // It's a project API key
+    {
       console.log('🏗️ Project API key detected');
 
       // Get bot credentials from PostgreSQL
@@ -453,10 +276,9 @@ export async function POST(request: NextRequest) {
     }
     console.log('');
 
-    // Ensure we have credentials (OAuth 1.0a needs consumer key/secret, OAuth 2.0 needs token)
-    if (!oauth2Token && (!consumerKey || !consumerSecret)) {
+    // Ensure we have credentials (OAuth 1.0a needs consumer key/secret)
+    if (!consumerKey || !consumerSecret) {
       console.log('❌ Missing Twitter API credentials');
-      console.log('   OAuth 2.0 token:', oauth2Token ? '✅' : '❌');
       console.log('   OAuth 1.0a consumer key:', consumerKey ? '✅' : '❌');
       console.log('   OAuth 1.0a consumer secret:', consumerSecret ? '✅' : '❌');
       console.log('================================================================================');
@@ -467,10 +289,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!oauth2Token && !userCredentials) {
+    if (!userCredentials) {
       console.log('❌ No user credentials found');
-      console.log('   OAuth 2.0 token:', oauth2Token ? '✅' : '❌');
-      console.log('   OAuth 1.0a credentials:', userCredentials ? '✅' : '❌');
       console.log('================================================================================');
       console.log('');
       return NextResponse.json(
@@ -522,24 +342,13 @@ export async function POST(request: NextRequest) {
 
     // Create Twitter client
     console.log('🔑 Initializing Twitter client...');
-    let client: TwitterApi;
-
-    // Check if this is a Hivemind request with OAuth 2.0
-    if (isHivemind && oauth2Token) {
-      console.log('   Using OAuth 2.0 bearer token');
-      client = new TwitterApi(oauth2Token);
-    } else {
-      console.log('   Using OAuth 1.0a credentials');
-      if (!userCredentials) {
-        throw new Error('OAuth 1.0a credentials are required but not available');
-      }
-      client = new TwitterApi({
-        appKey: consumerKey,
-        appSecret: consumerSecret,
-        accessToken: userCredentials.accessToken,
-        accessSecret: userCredentials.accessTokenSecret,
-      } as any);
-    }
+    console.log('   Using OAuth 1.0a credentials');
+    const client = new TwitterApi({
+      appKey: consumerKey,
+      appSecret: consumerSecret,
+      accessToken: userCredentials.accessToken,
+      accessSecret: userCredentials.accessTokenSecret,
+    } as any);
 
     // Handle S3 image upload if provided
     let mediaId: string | undefined;
@@ -550,15 +359,9 @@ export async function POST(request: NextRequest) {
 
       // Debug: Check OAuth 1.0a credentials
       console.log('🔍 Checking OAuth 1.0a credentials for media upload:');
-      if (isHivemind) {
-        console.log('   Type: Hivemind user');
-        console.log('   userCredentials.accessToken exists:', !!userCredentials?.accessToken);
-        console.log('   userCredentials.accessTokenSecret exists:', !!userCredentials?.accessTokenSecret);
-      } else {
-        console.log('   Type: Project bot');
-        console.log('   bot.accessToken exists:', !!bot?.accessToken);
-        console.log('   bot.accessTokenSecret exists:', !!bot?.accessTokenSecret);
-      }
+      console.log('   Type: Project bot');
+      console.log('   bot.accessToken exists:', !!bot?.accessToken);
+      console.log('   bot.accessTokenSecret exists:', !!bot?.accessTokenSecret);
       console.log('   consumerKey exists:', !!consumerKey);
       console.log('   consumerSecret exists:', !!consumerSecret);
 
@@ -579,24 +382,14 @@ export async function POST(request: NextRequest) {
         console.log('   Image size:', imageBuffer.length, 'bytes');
 
         // Upload to Twitter using v1 API (OAuth 1.0a)
-        const hasOAuth1 = isHivemind
-          ? (userCredentials?.accessToken && userCredentials?.accessTokenSecret)
-          : (bot?.accessToken && bot?.accessTokenSecret);
+        const hasOAuth1 = bot?.accessToken && bot?.accessTokenSecret;
 
         if (hasOAuth1 && consumerKey && consumerSecret) {
           console.log('📤 Uploading image to Twitter using OAuth 1.0a...');
           console.log('   All OAuth 1.0a credentials available ✅');
 
-          // Get Twitter app credentials
-          let twitterApp;
-          if (isHivemind) {
-            // For Hivemind, use default Twitter app or specific app
-            const defaultApp = await getDefaultTwitterApp();
-            twitterApp = defaultApp;
-          } else {
-            // For project bots, use project's Twitter app
-            twitterApp = await getTwitterAppByProjectId(bot!.projectId);
-          }
+          // Get Twitter app credentials for project bots
+          const twitterApp = await getTwitterAppByProjectId(bot!.projectId);
 
           if (!twitterApp || !twitterApp.consumerKey || !twitterApp.consumerSecret) {
             console.log('⚠️ No Twitter app credentials for media upload');
@@ -613,8 +406,8 @@ export async function POST(request: NextRequest) {
             const v1Client = new TwitterApi({
               appKey: twitterApp.consumerKey,
               appSecret: twitterApp.consumerSecret,
-              accessToken: isHivemind ? userCredentials!.accessToken : bot!.accessToken,
-              accessSecret: isHivemind ? userCredentials!.accessTokenSecret : bot!.accessTokenSecret,
+              accessToken: bot!.accessToken,
+              accessSecret: bot!.accessTokenSecret,
             });
 
             // Upload media
@@ -651,7 +444,7 @@ export async function POST(request: NextRequest) {
 
     // Publish tweet
     console.log('📤 Publishing tweet...');
-    console.log('   Account type:', isHivemind ? 'Hivemind User' : 'Project Bot');
+    console.log('   Account type: Project Bot');
     console.log('   Tweet text preview:', body.text.substring(0, 100) + (body.text.length > 100 ? '...' : ''));
     console.log('   Tweet text length:', body.text.length);
     console.log('   Has media:', !!mediaId);
@@ -690,23 +483,11 @@ export async function POST(request: NextRequest) {
     // Save rate limit information
     const rateLimitInfo = extractRateLimit(response);
     if (rateLimitInfo) {
-      // Determine the account that made the request
-      const accountInfo = isHivemind
-        ? {
-            accountId: hivemindUser?.userId || body.username,
-            accountUsername: body.username
-          }
-        : {
-            accountId: bot?.userId || body.username,
-            accountUsername: body.username
-          };
-
       await saveRateLimit(
         {
           projectId: projectId || undefined,
-          hivemindUserId: isHivemind ? (hivemindUser?.userId || undefined) : undefined,
-          accountId: accountInfo.accountId,
-          accountUsername: accountInfo.accountUsername,
+          accountId: bot?.userId || body.username,
+          accountUsername: body.username,
           endpoint: 'POST /2/tweets',
           endpointType: EndpointType.TWEET,
         },
@@ -782,22 +563,11 @@ export async function POST(request: NextRequest) {
       // Save rate limit information even on error
       if (error.rateLimit) {
         try {
-          const accountInfo = isHivemind
-            ? {
-                accountId: hivemindUser?.userId || body?.username || 'unknown',
-                accountUsername: body?.username || 'unknown'
-              }
-            : {
-                accountId: bot?.userId || body?.username || 'unknown',
-                accountUsername: body?.username || 'unknown'
-              };
-
           await saveRateLimit(
             {
               projectId: projectId || undefined,
-              hivemindUserId: isHivemind ? (hivemindUser?.userId || undefined) : undefined,
-              accountId: accountInfo.accountId,
-              accountUsername: accountInfo.accountUsername,
+              accountId: bot?.userId || body?.username || 'unknown',
+              accountUsername: body?.username || 'unknown',
               endpoint: 'POST /2/tweets',
               endpointType: EndpointType.TWEET,
             },

@@ -29,7 +29,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { getProjectByApiKey } from '@/lib/db/projects';
-import { getHivemindConfig } from '@/lib/db/hivemind';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -123,26 +122,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate API key (check if it's Hivemind or Project)
+    // Validate API key (check if it's a Project)
     let isAuthorized = false;
     let projectName: string | null = null;
 
-    // Check if it's a Hivemind API key
-    if (apiKey.startsWith('hm_')) {
-      const hivemindConfig = await getHivemindConfig();
-      if (hivemindConfig?.enabled && hivemindConfig.apiKey === apiKey) {
-        isAuthorized = true;
-        projectName = 'Hivemind';
-        console.log('✅ Authorized via Hivemind API key');
-      }
-    } else {
-      // Check if it's a project API key
-      const project = await getProjectByApiKey(apiKey);
-      if (project && project.apiEnabled) {
-        isAuthorized = true;
-        projectName = project.name;
-        console.log(`✅ Authorized via project API key: ${project.name}`);
-      }
+    // Check if it's a project API key
+    const project = await getProjectByApiKey(apiKey);
+    if (project && project.apiEnabled) {
+      isAuthorized = true;
+      projectName = project.name;
+      console.log(`✅ Authorized via project API key: ${project.name}`);
     }
 
     if (!isAuthorized) {
