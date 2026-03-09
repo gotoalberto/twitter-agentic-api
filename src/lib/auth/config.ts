@@ -9,6 +9,11 @@ export const authOptions: NextAuthOptions = {
       clientId: cleanEnvVar(process.env.X_API_CLIENT_ID),
       clientSecret: cleanEnvVar(process.env.X_API_CLIENT_SECRET),
       version: '2.0',
+      authorization: {
+        params: {
+          scope: 'users.read tweet.read',
+        },
+      },
     }),
   ],
 
