@@ -13,7 +13,6 @@ export interface RateLimitInfo {
 
 export interface RateLimitContext {
   projectId?: string;
-  hivemindUserId?: string;
   accountId: string;
   accountUsername: string;
   endpoint: string;
@@ -123,7 +122,6 @@ export async function saveRateLimit(
         lastUpdated: new Date(),
         lastRequestAt: new Date(),
         projectId: context.projectId,
-        hivemindUserId: context.hivemindUserId,
       },
       create: {
         accountId: context.accountId,
@@ -134,7 +132,6 @@ export async function saveRateLimit(
         remaining: rateLimitInfo.remaining,
         reset: resetDate,
         projectId: context.projectId,
-        hivemindUserId: context.hivemindUserId,
       },
     });
 
@@ -184,73 +181,6 @@ export async function getProjectRateLimits(projectId: string) {
   `;
 
   return formatRateLimits(rateLimits);
-}
-
-/**
- * Get current rate limits for a Hivemind user
- */
-export async function getHivemindUserRateLimits(hivemindUserId: string) {
-  // Get the most recent rate limit for each endpoint
-  // This includes expired ones so users can see their rate limit status
-  const rateLimits = await prisma.$queryRaw<any[]>`
-    SELECT DISTINCT ON (endpoint) *
-    FROM "rate_limits"
-    WHERE "hivemind_user_id" = ${hivemindUserId}
-    ORDER BY endpoint, "last_request_at" DESC
-  `;
-
-  return formatRateLimits(rateLimits);
-}
-
-/**
- * Get all rate limits for Hivemind (all users)
- */
-export async function getAllHivemindRateLimits() {
-  // Get the most recent rate limit for each user/endpoint combination
-  // This includes expired ones so users can see their rate limit status
-  const rateLimits = await prisma.$queryRaw<any[]>`
-    SELECT DISTINCT ON (r."account_id", r.endpoint)
-      r.*,
-      h.username as "hivemind_username",
-      h."display_name" as "hivemind_display_name"
-    FROM "rate_limits" r
-    LEFT JOIN "hivemind_users" h ON r."hivemind_user_id" = h."user_id"
-    WHERE r."hivemind_user_id" IS NOT NULL
-    ORDER BY r."account_id", r.endpoint, r."last_request_at" DESC
-  `;
-
-  return rateLimits.map((rl: any) => {
-    const now = Date.now();
-    const resetTime = rl.reset instanceof Date ? rl.reset : new Date(rl.reset);
-
-    // Check if rate limit has already reset (reset time is in the past)
-    const hasReset = resetTime.getTime() <= now;
-
-    // If reset time has passed, show limits as fully available
-    const remaining = hasReset ? rl.limit : rl.remaining;
-    const used = rl.limit - remaining;
-    const percentageUsed = Math.round((used / rl.limit) * 100);
-    const resetIn = hasReset ? 0 : Math.floor((resetTime.getTime() - now) / 1000);
-
-    return {
-      id: rl.id,
-      account: {
-        id: rl.account_id,
-        username: rl.account_username,
-        displayName: rl.hivemind_display_name || rl.account_username,
-      },
-      endpoint: rl.endpoint,
-      endpointType: rl.endpoint_type,
-      limit: rl.limit,
-      remaining: remaining,
-      used: used,
-      percentageUsed: percentageUsed,
-      reset: resetTime.toISOString(),
-      resetIn: resetIn,
-      lastRequestAt: rl.last_request_at.toISOString(),
-      status: hasReset ? 'reset' : (remaining === 0 ? 'exhausted' : 'active'),
-    };
-  });
 }
 
 /**
