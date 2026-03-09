@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Zeus Army Network - PepesDog Community Amplification',
-  description: 'Join the most powerful degen network on X. Automated RT & Likes for PepesDog community. 100x your reach, pump the timeline together!',
+  title: 'X Agentic API',
+  description: 'X Agentic API - Admin Dashboard',
   icons: {
     icon: '/favicon.ico',
   },
