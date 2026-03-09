@@ -25,7 +25,6 @@ model TwitterApp {
   webhookId        String?
   webhookUrl       String?
   webhookValid     Boolean         @default(false)
-  hivemindConfig   HivemindConfig?
   projects         Project[]
 
   @@map("twitter_apps")
@@ -201,49 +200,6 @@ model IdempotentTweet {
   @@map("idempotent_tweets")
 }
 
-/// HivemindConfig stores the configuration for the Hivemind feature
-/// Defines which TwitterApp is offered to Hivemind users
-model HivemindConfig {
-  id           String      @id @default(cuid())
-  twitterAppId String?     @unique
-  enabled      Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  apiKey       String?     @map("api_key")
-  twitterApp   TwitterApp? @relation(fields: [twitterAppId], references: [id])
-
-  @@map("hivemind_config")
-}
-
-/// HivemindUser stores Twitter users who have connected to the Hivemind
-/// These are regular users (not bots) who authorize the app for tweet/DM access
-/// No webhooks are registered for these users
-model HivemindUser {
-  id                String      @id @default(cuid())
-  userId            String      @unique @map("user_id")
-  username          String      @unique
-  displayName       String      @map("display_name")
-  profileImageUrl   String?     @map("profile_image_url")
-  accessToken       String      @map("access_token")
-  accessTokenSecret String      @map("access_token_secret")
-  connectedAt       DateTime    @default(now()) @map("connected_at")
-  lastActiveAt      DateTime    @default(now()) @map("last_active_at")
-  isActive          Boolean     @default(true) @map("is_active")
-  oauth2AccessToken String?     @map("oauth2_access_token")
-  refreshToken      String?     @map("refresh_token")
-  expiresAt         DateTime?   @map("expires_at")
-  scope             String?     @map("scope")
-  rateLimits        RateLimit[]
-  actions           HivemindAction[]
-
-  @@index([username])
-  @@index([isActive])
-  @@index([connectedAt])
-  @@index([isActive], map: "idx_hivemind_users_is_active")
-  @@index([username], map: "idx_hivemind_users_username")
-  @@map("hivemind_users")
-}
-
 /// ReceivedTweet stores tweets received via webhook for a project
 /// Allows projects to query their tweet history via API
 model ReceivedTweet {
@@ -282,7 +238,6 @@ model ReceivedTweet {
 model RateLimit {
   id              String        @id @default(cuid())
   projectId       String?       @map("project_id")
-  hivemindUserId  String?       @map("hivemind_user_id")
   accountId       String        @map("account_id")
   accountUsername String        @map("account_username")
   endpoint        String
@@ -292,62 +247,12 @@ model RateLimit {
   reset           DateTime
   lastUpdated     DateTime      @default(now()) @map("last_updated")
   lastRequestAt   DateTime      @default(now()) @map("last_request_at")
-  hivemindUser    HivemindUser? @relation(fields: [hivemindUserId], references: [userId], onDelete: Cascade)
   project         Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, endpoint])
   @@index([projectId, endpoint])
-  @@index([hivemindUserId, endpoint])
   @@index([reset])
   @@index([endpointType, accountId])
   @@map("rate_limits")
 }
 
-/// HivemindAction stores all likes and retweets performed by Hivemind users
-/// Used for public activity feed and stats tracking
-model HivemindAction {
-  id              String       @id @default(cuid())
-  userId          String       @map("user_id")
-  username        String
-  displayName     String       @map("display_name")
-  actionType      String       @map("action_type") // "like" or "retweet"
-  tweetId         String       @map("tweet_id")
-  tweetAuthor     String       @map("tweet_author")
-  tweetText       String?      @map("tweet_text")
-  tweetUrl        String       @map("tweet_url")
-  performedAt     DateTime     @default(now()) @map("performed_at")
-  hivemindUser    HivemindUser @relation(fields: [userId], references: [userId], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([actionType])
-  @@index([performedAt(sort: Desc)])
-  @@index([userId, actionType])
-  @@map("hivemind_actions")
-}
-
-/// HivemindRaid stores tweets submitted for promotion/raiding
-/// These tweets will be liked and retweeted by all Hivemind members
-model HivemindRaid {
-  id              String       @id @default(cuid())
-  tweetUrl        String       @map("tweet_url")
-  tweetId         String       @map("tweet_id")
-  tweetAuthor     String?      @map("tweet_author")
-  tweetText       String?      @map("tweet_text") @db.Text
-  submittedBy     String?      @map("submitted_by") // Username or IP of submitter
-  submittedAt     DateTime     @default(now()) @map("submitted_at")
-  status          String       @default("pending") // pending, processing, completed, failed
-  processedAt     DateTime?    @map("processed_at")
-  completedAt     DateTime?    @map("completed_at")
-  likesCount      Int          @default(0) @map("likes_count")
-  retweetsCount   Int          @default(0) @map("retweets_count")
-  failedCount     Int          @default(0) @map("failed_count")
-  totalMembers    Int          @default(0) @map("total_members") // Total members at time of raid
-  errorMessage    String?      @map("error_message")
-  metadata        Json?        // Additional data like tweet metrics, media, etc.
-
-  @@unique([tweetId])
-  @@index([status])
-  @@index([submittedAt(sort: Desc)])
-  @@index([tweetId])
-  @@map("hivemind_raids")
-}
